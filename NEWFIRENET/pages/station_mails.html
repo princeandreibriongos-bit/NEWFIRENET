@@ -1,0 +1,52 @@
+<section class="mail-landing">
+  <header class="mail-landing-header">
+    <div>
+      <p class="mail-kicker">Station Mail</p>
+      <h1>Choose your workflow</h1>
+      <p class="muted-text">General communication and operational requests now live on separate pages for a cleaner, more focused experience.</p>
+    </div>
+    <div class="mail-landing-meta">
+      <span class="mail-user-chip">Signed in to <strong id="landingStationName">Station</strong></span>
+    </div>
+  </header>
+
+  <div class="mail-landing-grid">
+    <article class="mail-card landing-card">
+      <div>
+        <p class="mail-kicker">General Mail</p>
+        <h2>Daily station communication</h2>
+        <p class="muted-text">Use this page for announcements, routine coordination, and local station messaging.</p>
+      </div>
+      <ul class="simple-list">
+        <li>Send direct messages to colleagues.</li>
+        <li>Attach local files from your system.</li>
+        <li>Use filters to find conversations fast.</li>
+      </ul>
+      <a href="/firenet/NEWFIRENET/backend/pages/general_mail.php" class="primary-btn landing-btn">Open General Mail</a>
+    </article>
+
+    <article class="mail-card landing-card">
+      <div>
+        <p class="mail-kicker">Operational Mail</p>
+        <h2>Cloudinary request workflow</h2>
+        <p class="muted-text">Create operational file requests using Cloudinary links only. This page is dedicated to incident workflows.</p>
+      </div>
+      <ul class="simple-list">
+        <li>Request files using Cloudinary URLs.</li>
+        <li>Route requests through ComL when needed.</li>
+        <li>Track request status separately.</li>
+      </ul>
+      <a href="/firenet/NEWFIRENET/backend/pages/operational_mail.php" class="primary-btn landing-btn">Open Operational Mail</a>
+    </article>
+  </div>
+
+  <section class="mail-landing-summary mail-card">
+    <h2>How the split works</h2>
+    <p class="muted-text">General Mail is for everyday communication and local files. Operational Mail is for incident-level file requests and must reference Cloudinary-hosted attachments.</p>
+  </section>
+</section>
+
+<script>
+  const context = JSON.parse(document.getElementById('stationMailsContext').textContent || '{}');
+  document.getElementById('landingStationName').textContent = context.stationName || 'your station';
+</script>

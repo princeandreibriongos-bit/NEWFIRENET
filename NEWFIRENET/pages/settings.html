@@ -1,0 +1,177 @@
+<section class="settings-shell">
+  <h2>Settings</h2>
+  <p class="muted-text">Manage your profile and account security.</p>
+
+  <section class="portal-card settings-profile-card">
+    <div class="settings-hero">
+      <div class="settings-avatar" id="settingsAvatar">
+        <img id="settingsAvatarImage" alt="Profile photo" hidden>
+        <span id="settingsAvatarInitials">FN</span>
+      </div>
+      <div class="settings-hero-text">
+        <h3 id="settingsDisplayName">Loading...</h3>
+        <p id="settingsDisplayEmail" class="muted-text">Loading profile...</p>
+        <div class="settings-hero-actions">
+          <input id="profilePhotoInput" type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden>
+          <div class="settings-photo-buttons">
+            <button type="button" class="secondary-btn" id="uploadProfilePhotoBtn">Upload Profile Photo</button>
+            <button type="button" class="secondary-btn" id="removeProfilePhotoBtn">Remove Photo</button>
+          </div>
+          <p class="settings-photo-note">Accepted: JPG, PNG, WEBP, GIF up to 2MB.</p>
+        </div>
+      </div>
+    </div>
+
+    <form id="settingsForm" class="settings-form" novalidate>
+      <div class="settings-grid">
+        <label>
+          Username
+          <input id="settingsUsername" type="text" maxlength="60" required readonly>
+        </label>
+
+        <label>
+          Email
+          <input id="settingsEmail" type="email" maxlength="120" required readonly>
+        </label>
+      </div>
+
+      <p class="settings-admin-note">Need to update your username or email? Please contact an administrator for account changes.</p>
+
+      <div class="settings-actions">
+        <button type="button" class="secondary-btn" id="openPasswordModalBtn">Change Password</button>
+        <button type="submit" class="primary-btn" id="settingsSaveBtn" disabled title="Username and email are managed by administrators">Save Profile</button>
+      </div>
+      <p id="settingsMessage" class="muted-text"></p>
+    </form>
+  </section>
+
+  <section class="settings-section-grid">
+    <section class="portal-card settings-section-card">
+      <div class="settings-section-head">
+        <div>
+          <p class="settings-section-kicker">Display</p>
+          <h3>Workspace Preferences</h3>
+        </div>
+      </div>
+
+      <form id="preferencesForm" class="settings-form" novalidate>
+        <div class="settings-stack">
+          <label class="settings-toggle-item">
+            <span>
+              <strong>Compact interface</strong>
+              <small>Use tighter spacing across portal cards and tables.</small>
+            </span>
+            <input id="compactModeToggle" type="checkbox">
+          </label>
+
+          <label class="settings-toggle-item">
+            <span>
+              <strong>Reduce motion</strong>
+              <small>Minimize transitions and hover motion in the dashboard.</small>
+            </span>
+            <input id="reduceMotionToggle" type="checkbox">
+          </label>
+
+          <label class="settings-toggle-item">
+            <span>
+              <strong>Dark dashboards</strong>
+              <small>Use a deeper interface tone for long viewing sessions.</small>
+            </span>
+            <input id="darkModeToggle" type="checkbox">
+          </label>
+        </div>
+
+        <div class="settings-actions">
+          <button type="submit" class="primary-btn" id="savePreferencesBtn">Save Preferences</button>
+        </div>
+        <p id="preferencesMessage" class="muted-text"></p>
+      </form>
+    </section>
+
+    <section class="portal-card settings-section-card">
+      <div class="settings-section-head">
+        <div>
+          <p class="settings-section-kicker">Security</p>
+          <h3>System Protection</h3>
+        </div>
+      </div>
+
+      <form id="securityForm" class="settings-form" novalidate>
+        <div class="settings-stack">
+          <label class="settings-toggle-item">
+            <span>
+              <strong>Security alerts</strong>
+              <small>Show account and system security notices inside the portal.</small>
+            </span>
+            <input id="securityAlertsToggle" type="checkbox">
+          </label>
+
+          <label class="settings-toggle-item">
+            <span>
+              <strong>Hide sensitive details</strong>
+              <small>Mask sensitive incident information until you click to reveal it.</small>
+            </span>
+            <input id="hideSensitiveToggle" type="checkbox">
+          </label>
+
+          <label class="settings-field-inline">
+            <span>
+              <strong>Auto logout</strong>
+              <small>Sign out automatically after inactivity to protect the session.</small>
+            </span>
+            <select id="autoLogoutSelect">
+              <option value="0">Disabled</option>
+              <option value="15">15 minutes</option>
+              <option value="30">30 minutes</option>
+              <option value="60">1 hour</option>
+              <option value="120">2 hours</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="settings-actions">
+          <button type="submit" class="primary-btn" id="saveSecurityBtn">Save Security</button>
+        </div>
+        <p id="securityMessage" class="muted-text"></p>
+      </form>
+    </section>
+  </section>
+
+  <div id="passwordModal" class="settings-modal" hidden>
+    <div class="settings-modal-backdrop" data-close-password-modal="true"></div>
+    <div class="settings-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="passwordModalTitle">
+      <div class="settings-modal-header">
+        <h3 id="passwordModalTitle">Change Password</h3>
+        <button type="button" class="modal-close-btn" id="closePasswordModalBtn" data-close-password-modal="true" aria-label="Close dialog">x</button>
+      </div>
+
+      <form id="passwordForm" class="settings-password-form" novalidate>
+        <label>
+          Current Password
+          <input id="currentPassword" type="password" maxlength="255" required>
+        </label>
+
+        <label>
+          New Password
+          <input id="newPassword" type="password" maxlength="255" required>
+        </label>
+
+        <label>
+          Confirm New Password
+          <input id="confirmPassword" type="password" maxlength="255" required>
+        </label>
+
+        <label class="settings-show-password">
+          <input id="showPasswordToggle" type="checkbox">
+          Show passwords
+        </label>
+
+        <div class="settings-actions">
+          <button type="button" class="secondary-btn" id="cancelPasswordBtn">Cancel</button>
+          <button type="submit" class="primary-btn" id="savePasswordBtn">Continue</button>
+        </div>
+        <p id="passwordMessage" class="muted-text"></p>
+      </form>
+    </div>
+  </div>
+</section>

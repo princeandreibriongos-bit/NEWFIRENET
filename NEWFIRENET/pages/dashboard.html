@@ -1,0 +1,151 @@
+<div class="modern-dashboard dash-pro">
+  <div class="dashboard-content">
+    <header class="dash-topbar">
+      <div class="dash-topbar-text">
+        <h1 class="dash-page-title">Dashboard</h1>
+        <p class="dash-page-sub">Operations overview — <span id="dashStationHint"></span></p>
+        <p class="dash-meta-line"><span class="dash-meta-pill" id="dashRefreshedAt" title="Browser load time">Updated — …</span><span class="dash-meta-pill dash-meta-pill--subtle" title="Tip">Press <kbd>Esc</kbd> to close menus</span></p>
+      </div>
+      <div class="dash-search-wrap">
+        <label class="visually-hidden" for="dashSearchField">Search</label>
+        <input id="dashSearchField" class="dash-search" type="search" placeholder="Search reports, incidents, events…" autocomplete="off" aria-describedby="dashSearchHelp">
+        <div id="dashSearchPanel" class="dash-search-panel" hidden>
+          <div class="dash-search-panel-head">
+            <div>
+              <p class="dash-search-panel-label">Search results</p>
+              <p class="dash-search-panel-sub" id="dashSearchHelp">Type to find reports, incidents, events, stations, or useful actions.</p>
+            </div>
+            <button type="button" class="dash-search-clear" id="dashSearchClearBtn">Clear</button>
+          </div>
+          <ul class="dash-search-results" id="dashSearchResults"></ul>
+        </div>
+      </div>
+    </header>
+
+    <!-- KPI row with sparklines (mock style) -->
+    <section class="dash-kpi-row" aria-label="Key metrics">
+      <article class="dash-kpi-card dash-kpi-card--incidents">
+        <div class="dash-kpi-head">
+          <span class="dash-kpi-label">Active incidents</span>
+          <span class="dash-kpi-delta dash-kpi-delta--neutral" id="kpiDeltaActive" aria-hidden="true">—</span>
+        </div>
+        <p class="dash-kpi-value" id="openIncidentsCount">0</p>
+        <p class="dash-kpi-hint" id="openIncidentsSummary">No active incidents</p>
+        <div class="dash-kpi-spark">
+          <canvas id="sparkActiveIncidents" aria-hidden="true"></canvas>
+        </div>
+      </article>
+      <article class="dash-kpi-card dash-kpi-card--completed">
+        <div class="dash-kpi-head">
+          <span class="dash-kpi-label">Completed (period)</span>
+          <span class="dash-kpi-delta dash-kpi-delta--up" id="kpiDeltaCompleted" aria-hidden="true">▲</span>
+        </div>
+        <p class="dash-kpi-value"><span id="completedIncidentCount">0</span> <span class="dash-kpi-value-suffix">/ <span id="totalIncidentCount">0</span></span></p>
+        <p class="dash-kpi-hint">Resolved vs total at your station</p>
+        <div class="dash-kpi-spark">
+          <canvas id="sparkCompleted" aria-hidden="true"></canvas>
+        </div>
+      </article>
+      <article class="dash-kpi-card dash-kpi-card--readiness">
+        <div class="dash-kpi-head">
+          <span class="dash-kpi-label">Readiness</span>
+          <span class="dash-kpi-delta dash-kpi-delta--up" id="kpiDeltaReadiness" aria-hidden="true">▲</span>
+        </div>
+        <p class="dash-kpi-value" id="readinessScore">100%</p>
+        <p class="dash-kpi-hint">Based on incidents &amp; station status</p>
+        <div class="dash-kpi-spark">
+          <canvas id="sparkReadiness" aria-hidden="true"></canvas>
+        </div>
+        <div class="dash-kpi-bar" aria-hidden="true">
+          <div class="dash-kpi-bar-fill dash-kpi-bar-fill--readiness" style="width: 100%;"></div>
+        </div>
+      </article>
+    </section>
+
+    <section class="dash-main-grid">
+      <article class="dash-card dash-card--chart dash-card--wide">
+        <div class="dash-card-head">
+          <div>
+            <h2 class="dash-card-title">Incident volume</h2>
+            <p class="dash-card-desc">Last 7 days at your station</p>
+          </div>
+          <span class="dash-pill" title="Data from your station">Last 7 days</span>
+        </div>
+        <div class="dash-chart-box dash-chart-box--tall">
+          <canvas id="incidentTrendChart"></canvas>
+        </div>
+      </article>
+
+      <aside class="dash-side-stack">
+        <article class="dash-card dash-ops-widget">
+          <p class="dash-ops-label">Operations pulse</p>
+          <p class="dash-ops-big" id="dashOpsBigNumber">0</p>
+          <p class="dash-ops-caption" id="dashOpsCaption">Open incidents network-wide view</p>
+          <ul class="dash-ops-list" id="dashOpsMiniList" aria-label="Status lines"></ul>
+        </article>
+        <article class="dash-card dash-feed-card">
+          <div class="dash-card-head dash-card-head--compact">
+            <h2 class="dash-card-title">Briefing</h2>
+          </div>
+          <ul class="dash-feed" id="dashNewsFeed"></ul>
+        </article>
+      </aside>
+    </section>
+
+    <section class="dash-bottom-grid">
+      <article class="dash-card dash-table-card">
+        <div class="dash-card-head dash-card-head--compact">
+          <div>
+            <h2 class="dash-card-title">Station roster</h2>
+            <p class="dash-card-desc" id="stationStatusSummary">Loading…</p>
+          </div>
+        </div>
+        <div class="dash-table" id="stationStatusList">
+          <p class="dash-loading">Loading station data…</p>
+        </div>
+      </article>
+
+      <article class="dash-card">
+        <div class="dash-card-head dash-card-head--compact">
+          <div>
+            <h2 class="dash-card-title">Weekly incidents</h2>
+            <p class="dash-card-desc">Count per day</p>
+          </div>
+        </div>
+        <div class="dash-chart-box dash-chart-box--short">
+          <canvas id="weeklyBarChart"></canvas>
+        </div>
+      </article>
+
+      <div class="dash-dark-stack" aria-label="Summary">
+        <article class="dash-dark-card">
+          <p class="dash-dark-label">Readiness index</p>
+          <p class="dash-dark-value" id="darkReadiness">100%</p>
+        </article>
+        <article class="dash-dark-card">
+          <p class="dash-dark-label">Active queue</p>
+          <p class="dash-dark-value" id="darkOpen">0</p>
+        </article>
+        <article class="dash-dark-card dash-dark-card--accent">
+          <p class="dash-dark-label">Resolution rate</p>
+          <p class="dash-dark-value" id="darkResolution">0%</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="dash-activity-row">
+      <article class="dash-card dash-activity-card">
+        <div class="dash-card-head dash-card-head--compact">
+          <h2 class="dash-card-title">Live incident</h2>
+        </div>
+        <div class="dash-activity-highlight">
+          <div class="dash-activity-dot" aria-hidden="true"></div>
+          <div>
+            <p class="dash-activity-title" id="ongoingIncidentTitle">No active incidents</p>
+            <p class="dash-activity-meta" id="ongoingIncidentMeta">System ready</p>
+          </div>
+        </div>
+      </article>
+    </section>
+  </div>
+</div>

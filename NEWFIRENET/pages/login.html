@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FIRENET - Login</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../assets/css/login.css">
+</head>
+<body>
+    <div class="page-bg" aria-hidden="true"></div>
+
+    <header class="login-header">
+        <div class="header-left">
+            <div class="system-branding">
+                <span class="system-name">FIRENET</span>
+                <span class="system-status-dot"></span>
+                <span class="system-status-text">Online</span>
+            </div>
+        </div>
+        <div class="header-center">
+            <p class="header-subtitle">Bureau of Fire Protection - Makati District</p>
+        </div>
+        <div class="header-right">
+            <div class="time-date-box">
+                <div class="time-display" id="currentTime">00:00:00</div>
+                <div class="date-display" id="currentDate">--/--/----</div>
+            </div>
+        </div>
+    </header>
+
+    <main class="auth-shell" aria-labelledby="pageTitle">
+        <aside class="auth-aside">
+            <p class="aside-label">Makati Fire District</p>
+
+            <div class="logo-row">
+                <img src="../assets/img/bfpmakatilogo.jpg" alt="BFP Makati Logo" class="brand-logo">
+            </div>
+
+            <h1 id="pageTitle">FIRENET</h1>
+            <p class="subtitle">A simple command page for dispatch, people, and emergency operations.</p>
+
+            <ul class="feature-list">
+                <li>Live incident and response updates</li>
+                <li>Staff attendance and assignment tracking</li>
+                <li>Quick access to reports and alerts</li>
+            </ul>
+
+            <div class="aside-meta">
+                <span class="meta-pill">24/7 Operations</span>
+                <span class="meta-pill">Internal Access</span>
+            </div>
+        </aside>
+
+        <section class="auth-panel">
+            <div class="panel-top-bar" aria-hidden="true"></div>
+            <div class="panel-header">
+                <p class="overline">Secure Access</p>
+                <h2>Welcome Back</h2>
+                <p>Sign in to continue to the operations workspace.</p>
+            </div>
+
+            <div class="feature-ribbon" aria-label="Login features">
+                <span class="ribbon-item">Session Login</span>
+                <span class="ribbon-item">Role Access</span>
+                <span class="ribbon-item">Station Workspace</span>
+            </div>
+
+            <div id="messageBox" hidden class="message-box"></div>
+
+            <form id="loginForm" action="../backend/controllers/login.php" method="POST" class="login-form">
+                <div class="form-group">
+                    <label for="username">Username</label>
+                    <input
+                        type="text"
+                        id="username"
+                        name="username"
+                        placeholder="Enter your username"
+                        autocomplete="username"
+                        required
+                    >
+                    <small class="field-hint">Use your assigned station account.</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <div class="password-row">
+                        <input
+                            type="password"
+                            id="password"
+                            name="password"
+                            placeholder="Enter your password"
+                            autocomplete="current-password"
+                            required
+                        >
+                        <button type="button" id="togglePassword" class="toggle-password" aria-label="Show password">Show</button>
+                    </div>
+                    <p id="capsLockHint" class="caps-hint" hidden>Caps lock is currently on.</p>
+                </div>
+
+                <div class="row-meta">
+                    <label class="remember-row" for="rememberMe">
+                        <input type="checkbox" id="rememberMe" name="remember_me" value="1">
+                        <span>Remember me</span>
+                    </label>
+                    <a href="#" class="minor-link" aria-disabled="true" title="Feature not available yet">Forgot password?</a>
+                </div>
+
+                <button id="loginButton" type="submit" class="btn-login">
+                    <span class="btn-text">Login</span>
+                    <span class="btn-loader" aria-hidden="true"></span>
+                </button>
+            </form>
+
+            <div class="social-login-block" id="googleLoginBlock" hidden>
+                <p class="social-login-label">Or sign in with Google</p>
+                <div id="googleSignInButton" class="google-signin-wrapper"></div>
+                <p class="social-login-note">Google account must match your FireNet email.</p>
+            </div>
+
+            <div class="panel-support">
+                <p>Demo users: admin / admin123, superadmin / superadmin123, user1 / user123</p>
+            </div>
+
+            <div class="footer-text">
+                <p>&copy; 2026 FIRENET. All rights reserved.</p>
+            </div>
+        </section>
+    </main>
+
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script src="../assets/js/login.js"></script>
+    <script>
+        function updateTimeAndDate() {
+            const now = new Date();
+
+            // Format time as HH:MM:SS
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            const seconds = String(now.getSeconds()).padStart(2, '0');
+            document.getElementById('currentTime').textContent = `${hours}:${minutes}:${seconds}`;
+
+            // Format date as MM/DD/YYYY
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            const year = now.getFullYear();
+            document.getElementById('currentDate').textContent = `${month}/${day}/${year}`;
+        }
+
+        // Update immediately and then every second
+        updateTimeAndDate();
+        setInterval(updateTimeAndDate, 1000);
+    </script>
+</body>
+</html>
+
+
+

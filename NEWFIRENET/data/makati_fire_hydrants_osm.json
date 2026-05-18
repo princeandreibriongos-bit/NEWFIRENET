@@ -1,0 +1,2171 @@
+﻿{
+  "version": 0.6,
+  "generator": "Overpass API 0.7.62.11 87bfad18",
+  "osm3s": {
+    "timestamp_osm_base": "2026-04-29T16:42:30Z",
+    "copyright": "The data included in this document is from www.openstreetmap.org. The data is made available under ODbL."
+  },
+  "elements": [
+
+{
+  "type": "node",
+  "id": 3233830012,
+  "lat": 14.5505529,
+  "lon": 121.0492630,
+  "tags": {
+    "emergency": "fire_hydrant",
+    "fire_hydrant:type": "wall",
+    "note": "Wet Stand Pipe"
+  }
+},
+{
+  "type": "node",
+  "id": 3233845578,
+  "lat": 14.5516282,
+  "lon": 121.0498643,
+  "tags": {
+    "colour": "yellow",
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar",
+    "water_source": "main"
+  }
+},
+{
+  "type": "node",
+  "id": 3233856240,
+  "lat": 14.5516173,
+  "lon": 121.0495669,
+  "tags": {
+    "emergency": "fire_hydrant",
+    "fire_hydrant:type": "wall"
+  }
+},
+{
+  "type": "node",
+  "id": 3233871011,
+  "lat": 14.5495742,
+  "lon": 121.0453262,
+  "tags": {
+    "colour": "yellow",
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar",
+    "water_source": "main"
+  }
+},
+{
+  "type": "node",
+  "id": 3267513893,
+  "lat": 14.5484754,
+  "lon": 121.0254531,
+  "tags": {
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar",
+    "mapillary": "1086634258513065",
+    "source:position": "Mapillary 2018-09-09",
+    "survey:date": "2018-09-09",
+    "water_source": "main"
+  }
+},
+{
+  "type": "node",
+  "id": 3267513894,
+  "lat": 14.5491694,
+  "lon": 121.0262803,
+  "tags": {
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar",
+    "water_source": "main"
+  }
+},
+{
+  "type": "node",
+  "id": 3543040448,
+  "lat": 14.5509519,
+  "lon": 121.0465241,
+  "tags": {
+    "emergency": "fire_hydrant",
+    "fire_hydrant:type": "pillar"
+  }
+},
+{
+  "type": "node",
+  "id": 4214769547,
+  "lat": 14.5670600,
+  "lon": 121.0030800,
+  "tags": {
+    "emergency": "fire_hydrant",
+    "fire_hydrant:location": "Perlita cor Marmol",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar",
+    "water_source": "main"
+  }
+},
+{
+  "type": "node",
+  "id": 4214769548,
+  "lat": 14.5688900,
+  "lon": 121.0035600,
+  "tags": {
+    "emergency": "fire_hydrant",
+    "fire_hydrant:location": "Sagrada Pamilya cor Esmearalda",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "underground",
+    "water_source": "main"
+  }
+},
+{
+  "type": "node",
+  "id": 4214769549,
+  "lat": 14.5703100,
+  "lon": 121.0050600,
+  "tags": {
+    "emergency": "fire_hydrant",
+    "fire_hydrant:location": "Sagrada Pamilya cor Alabastro",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar",
+    "water_source": "main"
+  }
+},
+{
+  "type": "node",
+  "id": 4214769550,
+  "lat": 14.5708200,
+  "lon": 121.0055200,
+  "tags": {
+    "emergency": "fire_hydrant",
+    "fire_hydrant:location": "Sagrada Pamilya cor Crisolita",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar",
+    "water_source": "main"
+  }
+},
+{
+  "type": "node",
+  "id": 4214769551,
+  "lat": 14.5716200,
+  "lon": 121.0063400,
+  "tags": {
+    "emergency": "fire_hydrant",
+    "fire_hydrant:location": "Estrada cor Onyx",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar",
+    "water_source": "main"
+  }
+},
+{
+  "type": "node",
+  "id": 4214769552,
+  "lat": 14.5734900,
+  "lon": 121.0032000,
+  "tags": {
+    "emergency": "fire_hydrant",
+    "fire_hydrant:location": "A. Francisco cor Granate",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar",
+    "water_source": "main"
+  }
+},
+{
+  "type": "node",
+  "id": 4214769553,
+  "lat": 14.5737800,
+  "lon": 121.0060700,
+  "tags": {
+    "emergency": "fire_hydrant",
+    "fire_hydrant:location": "Dagonoy cor Raymundo",
+    "fire_hydrant:position": "sidewalk",
+    "water_source": "main"
+  }
+},
+{
+  "type": "node",
+  "id": 4214769554,
+  "lat": 14.5741800,
+  "lon": 121.0040500,
+  "tags": {
+    "emergency": "fire_hydrant",
+    "fire_hydrant:location": "A. Francisco cor Agua Marina",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar",
+    "water_source": "main"
+  }
+},
+{
+  "type": "node",
+  "id": 4214769555,
+  "lat": 14.5742000,
+  "lon": 121.0087300,
+  "tags": {
+    "emergency": "fire_hydrant",
+    "fire_hydrant:location": "Sagrada Pamilya cor Eloriaga",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar",
+    "water_source": "main"
+  }
+},
+{
+  "type": "node",
+  "id": 4214769556,
+  "lat": 14.5745000,
+  "lon": 121.0001200,
+  "tags": {
+    "emergency": "fire_hydrant",
+    "fire_hydrant:location": "Zafiro Street corner de Penido",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar",
+    "water_source": "main"
+  }
+},
+{
+  "type": "node",
+  "id": 4214769557,
+  "lat": 14.5751500,
+  "lon": 121.0023200,
+  "tags": {
+    "emergency": "fire_hydrant",
+    "fire_hydrant:location": "Diamante near Onyx",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar",
+    "water_source": "main"
+  }
+},
+{
+  "type": "node",
+  "id": 4214769558,
+  "lat": 14.5759500,
+  "lon": 121.0058200,
+  "tags": {
+    "emergency": "fire_hydrant",
+    "fire_hydrant:location": "A. Francisco cor Oro A front Smart Tel. near Nickle",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar",
+    "water_source": "main"
+  }
+},
+{
+  "type": "node",
+  "id": 4214769559,
+  "lat": 14.5766000,
+  "lon": 121.0111700,
+  "tags": {
+    "emergency": "fire_hydrant",
+    "fire_hydrant:location": "Mabuhay near Tejeron",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar",
+    "water_source": "main"
+  }
+},
+{
+  "type": "node",
+  "id": 4231111000,
+  "lat": 14.5511314,
+  "lon": 121.0240225,
+  "tags": {
+    "colour": "yellow",
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar",
+    "water_source": "main"
+  }
+},
+{
+  "type": "node",
+  "id": 4234966302,
+  "lat": 14.5738325,
+  "lon": 121.0353819,
+  "tags": {
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar"
+  }
+},
+{
+  "type": "node",
+  "id": 4255742894,
+  "lat": 14.5494395,
+  "lon": 121.0460501,
+  "tags": {
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar",
+    "survey:date": "2016-06-20",
+    "water_source": "main"
+  }
+},
+{
+  "type": "node",
+  "id": 4255742895,
+  "lat": 14.5488223,
+  "lon": 121.0445219,
+  "tags": {
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "green",
+    "fire_hydrant:type": "pillar",
+    "survey:date": "2016-06-20"
+  }
+},
+{
+  "type": "node",
+  "id": 4255742896,
+  "lat": 14.5500723,
+  "lon": 121.0486960,
+  "tags": {
+    "colour": "yellow",
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar",
+    "water_source": "main"
+  }
+},
+{
+  "type": "node",
+  "id": 4402588643,
+  "lat": 14.5535079,
+  "lon": 121.0445021,
+  "tags": {
+    "emergency": "fire_hydrant",
+    "fire_hydrant:type": "pillar"
+  }
+},
+{
+  "type": "node",
+  "id": 4402621817,
+  "lat": 14.5532394,
+  "lon": 121.0455072,
+  "tags": {
+    "colour": "yellow",
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar",
+    "water_source": "main"
+  }
+},
+{
+  "type": "node",
+  "id": 4454628213,
+  "lat": 14.5773265,
+  "lon": 121.0116425,
+  "tags": {
+    "colour": "yellow",
+    "emergency": "fire_hydrant",
+    "fire_hydrant:type": "pillar"
+  }
+},
+{
+  "type": "node",
+  "id": 4681313204,
+  "lat": 14.5787332,
+  "lon": 121.0442881,
+  "tags": {
+    "colour": "yellow",
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar",
+    "mapillary": "325347179198822",
+    "water_source": "main"
+  }
+},
+{
+  "type": "node",
+  "id": 4774275923,
+  "lat": 14.5631035,
+  "lon": 121.0350810,
+  "tags": {
+    "emergency": "fire_hydrant",
+    "fire_hydrant:type": "pillar"
+  }
+},
+{
+  "type": "node",
+  "id": 4774932486,
+  "lat": 14.5630856,
+  "lon": 121.0360091,
+  "tags": {
+    "emergency": "fire_hydrant"
+  }
+},
+{
+  "type": "node",
+  "id": 4774933092,
+  "lat": 14.5658657,
+  "lon": 121.0365652,
+  "tags": {
+    "emergency": "fire_hydrant"
+  }
+},
+{
+  "type": "node",
+  "id": 6336919078,
+  "lat": 14.5681341,
+  "lon": 121.0063899,
+  "tags": {
+    "colour": "yellow",
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar",
+    "mapillary": "279500550509410",
+    "water_source": "main"
+  }
+},
+{
+  "type": "node",
+  "id": 6336919488,
+  "lat": 14.5744902,
+  "lon": 121.0106510,
+  "tags": {
+    "colour": "yellow",
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar",
+    "mapillary": "518195649718817",
+    "water_source": "main"
+  }
+},
+{
+  "type": "node",
+  "id": 6337001387,
+  "lat": 14.5661209,
+  "lon": 121.0023732,
+  "tags": {
+    "emergency": "fire_hydrant",
+    "fire_hydrant:type": "underground"
+  }
+},
+{
+  "type": "node",
+  "id": 6377320263,
+  "lat": 14.5791524,
+  "lon": 121.0495493,
+  "tags": {
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar"
+  }
+},
+{
+  "type": "node",
+  "id": 6427726767,
+  "lat": 14.5304631,
+  "lon": 121.0388046,
+  "tags": {
+    "colour": "black;yellow",
+    "emergency": "fire_hydrant",
+    "fire_hydrant:type": "pillar",
+    "water_source": "main"
+  }
+},
+{
+  "type": "node",
+  "id": 6427726772,
+  "lat": 14.5299842,
+  "lon": 121.0355675,
+  "tags": {
+    "colour": "black;yellow",
+    "emergency": "fire_hydrant",
+    "fire_hydrant:type": "pillar",
+    "water_source": "main"
+  }
+},
+{
+  "type": "node",
+  "id": 6444360099,
+  "lat": 14.5672917,
+  "lon": 121.0429309,
+  "tags": {
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar"
+  }
+},
+{
+  "type": "node",
+  "id": 6448798600,
+  "lat": 14.5528131,
+  "lon": 121.0439316,
+  "tags": {
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar",
+    "mapillary": "158261589578318",
+    "source": "Mapillary Street Objects",
+    "survey:date": "2018-09-02"
+  }
+},
+{
+  "type": "node",
+  "id": 6449057051,
+  "lat": 14.5698315,
+  "lon": 121.0184839,
+  "tags": {
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar",
+    "mapillary": "155580049845214",
+    "source": "Mapillary Street Objects",
+    "survey:date": "2018-09-09"
+  }
+},
+{
+  "type": "node",
+  "id": 6449058589,
+  "lat": 14.5667895,
+  "lon": 121.0128027,
+  "tags": {
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar",
+    "mapillary": "488811252461120",
+    "source": "Mapillary Street Objects",
+    "survey:date": "2018-09-09"
+  }
+},
+{
+  "type": "node",
+  "id": 6449103988,
+  "lat": 14.5526914,
+  "lon": 121.0161369,
+  "tags": {
+    "colour": "yellow",
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar",
+    "mapillary": "1729044613965659",
+    "source": "Mapillary Street Objects",
+    "survey:date": "2018-09-09",
+    "water_source": "main"
+  }
+},
+{
+  "type": "node",
+  "id": 6449110014,
+  "lat": 14.5539833,
+  "lon": 121.0158043,
+  "tags": {
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar",
+    "mapillary": "296008498773999",
+    "source": "Mapillary Street Objects",
+    "survey:date": "2018-09-09"
+  }
+},
+{
+  "type": "node",
+  "id": 6524230813,
+  "lat": 14.5779041,
+  "lon": 121.0220674,
+  "tags": {
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar"
+  }
+},
+{
+  "type": "node",
+  "id": 6533481082,
+  "lat": 14.5772811,
+  "lon": 121.0302561,
+  "tags": {
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar"
+  }
+},
+{
+  "type": "node",
+  "id": 6534482771,
+  "lat": 14.5750477,
+  "lon": 121.0367659,
+  "tags": {
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar"
+  }
+},
+{
+  "type": "node",
+  "id": 6534482781,
+  "lat": 14.5757505,
+  "lon": 121.0363045,
+  "tags": {
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar"
+  }
+},
+{
+  "type": "node",
+  "id": 6534579868,
+  "lat": 14.5758368,
+  "lon": 121.0411660,
+  "tags": {
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar"
+  }
+},
+{
+  "type": "node",
+  "id": 6534666055,
+  "lat": 14.5787650,
+  "lon": 121.0209432,
+  "tags": {
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar"
+  }
+},
+{
+  "type": "node",
+  "id": 6534707471,
+  "lat": 14.5753491,
+  "lon": 121.0279099,
+  "tags": {
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar"
+  }
+},
+{
+  "type": "node",
+  "id": 6534711521,
+  "lat": 14.5711765,
+  "lon": 121.0331375,
+  "tags": {
+    "colour": "yellow",
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar",
+    "mapillary": "415017406938562",
+    "water_source": "main"
+  }
+},
+{
+  "type": "node",
+  "id": 6536873931,
+  "lat": 14.5703815,
+  "lon": 121.0383249,
+  "tags": {
+    "colour": "yellow",
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar",
+    "mapillary": "3825010314295136",
+    "water_source": "main"
+  }
+},
+{
+  "type": "node",
+  "id": 6536873955,
+  "lat": 14.5741368,
+  "lon": 121.0385054,
+  "tags": {
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar"
+  }
+},
+{
+  "type": "node",
+  "id": 6546436628,
+  "lat": 14.5740113,
+  "lon": 121.0402487,
+  "tags": {
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar"
+  }
+},
+{
+  "type": "node",
+  "id": 6546436638,
+  "lat": 14.5726484,
+  "lon": 121.0387819,
+  "tags": {
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar"
+  }
+},
+{
+  "type": "node",
+  "id": 6552178926,
+  "lat": 14.5650228,
+  "lon": 121.0407852,
+  "tags": {
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar"
+  }
+},
+{
+  "type": "node",
+  "id": 6552178931,
+  "lat": 14.5661300,
+  "lon": 121.0406866,
+  "tags": {
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar"
+  }
+},
+{
+  "type": "node",
+  "id": 6552178944,
+  "lat": 14.5668393,
+  "lon": 121.0393150,
+  "tags": {
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar"
+  }
+},
+{
+  "type": "node",
+  "id": 6554537769,
+  "lat": 14.5779674,
+  "lon": 121.0137532,
+  "tags": {
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar"
+  }
+},
+{
+  "type": "node",
+  "id": 6554799308,
+  "lat": 14.5789019,
+  "lon": 121.0146081,
+  "tags": {
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar"
+  }
+},
+{
+  "type": "node",
+  "id": 6554799332,
+  "lat": 14.5768648,
+  "lon": 121.0150460,
+  "tags": {
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar"
+  }
+},
+{
+  "type": "node",
+  "id": 6556672322,
+  "lat": 14.5714913,
+  "lon": 121.0144687,
+  "tags": {
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar"
+  }
+},
+{
+  "type": "node",
+  "id": 6556682428,
+  "lat": 14.5724255,
+  "lon": 121.0141388,
+  "tags": {
+    "colour": "yellow",
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar",
+    "mapillary": "166513055386851",
+    "water_source": "main"
+  }
+},
+{
+  "type": "node",
+  "id": 6556824469,
+  "lat": 14.5741641,
+  "lon": 121.0129787,
+  "tags": {
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar"
+  }
+},
+{
+  "type": "node",
+  "id": 6559226484,
+  "lat": 14.5701076,
+  "lon": 121.0146393,
+  "tags": {
+    "colour": "yellow",
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar",
+    "mapillary": "736343460392017",
+    "water_source": "main"
+  }
+},
+{
+  "type": "node",
+  "id": 6559799668,
+  "lat": 14.5679841,
+  "lon": 121.0135379,
+  "tags": {
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar"
+  }
+},
+{
+  "type": "node",
+  "id": 6567123619,
+  "lat": 14.5711188,
+  "lon": 121.0112970,
+  "tags": {
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar"
+  }
+},
+{
+  "type": "node",
+  "id": 6568964424,
+  "lat": 14.5691582,
+  "lon": 121.0071690,
+  "tags": {
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar"
+  }
+},
+{
+  "type": "node",
+  "id": 6568964455,
+  "lat": 14.5685202,
+  "lon": 121.0086429,
+  "tags": {
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar"
+  }
+},
+{
+  "type": "node",
+  "id": 6568964472,
+  "lat": 14.5699103,
+  "lon": 121.0085477,
+  "tags": {
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar"
+  }
+},
+{
+  "type": "node",
+  "id": 6569296383,
+  "lat": 14.5678212,
+  "lon": 121.0204647,
+  "tags": {
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar"
+  }
+},
+{
+  "type": "node",
+  "id": 6569577772,
+  "lat": 14.5687597,
+  "lon": 121.0170536,
+  "tags": {
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar"
+  }
+},
+{
+  "type": "node",
+  "id": 6571725395,
+  "lat": 14.5663350,
+  "lon": 121.0170134,
+  "tags": {
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar",
+    "mapillary": "3716115591847374"
+  }
+},
+{
+  "type": "node",
+  "id": 6576469915,
+  "lat": 14.5668263,
+  "lon": 121.0294086,
+  "tags": {
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar"
+  }
+},
+{
+  "type": "node",
+  "id": 6576469919,
+  "lat": 14.5653181,
+  "lon": 121.0286877,
+  "tags": {
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar"
+  }
+},
+{
+  "type": "node",
+  "id": 6577863288,
+  "lat": 14.5588494,
+  "lon": 121.0158074,
+  "tags": {
+    "colour": "yellow",
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar",
+    "water_source": "main"
+  }
+},
+{
+  "type": "node",
+  "id": 6577920807,
+  "lat": 14.5724985,
+  "lon": 121.0260344,
+  "tags": {
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar"
+  }
+},
+{
+  "type": "node",
+  "id": 6578103163,
+  "lat": 14.5710169,
+  "lon": 121.0255737,
+  "tags": {
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar"
+  }
+},
+{
+  "type": "node",
+  "id": 6578195735,
+  "lat": 14.5695352,
+  "lon": 121.0297479,
+  "tags": {
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar"
+  }
+},
+{
+  "type": "node",
+  "id": 6579313003,
+  "lat": 14.5646269,
+  "lon": 121.0156629,
+  "tags": {
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar"
+  }
+},
+{
+  "type": "node",
+  "id": 6580256520,
+  "lat": 14.5519515,
+  "lon": 121.0266553,
+  "tags": {
+    "colour": "yellow",
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar",
+    "water_source": "main"
+  }
+},
+{
+  "type": "node",
+  "id": 6580983450,
+  "lat": 14.5675944,
+  "lon": 121.0324747,
+  "tags": {
+    "colour": "yellow",
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar",
+    "mapillary": "840077746867108",
+    "water_source": "main"
+  }
+},
+{
+  "type": "node",
+  "id": 6581201165,
+  "lat": 14.5668445,
+  "lon": 121.0345202,
+  "tags": {
+    "colour": "yellow",
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar"
+  }
+},
+{
+  "type": "node",
+  "id": 6583366540,
+  "lat": 14.5621334,
+  "lon": 121.0059359,
+  "tags": {
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar"
+  }
+},
+{
+  "type": "node",
+  "id": 6583714274,
+  "lat": 14.5626435,
+  "lon": 121.0102750,
+  "tags": {
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar"
+  }
+},
+{
+  "type": "node",
+  "id": 6583748192,
+  "lat": 14.5648300,
+  "lon": 121.0086127,
+  "tags": {
+    "colour": "yellow",
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar",
+    "mapillary": "485910946555457",
+    "water_source": "main"
+  }
+},
+{
+  "type": "node",
+  "id": 6585753900,
+  "lat": 14.5703935,
+  "lon": 121.0073796,
+  "tags": {
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar",
+    "mapillary": "2920262168215806",
+    "source:geometry": "Mapillary 2019-05-05",
+    "survey:date": "2019-05-05"
+  }
+},
+{
+  "type": "node",
+  "id": 6585841103,
+  "lat": 14.5687415,
+  "lon": 121.0057307,
+  "tags": {
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar"
+  }
+},
+{
+  "type": "node",
+  "id": 6593100987,
+  "lat": 14.5458175,
+  "lon": 121.0489443,
+  "tags": {
+    "emergency": "fire_hydrant",
+    "fire_hydrant:type": "pillar",
+    "mapillary": "470389390854417",
+    "source:position": "Mapillary 2018-09-01",
+    "survey:date": "2018-09-02"
+  }
+},
+{
+  "type": "node",
+  "id": 6596874188,
+  "lat": 14.5703718,
+  "lon": 121.0073375,
+  "tags": {
+    "emergency": "fire_hydrant",
+    "fire_hydrant:type": "pillar",
+    "mapillary": "4292201337464868",
+    "source:geometry": "Mapillary 2019-05-05",
+    "survey:date": "2019-05-05"
+  }
+},
+{
+  "type": "node",
+  "id": 6596890186,
+  "lat": 14.5544879,
+  "lon": 121.0468924,
+  "tags": {
+    "emergency": "fire_hydrant",
+    "fire_hydrant:type": "pillar",
+    "mapillary": "163995148974014",
+    "source:position": "Mapillary 2018-09-01",
+    "survey:date": "2018-09-01",
+    "water_source": "main"
+  }
+},
+{
+  "type": "node",
+  "id": 6596895785,
+  "lat": 14.5535245,
+  "lon": 121.0481924,
+  "tags": {
+    "emergency": "fire_hydrant",
+    "fire_hydrant:type": "pillar",
+    "mapillary": "374613527239336",
+    "source:position": "Mapillary 2018-09-02",
+    "survey:date": "2018-09-02",
+    "water_source": "main"
+  }
+},
+{
+  "type": "node",
+  "id": 6596895786,
+  "lat": 14.5752377,
+  "lon": 121.0165093,
+  "tags": {
+    "emergency": "fire_hydrant",
+    "fire_hydrant:type": "pillar",
+    "mapillary": "489988175458249",
+    "source:geometry": "Mapillary 2019-05-01",
+    "survey:date": "2019-05-01"
+  }
+},
+{
+  "type": "node",
+  "id": 6600847705,
+  "lat": 14.5545219,
+  "lon": 121.0479899,
+  "tags": {
+    "emergency": "fire_hydrant",
+    "fire_hydrant:type": "pillar",
+    "mapillary": "302957984724255",
+    "source:position": "Mapillary 2018-09-02",
+    "survey:date": "2018-09-08",
+    "water_source": "main"
+  }
+},
+{
+  "type": "node",
+  "id": 6601716687,
+  "lat": 14.5540143,
+  "lon": 121.0461743,
+  "tags": {
+    "emergency": "fire_hydrant",
+    "fire_hydrant:type": "pillar",
+    "mapillary": "4032389120155165",
+    "source:position": "Mapillary 2019-05-01",
+    "survey:date": "2019-05-01",
+    "water_source": "main"
+  }
+},
+{
+  "type": "node",
+  "id": 6735712485,
+  "lat": 14.5541558,
+  "lon": 121.0492337,
+  "tags": {
+    "emergency": "fire_hydrant",
+    "fire_hydrant:type": "pillar",
+    "mapillary": "3056586904575332",
+    "source:position": "Mapillary 2018-09-02",
+    "survey:date": "2018-09-08",
+    "water_source": "main"
+  }
+},
+{
+  "type": "node",
+  "id": 6735715885,
+  "lat": 14.5554040,
+  "lon": 121.0104402,
+  "tags": {
+    "emergency": "fire_hydrant",
+    "fire_hydrant:type": "pillar",
+    "mapillary": "325680945653602",
+    "source:geometry": "Mapillary 2018-02-06",
+    "survey:date": "2018-02-06"
+  }
+},
+{
+  "type": "node",
+  "id": 6735725686,
+  "lat": 14.5543531,
+  "lon": 121.0450742,
+  "tags": {
+    "emergency": "fire_hydrant",
+    "fire_hydrant:type": "pillar",
+    "mapillary": "387838552299806",
+    "source:geometry": "Mapillary 2018-09-24",
+    "survey:date": "2018-09-02"
+  }
+},
+{
+  "type": "node",
+  "id": 6924143801,
+  "lat": 14.5453435,
+  "lon": 121.0101993,
+  "tags": {
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "underground",
+    "mapillary": "189605179681414"
+  }
+},
+{
+  "type": "node",
+  "id": 6929037689,
+  "lat": 14.5585631,
+  "lon": 121.0077357,
+  "tags": {
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar",
+    "water_source": "main"
+  }
+},
+{
+  "type": "node",
+  "id": 6929371004,
+  "lat": 14.5572664,
+  "lon": 121.0093805,
+  "tags": {
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar",
+    "water_source": "main"
+  }
+},
+{
+  "type": "node",
+  "id": 6975534785,
+  "lat": 14.5741858,
+  "lon": 121.0426627,
+  "tags": {
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar"
+  }
+},
+{
+  "type": "node",
+  "id": 6975534885,
+  "lat": 14.5732551,
+  "lon": 121.0459955,
+  "tags": {
+    "colour": "yellow",
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar",
+    "water_source": "main"
+  }
+},
+{
+  "type": "node",
+  "id": 6975535288,
+  "lat": 14.5668188,
+  "lon": 121.0237280,
+  "tags": {
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar",
+    "water_source": "main"
+  }
+},
+{
+  "type": "node",
+  "id": 6975535291,
+  "lat": 14.5509152,
+  "lon": 121.0291709,
+  "tags": {
+    "colour": "yellow",
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar",
+    "water_source": "main"
+  }
+},
+{
+  "type": "node",
+  "id": 6975535292,
+  "lat": 14.5583400,
+  "lon": 121.0224817,
+  "tags": {
+    "colour": "yellow",
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar",
+    "water_source": "main"
+  }
+},
+{
+  "type": "node",
+  "id": 6975535586,
+  "lat": 14.5686052,
+  "lon": 121.0280585,
+  "tags": {
+    "colour": "yellow",
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar",
+    "mapillary": "133861122067832",
+    "water_source": "main"
+  }
+},
+{
+  "type": "node",
+  "id": 6975535587,
+  "lat": 14.5614744,
+  "lon": 121.0222537,
+  "tags": {
+    "colour": "yellow",
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar",
+    "water_source": "main"
+  }
+},
+{
+  "type": "node",
+  "id": 6975535588,
+  "lat": 14.5609431,
+  "lon": 121.0222491,
+  "tags": {
+    "colour": "yellow",
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar",
+    "water_source": "main"
+  }
+},
+{
+  "type": "node",
+  "id": 6975535590,
+  "lat": 14.5658108,
+  "lon": 121.0233060,
+  "tags": {
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar",
+    "water_source": "main"
+  }
+},
+{
+  "type": "node",
+  "id": 6975535785,
+  "lat": 14.5605472,
+  "lon": 121.0227748,
+  "tags": {
+    "colour": "yellow",
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar",
+    "water_source": "main"
+  }
+},
+{
+  "type": "node",
+  "id": 6976286558,
+  "lat": 14.5479748,
+  "lon": 121.0475544,
+  "tags": {
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar",
+    "water_source": "main"
+  }
+},
+{
+  "type": "node",
+  "id": 6978607547,
+  "lat": 14.5536480,
+  "lon": 121.0475712,
+  "tags": {
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar",
+    "water_source": "main"
+  }
+},
+{
+  "type": "node",
+  "id": 6986715328,
+  "lat": 14.5529367,
+  "lon": 121.0463340,
+  "tags": {
+    "colour": "yellow",
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar",
+    "water_source": "main"
+  }
+},
+{
+  "type": "node",
+  "id": 6986715346,
+  "lat": 14.5512632,
+  "lon": 121.0456352,
+  "tags": {
+    "colour": "yellow",
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar",
+    "water_source": "main"
+  }
+},
+{
+  "type": "node",
+  "id": 6991241174,
+  "lat": 14.5528160,
+  "lon": 121.0452926,
+  "tags": {
+    "colour": "yellow",
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar",
+    "water_source": "main"
+  }
+},
+{
+  "type": "node",
+  "id": 6991250012,
+  "lat": 14.5539243,
+  "lon": 121.0467252,
+  "tags": {
+    "emergency": "fire_hydrant",
+    "fire_hydrant:type": "pillar",
+    "mapillary": "4032389120155165",
+    "source:position": "Mapillary 2019-05-01",
+    "survey:date": "2019-05-01",
+    "water_source": "main"
+  }
+},
+{
+  "type": "node",
+  "id": 6998128278,
+  "lat": 14.5527738,
+  "lon": 121.0257361,
+  "tags": {
+    "colour": "yellow",
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar",
+    "water_source": "main"
+  }
+},
+{
+  "type": "node",
+  "id": 7007213050,
+  "lat": 14.5561540,
+  "lon": 121.0252565,
+  "tags": {
+    "colour": "yellow",
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar",
+    "water_source": "main"
+  }
+},
+{
+  "type": "node",
+  "id": 7007461198,
+  "lat": 14.5548819,
+  "lon": 121.0226756,
+  "tags": {
+    "colour": "yellow",
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar",
+    "water_source": "main"
+  }
+},
+{
+  "type": "node",
+  "id": 7007461208,
+  "lat": 14.5548092,
+  "lon": 121.0218615,
+  "tags": {
+    "colour": "yellow",
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar",
+    "water_source": "main"
+  }
+},
+{
+  "type": "node",
+  "id": 7007588073,
+  "lat": 14.5480215,
+  "lon": 121.0145317,
+  "tags": {
+    "colour": "yellow",
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar",
+    "water_source": "main"
+  }
+},
+{
+  "type": "node",
+  "id": 7012880529,
+  "lat": 14.5611157,
+  "lon": 121.0189017,
+  "tags": {
+    "colour": "yellow",
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar",
+    "water_source": "main"
+  }
+},
+{
+  "type": "node",
+  "id": 7013106142,
+  "lat": 14.5580602,
+  "lon": 121.0167365,
+  "tags": {
+    "colour": "yellow",
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar",
+    "water_source": "main"
+  }
+},
+{
+  "type": "node",
+  "id": 7013106143,
+  "lat": 14.5583399,
+  "lon": 121.0163911,
+  "tags": {
+    "colour": "yellow",
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar",
+    "water_source": "main"
+  }
+},
+{
+  "type": "node",
+  "id": 7013372277,
+  "lat": 14.5561267,
+  "lon": 121.0173061,
+  "tags": {
+    "colour": "yellow",
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar",
+    "water_source": "main"
+  }
+},
+{
+  "type": "node",
+  "id": 7013402396,
+  "lat": 14.5542283,
+  "lon": 121.0199645,
+  "tags": {
+    "colour": "yellow",
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar",
+    "water_source": "main"
+  }
+},
+{
+  "type": "node",
+  "id": 7013402407,
+  "lat": 14.5528410,
+  "lon": 121.0183810,
+  "tags": {
+    "colour": "yellow",
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar",
+    "water_source": "main"
+  }
+},
+{
+  "type": "node",
+  "id": 7013402419,
+  "lat": 14.5566953,
+  "lon": 121.0189258,
+  "tags": {
+    "colour": "yellow",
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar",
+    "water_source": "main"
+  }
+},
+{
+  "type": "node",
+  "id": 7015936220,
+  "lat": 14.5553868,
+  "lon": 121.0152321,
+  "tags": {
+    "colour": "yellow",
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar"
+  }
+},
+{
+  "type": "node",
+  "id": 7111148574,
+  "lat": 14.5761398,
+  "lon": 121.0102158,
+  "tags": {
+    "colour": "yellow",
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar",
+    "water_source": "main"
+  }
+},
+{
+  "type": "node",
+  "id": 7217921840,
+  "lat": 14.5658314,
+  "lon": 121.0488948,
+  "tags": {
+    "colour": "yellow",
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar",
+    "water_source": "main"
+  }
+},
+{
+  "type": "node",
+  "id": 7257236157,
+  "lat": 14.5622599,
+  "lon": 121.0494943,
+  "tags": {
+    "colour": "yellow",
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar",
+    "mapillary": "222007489331008",
+    "water_source": "main"
+  }
+},
+{
+  "type": "node",
+  "id": 7273671690,
+  "lat": 14.5600221,
+  "lon": 121.0201336,
+  "tags": {
+    "colour": "yellow",
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar",
+    "water_source": "main"
+  }
+},
+{
+  "type": "node",
+  "id": 7393797402,
+  "lat": 14.5735239,
+  "lon": 121.0300181,
+  "tags": {
+    "colour": "yellow",
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar",
+    "water_source": "main"
+  }
+},
+{
+  "type": "node",
+  "id": 7418270255,
+  "lat": 14.5712083,
+  "lon": 121.0414423,
+  "tags": {
+    "colour": "yellow",
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar",
+    "mapillary": "984825455389965",
+    "water_source": "main"
+  }
+},
+{
+  "type": "node",
+  "id": 8627721799,
+  "lat": 14.5336410,
+  "lon": 121.0368633,
+  "tags": {
+    "colour": "yellow",
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar",
+    "mapillary": "315228913285022",
+    "water_source": "main"
+  }
+},
+{
+  "type": "node",
+  "id": 8687017451,
+  "lat": 14.5368880,
+  "lon": 121.0419264,
+  "tags": {
+    "colour": "red",
+    "emergency": "fire_hydrant",
+    "fire_hydrant:type": "pillar"
+  }
+},
+{
+  "type": "node",
+  "id": 8687019027,
+  "lat": 14.5367400,
+  "lon": 121.0449976,
+  "tags": {
+    "colour": "red",
+    "emergency": "fire_hydrant",
+    "fire_hydrant:type": "pillar"
+  }
+},
+{
+  "type": "node",
+  "id": 8713664893,
+  "lat": 14.5486634,
+  "lon": 121.0451049,
+  "tags": {
+    "colour": "yellow",
+    "emergency": "fire_hydrant",
+    "fire_hydrant:type": "pillar"
+  }
+},
+{
+  "type": "node",
+  "id": 8713665360,
+  "lat": 14.5481480,
+  "lon": 121.0456252,
+  "tags": {
+    "colour": "yellow",
+    "emergency": "fire_hydrant",
+    "fire_hydrant:type": "pillar"
+  }
+},
+{
+  "type": "node",
+  "id": 8713704773,
+  "lat": 14.5486141,
+  "lon": 121.0458197,
+  "tags": {
+    "colour": "yellow",
+    "emergency": "fire_hydrant",
+    "fire_hydrant:type": "pillar"
+  }
+},
+{
+  "type": "node",
+  "id": 8713709932,
+  "lat": 14.5476106,
+  "lon": 121.0459082,
+  "tags": {
+    "colour": "yellow",
+    "emergency": "fire_hydrant",
+    "fire_hydrant:type": "pillar"
+  }
+},
+{
+  "type": "node",
+  "id": 8754925641,
+  "lat": 14.5486378,
+  "lon": 121.0486169,
+  "tags": {
+    "colour": "yellow",
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar",
+    "water_source": "main"
+  }
+},
+{
+  "type": "node",
+  "id": 8759392949,
+  "lat": 14.5789759,
+  "lon": 121.0019716,
+  "tags": {
+    "colour": "yellow",
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar",
+    "mapillary": "285959016520375",
+    "water_source": "main"
+  }
+},
+{
+  "type": "node",
+  "id": 8760387684,
+  "lat": 14.5709189,
+  "lon": 121.0200597,
+  "tags": {
+    "colour": "yellow",
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar",
+    "water_source": "main"
+  }
+},
+{
+  "type": "node",
+  "id": 8760478177,
+  "lat": 14.5718158,
+  "lon": 121.0192651,
+  "tags": {
+    "colour": "yellow",
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar",
+    "water_source": "main"
+  }
+},
+{
+  "type": "node",
+  "id": 9121332501,
+  "lat": 14.5727951,
+  "lon": 121.0162483,
+  "tags": {
+    "colour": "yellow",
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar",
+    "mapillary": "213152117036981",
+    "water_source": "main"
+  }
+},
+{
+  "type": "node",
+  "id": 9128301671,
+  "lat": 14.5602480,
+  "lon": 121.0067915,
+  "tags": {
+    "colour": "yellow",
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar",
+    "water_source": "main"
+  }
+},
+{
+  "type": "node",
+  "id": 9128682268,
+  "lat": 14.5581452,
+  "lon": 121.0430496,
+  "tags": {
+    "colour": "yellow",
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar",
+    "water_source": "main"
+  }
+},
+{
+  "type": "node",
+  "id": 9768723656,
+  "lat": 14.5700045,
+  "lon": 121.0318467,
+  "tags": {
+    "colour": "yellow",
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar",
+    "mapillary": "692889875344482",
+    "source": "extrapolation",
+    "water_source": "main"
+  }
+},
+{
+  "type": "node",
+  "id": 9821572944,
+  "lat": 14.5755299,
+  "lon": 121.0077890,
+  "tags": {
+    "colour": "yellow",
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar",
+    "mapillary": "2300159353473229",
+    "source": "extrapolation",
+    "water_source": "main"
+  }
+},
+{
+  "type": "node",
+  "id": 9832231324,
+  "lat": 14.5665988,
+  "lon": 121.0416287,
+  "tags": {
+    "colour": "yellow",
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar",
+    "mapillary": "369877035020798",
+    "source": "extrapolation",
+    "water_source": "main"
+  }
+},
+{
+  "type": "node",
+  "id": 9832279832,
+  "lat": 14.5664587,
+  "lon": 121.0495541,
+  "tags": {
+    "colour": "yellow",
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar",
+    "mapillary": "297908765211623",
+    "source": "extrapolation",
+    "water_source": "main"
+  }
+},
+{
+  "type": "node",
+  "id": 10699316107,
+  "lat": 14.5467384,
+  "lon": 121.0477671,
+  "tags": {
+    "emergency": "fire_hydrant"
+  }
+},
+{
+  "type": "node",
+  "id": 10732022758,
+  "lat": 14.5534748,
+  "lon": 121.0492029,
+  "tags": {
+    "emergency": "fire_hydrant",
+    "fire_hydrant:type": "pillar",
+    "water_source": "main"
+  }
+},
+{
+  "type": "node",
+  "id": 11548430616,
+  "lat": 14.5760247,
+  "lon": 121.0132184,
+  "tags": {
+    "colour": "yellow",
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar",
+    "mapillary": "1032250614341137",
+    "water_source": "main"
+  }
+},
+{
+  "type": "node",
+  "id": 11652852560,
+  "lat": 14.5782101,
+  "lon": 121.0066708,
+  "tags": {
+    "colour": "yellow",
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar"
+  }
+},
+{
+  "type": "node",
+  "id": 11695193090,
+  "lat": 14.5696146,
+  "lon": 121.0351597,
+  "tags": {
+    "colour": "yellow",
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar",
+    "mapillary": "1139021330250540",
+    "water_source": "main"
+  }
+},
+{
+  "type": "node",
+  "id": 11696478090,
+  "lat": 14.5699662,
+  "lon": 121.0363086,
+  "tags": {
+    "colour": "yellow",
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar",
+    "mapillary": "1339130063265303",
+    "water_source": "main"
+  }
+},
+{
+  "type": "node",
+  "id": 11803926337,
+  "lat": 14.5627824,
+  "lon": 121.0362402,
+  "tags": {
+    "colour": "yellow",
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar",
+    "water_source": "main"
+  }
+},
+{
+  "type": "node",
+  "id": 11804234006,
+  "lat": 14.5671976,
+  "lon": 121.0391061,
+  "tags": {
+    "colour": "red",
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar",
+    "mapillary": "489215112905105",
+    "water_source": "main"
+  }
+},
+{
+  "type": "node",
+  "id": 11809140605,
+  "lat": 14.5572310,
+  "lon": 121.0188435,
+  "tags": {
+    "colour": "yellow",
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar",
+    "water_source": "main"
+  }
+},
+{
+  "type": "node",
+  "id": 11822110697,
+  "lat": 14.5505769,
+  "lon": 121.0267835,
+  "tags": {
+    "colour": "yellow",
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar",
+    "water_source": "main"
+  }
+},
+{
+  "type": "node",
+  "id": 11842971985,
+  "lat": 14.5645980,
+  "lon": 121.0046109,
+  "tags": {
+    "colour": "yellow",
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar",
+    "mapillary": "342289951209236",
+    "water_source": "main"
+  }
+},
+{
+  "type": "node",
+  "id": 11843053171,
+  "lat": 14.5622794,
+  "lon": 121.0128828,
+  "tags": {
+    "colour": "yellow",
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar",
+    "mapillary": "706874763781880",
+    "water_source": "main"
+  }
+},
+{
+  "type": "node",
+  "id": 11865696769,
+  "lat": 14.5468305,
+  "lon": 121.0466512,
+  "tags": {
+    "colour": "yellow",
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar",
+    "water_source": "main"
+  }
+},
+{
+  "type": "node",
+  "id": 11876406257,
+  "lat": 14.5493833,
+  "lon": 121.0491135,
+  "tags": {
+    "colour": "yellow",
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar",
+    "water_source": "main"
+  }
+},
+{
+  "type": "node",
+  "id": 11888739382,
+  "lat": 14.5610560,
+  "lon": 121.0469797,
+  "tags": {
+    "colour": "yellow",
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar",
+    "mapillary": "499731738046947",
+    "water_source": "main"
+  }
+},
+{
+  "type": "node",
+  "id": 11892940837,
+  "lat": 14.5572521,
+  "lon": 121.0428116,
+  "tags": {
+    "colour": "yellow",
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar",
+    "mapillary": "2009016482602915",
+    "water_source": "main"
+  }
+},
+{
+  "type": "node",
+  "id": 12092824705,
+  "lat": 14.5762073,
+  "lon": 121.0088592,
+  "tags": {
+    "colour": "yellow",
+    "emergency": "fire_hydrant",
+    "fire_hydrant:position": "sidewalk",
+    "fire_hydrant:type": "pillar",
+    "mapillary": "143561028206909",
+    "water_source": "main"
+  }
+},
+{
+  "type": "node",
+  "id": 12981505581,
+  "lat": 14.5725905,
+  "lon": 121.0301388,
+  "tags": {
+    "colour": "yellow",
+    "emergency": "fire_hydrant",
+    "fire_hydrant:type": "pillar"
+  }
+}
+
+  ]
+}
+

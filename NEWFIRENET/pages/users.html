@@ -1,0 +1,316 @@
+<section class="users-shell">
+  <header class="users-hero">
+    <div>
+      <p class="users-kicker">Administrator tools</p>
+      <h2>User Accounts</h2>
+      <p class="muted-text" id="usersWelcomeText">Create accounts, assign stations, and manage access by role.</p>
+    </div>
+    <div class="users-hero-actions">
+      <button type="button" class="primary-btn" id="openUserModalBtn">Create User</button>
+      <button type="button" class="secondary-btn" id="refreshUsersBtn">Refresh</button>
+    </div>
+  </header>
+
+  <section class="users-brgy-panel" id="barangayPanel" hidden>
+    <div class="users-brgy-head">
+      <div>
+        <p class="users-kicker">Superadmin</p>
+        <h3>Add New Barangay</h3>
+        <p class="muted-text">Fill out barangay details, pin the location on the map, and optionally create an admin right away.</p>
+      </div>
+    </div>
+
+    <form id="barangayForm" class="users-brgy-form" novalidate>
+      <div class="users-brgy-grid">
+        <label>
+          Barangay Name
+          <input type="text" id="barangayNameInput" maxlength="120" placeholder="e.g. Barangay Bel-Air" required>
+        </label>
+        <label>
+          Barangay Code
+          <input type="text" id="barangayCodeInput" maxlength="20" placeholder="Auto if blank">
+        </label>
+        <label class="users-brgy-full">
+          Address / Location
+          <input type="text" id="barangayLocationInput" maxlength="255" placeholder="Street, barangay, city">
+        </label>
+        <label>
+          Latitude
+          <input type="text" id="barangayLatitudeInput" placeholder="Pin on map" readonly>
+        </label>
+        <label>
+          Longitude
+          <input type="text" id="barangayLongitudeInput" placeholder="Pin on map" readonly>
+        </label>
+      </div>
+
+      <div class="users-brgy-map-wrap">
+        <div id="barangayMap" class="users-brgy-map" role="img" aria-label="Map for pinning barangay location"></div>
+        <p class="muted-text" id="barangayMapMeta">Click on the map to pin the new barangay location.</p>
+      </div>
+
+      <label class="users-toggle-item users-brgy-toggle">
+        <span>
+          <strong>Create admin for this barangay</strong>
+          <small>Generate a station admin account for this newly created barangay.</small>
+        </span>
+        <input type="checkbox" id="createBarangayAdminInput">
+      </label>
+
+      <div id="barangayAdminFields" class="users-brgy-grid" hidden>
+        <label>
+          Admin Username
+          <input type="text" id="barangayAdminUsernameInput" maxlength="50" placeholder="e.g. admin_belair">
+        </label>
+        <label>
+          Admin Email
+          <input type="email" id="barangayAdminEmailInput" maxlength="100" placeholder="e.g. admin.belair@newfirenet.local">
+        </label>
+        <label>
+          Admin Password
+          <input type="password" id="barangayAdminPasswordInput" maxlength="255" placeholder="Required when creating admin">
+        </label>
+      </div>
+
+      <div class="users-form-actions users-brgy-actions">
+        <button type="submit" class="primary-btn" id="saveBarangayBtn">Add Barangay</button>
+      </div>
+      <p class="muted-text" id="barangayFormMessage"></p>
+    </form>
+  </section>
+
+  <section class="users-grid">
+    <article class="users-card"><strong id="userTotalCount">0</strong><span>Total Users</span></article>
+    <article class="users-card"><strong id="userAdminCount">0</strong><span>Admins</span></article>
+    <article class="users-card"><strong id="userActiveCount">0</strong><span>Active</span></article>
+    <article class="users-card"><strong id="userStationCount">0</strong><span>Stations</span></article>
+  </section>
+
+  <section class="users-layout">
+    <aside class="users-sidebar">
+      <div class="users-filter-card">
+        <h3>Filters</h3>
+        <label>
+          Search users
+          <input type="search" id="userSearchInput" placeholder="Username, email, station">
+        </label>
+        <label>
+          Station
+          <select id="userStationFilter"></select>
+        </label>
+        <label>
+          Role
+          <select id="userRoleFilter"></select>
+        </label>
+      </div>
+
+      <div class="users-filter-card">
+        <h3>Helpful Notes</h3>
+        <ul class="simple-list">
+          <li>Admins can manage only regular user accounts, not other admins or superadmins.</li>
+          <li>Use the warning/memo action to document misconduct or share formal guidance with a user.</li>
+          <li>Superadmin accounts are reserved for platform-wide access and cannot be edited by station admins.</li>
+          <li>Password updates are optional during edits.</li>
+          <li>User mail access follows assigned station membership.</li>
+        </ul>
+      </div>
+    </aside>
+
+    <section class="users-table-card">
+      <div class="users-panel-head">
+        <div>
+          <p class="users-kicker">Accounts</p>
+          <h3>Station Users</h3>
+        </div>
+        <div class="users-panel-meta">
+          <span class="users-meta-chip">Showing <strong id="usersVisibleCount">0</strong></span>
+          <span class="users-meta-chip">Total <strong id="usersTotalMetaCount">0</strong></span>
+        </div>
+      </div>
+      <div class="users-table-wrap">
+        <table class="portal-table users-table">
+          <thead>
+            <tr>
+              <th>Username</th>
+              <th>Email</th>
+              <th>Role</th>
+              <th>Station</th>
+              <th>Warnings</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="usersTableBody">
+            <tr><td colspan="7" class="muted-text users-empty-row">Loading users...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </section>
+</section>
+
+<div id="userModal" class="users-modal" hidden>
+  <div class="users-modal-backdrop" data-close-user-modal="true"></div>
+  <div class="users-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="userModalTitle">
+    <header class="users-modal-header">
+      <div>
+        <p class="users-kicker">Account form</p>
+        <h3 id="userModalTitle">Create User</h3>
+      </div>
+      <button type="button" class="modal-close-btn" id="closeUserModalBtn" aria-label="Close">x</button>
+    </header>
+
+    <form id="userForm" class="users-form" novalidate>
+      <input type="hidden" id="userIdInput" value="">
+      <div class="users-form-grid">
+        <label>
+          Username
+          <input type="text" id="usernameInput" maxlength="50" required>
+        </label>
+        <label>
+          Email
+          <input type="email" id="emailInput" maxlength="100" required>
+        </label>
+        <label>
+          Password
+          <input type="password" id="passwordInput" maxlength="255" placeholder="Leave blank when editing">
+        </label>
+        <label>
+          Role
+          <select id="roleSelect"></select>
+        </label>
+        <label>
+          Station
+          <select id="stationSelect"></select>
+        </label>
+        <label>
+          Position
+          <select id="positionSelect"></select>
+        </label>
+        <label>
+          Status
+          <select id="statusSelect">
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+          </select>
+        </label>
+
+        <label class="users-toggle-item">
+          <span>
+            <strong>Security alerts</strong>
+            <small>Enable notifications for account and event security updates.</small>
+          </span>
+          <input type="checkbox" id="securityAlertsInput">
+        </label>
+
+        <label class="users-toggle-item">
+          <span>
+            <strong>Hide sensitive details</strong>
+            <small>Mask confidential incident content until the user chooses to reveal it.</small>
+          </span>
+          <input type="checkbox" id="hideSensitiveInput">
+        </label>
+
+        <label>
+          Auto logout
+          <select id="autoLogoutInput">
+            <option value="0">Disabled</option>
+            <option value="15">15 minutes</option>
+            <option value="30">30 minutes</option>
+            <option value="60">1 hour</option>
+            <option value="120">2 hours</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="users-form-actions">
+        <button type="submit" class="primary-btn" id="saveUserBtn">Save User</button>
+      </div>
+      <p class="muted-text" id="userFormMessage"></p>
+    </form>
+  </div>
+</div>
+
+<div id="warningModal" class="users-modal" hidden>
+  <div class="users-modal-backdrop" data-close-warning-modal="true"></div>
+  <div class="users-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="warningModalTitle">
+    <header class="users-modal-header">
+      <div>
+        <p class="users-kicker">Conduct notice</p>
+        <h3 id="warningModalTitle">Send Warning or Memo</h3>
+      </div>
+      <button type="button" class="modal-close-btn" id="closeWarningModalBtn" aria-label="Close">x</button>
+    </header>
+
+    <form id="warningForm" class="users-form" novalidate>
+      <input type="hidden" id="warningUserIdInput" value="">
+      <div class="users-form-grid">
+        <label>
+          Notice type
+          <select id="warningTypeInput">
+            <option value="warning">Warning</option>
+            <option value="memo">Memo</option>
+          </select>
+        </label>
+
+        <label>
+          Message template
+          <select id="warningTemplateInput">
+            <option value="standard_warning">Standard warning</option>
+            <option value="final_warning">Final warning</option>
+            <option value="performance_memo">Performance improvement memo</option>
+            <option value="conduct_reminder">Conduct reminder</option>
+            <option value="attendance_notice">Attendance notice</option>
+            <option value="misconduct_memo">Inappropriate behavior memo</option>
+            <option value="custom">Custom message</option>
+          </select>
+        </label>
+
+        <label class="users-full-width">
+          Message
+          <textarea id="warningMessageInput" maxlength="1200" rows="6" placeholder="Describe the misconduct or guidance to the user" required></textarea>
+        </label>
+      </div>
+
+      <div class="users-form-actions">
+        <button type="button" class="secondary-btn" id="cancelWarningBtn">Cancel</button>
+        <button type="button" class="secondary-btn" id="warningPrintBtn">Download PDF</button>
+        <button type="submit" class="primary-btn" id="sendWarningBtn">Send Notice</button>
+      </div>
+      <p class="muted-text" id="warningFormMessage"></p>
+    </form>
+  </div>
+</div>
+
+<div id="userActionsModal" class="users-modal" hidden>
+  <div class="users-modal-backdrop" data-close-user-actions-modal="true"></div>
+  <div class="users-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="userActionsModalTitle">
+    <header class="users-modal-header">
+      <div>
+        <p class="users-kicker">Account actions</p>
+        <h3 id="userActionsModalTitle">Manage user</h3>
+      </div>
+      <button type="button" class="modal-close-btn" id="closeUserActionsModalBtn" aria-label="Close">x</button>
+    </header>
+    <div class="users-form">
+      <div class="users-action-summary">
+        <div class="users-action-summary-row">
+          <strong id="actionUserName">-</strong>
+          <span id="actionUserRole">Role</span>
+        </div>
+        <div class="users-action-summary-grid">
+          <div><span class="users-action-label">Email</span><strong id="actionUserEmail">-</strong></div>
+          <div><span class="users-action-label">Station</span><strong id="actionUserStation">-</strong></div>
+          <div><span class="users-action-label">Status</span><strong id="actionUserStatus">-</strong></div>
+          <div><span class="users-action-label">Warnings</span><strong id="actionUserWarnings">0</strong></div>
+        </div>
+      </div>
+      <div class="users-form-actions users-action-buttons">
+        <button type="button" class="secondary-btn" id="openEditFromActionsBtn">Edit User</button>
+        <button type="button" class="secondary-btn" id="openWarningFromActionsBtn">Send Warning/Memo</button>
+        <button type="button" class="secondary-btn users-action-toggle-btn" id="toggleStatusBtn">Deactivate Account</button>
+      </div>
+      <p class="muted-text" id="userActionsFormMessage"></p>
+    </div>
+  </div>
+</div>

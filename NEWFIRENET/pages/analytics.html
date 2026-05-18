@@ -1,0 +1,151 @@
+<section class="analytics-shell">
+  <section class="analytics-hero portal-card">
+    <div>
+      <p class="analytics-kicker">Operations Intelligence</p>
+      <h2>Station Analytics</h2>
+      <p class="muted-text" id="analyticsWelcome"></p>
+    </div>
+    <div class="analytics-hero-chip">
+      <span class="analytics-chip-label">Role</span>
+      <strong id="analyticsRoleTitle"></strong>
+      <small>Station <span id="analyticsStationId"></span></small>
+    </div>
+  </section>
+
+  <section class="portal-card role-card analytics-role-card">
+    <h3>Overview</h3>
+    <p class="muted-text" id="analyticsRoleSummary"></p>
+  </section>
+
+  <section class="portal-card analytics-filter-card">
+    <div class="analytics-filter-header">
+      <div>
+        <p class="analytics-kicker">Map Filters</p>
+        <h3>Incident Scope</h3>
+        <p class="muted-text" id="analyticsFilterSummary">Use current incidents or the full history with a custom time window.</p>
+      </div>
+      <div class="analytics-filter-source">
+        <strong>Hydrants</strong>
+        <small id="analyticsHydrantSourceLabel">OpenStreetMap public hydrants</small>
+      </div>
+    </div>
+
+    <form class="analytics-filter-form" method="get" action="/firenet/NEWFIRENET/backend/pages/analytics.php">
+      <div class="analytics-filter-toggle" role="radiogroup" aria-label="Incident scope">
+        <label class="analytics-toggle-pill">
+          <input type="radio" name="incident_scope" value="current" id="analyticsScopeCurrent">
+          <span>Current incidents</span>
+        </label>
+        <label class="analytics-toggle-pill">
+          <input type="radio" name="incident_scope" value="history" id="analyticsScopeHistory">
+          <span>All incident history</span>
+        </label>
+      </div>
+
+      <div class="analytics-filter-grid">
+        <label class="analytics-filter-field">
+          <span>From</span>
+          <input type="datetime-local" name="incident_from" id="analyticsIncidentFrom">
+        </label>
+        <label class="analytics-filter-field">
+          <span>To</span>
+          <input type="datetime-local" name="incident_to" id="analyticsIncidentTo">
+        </label>
+      </div>
+
+      <div class="analytics-filter-actions">
+        <button type="submit" class="analytics-filter-submit">Apply view</button>
+        <a class="analytics-filter-reset" href="/firenet/NEWFIRENET/backend/pages/analytics.php">Reset</a>
+      </div>
+    </form>
+  </section>
+
+  <section class="analytics-grid">
+    <article class="portal-card analytics-stat-card analytics-stat-card--active">
+      <div class="analytics-stat-top">
+        <h3>Active Incidents</h3>
+      </div>
+      <p class="stat-number" id="analyticsActiveCount">0</p>
+      <p class="muted-text">Incidents currently requiring attention.</p>
+    </article>
+
+    <article class="portal-card analytics-stat-card analytics-stat-card--completed">
+      <div class="analytics-stat-top">
+        <h3>Completed Incidents</h3>
+      </div>
+      <p class="stat-number" id="analyticsCompletedCount">0</p>
+      <p class="muted-text">Incidents already closed or fire out.</p>
+    </article>
+
+    <article class="portal-card analytics-stat-card analytics-stat-card--total">
+      <div class="analytics-stat-top">
+        <h3>Total Incidents</h3>
+      </div>
+      <p class="stat-number" id="analyticsTotalCount">0</p>
+      <p class="muted-text">All incident reports for your station.</p>
+    </article>
+  </section>
+
+  <section class="portal-card analytics-map-card">
+    <div class="analytics-map-header">
+      <div>
+        <p class="analytics-kicker">GIS Layer</p>
+        <h3>Makati Response Map</h3>
+        <p class="muted-text" id="analyticsMapMeta">Stations, incident heat points, and hydrants are rendered here.</p>
+      </div>
+      <div class="analytics-map-badges" aria-label="Map summary">
+        <span class="analytics-map-badge analytics-map-badge--station"><strong id="analyticsStationCount">0</strong><small>Stations</small></span>
+        <span class="analytics-map-badge analytics-map-badge--incident"><strong id="analyticsIncidentHeatPointCount">0</strong><small>Heat points</small></span>
+        <span class="analytics-map-badge analytics-map-badge--hydrant"><strong id="analyticsHydrantCount">0</strong><small>Hydrants</small></span>
+      </div>
+    </div>
+
+    <div class="analytics-map-legend" aria-label="Map legend">
+      <span class="analytics-legend-item analytics-legend-item--station">Stations</span>
+      <span class="analytics-legend-item analytics-legend-item--incident">Incident heatmap</span>
+      <span class="analytics-legend-item analytics-legend-item--hydrant">Fire hydrants</span>
+    </div>
+
+    <div class="analytics-layer-filter" role="group" aria-label="Map layer filter">
+      <button type="button" class="analytics-layer-pill is-active" data-layer-filter="all">All useful layers</button>
+      <button type="button" class="analytics-layer-pill" data-layer-filter="heatmap">Heatmap only</button>
+      <button type="button" class="analytics-layer-pill" data-layer-filter="hydrants">Hydrants only</button>
+    </div>
+
+    <div class="analytics-live-routing" aria-label="Live incident response routing">
+      <label class="analytics-live-routing-field" for="analyticsLiveIncidentSelect">
+        <span>Live incident route ETA</span>
+        <select id="analyticsLiveIncidentSelect" class="analytics-live-routing-select">
+          <option value="">No live incidents available</option>
+        </select>
+      </label>
+      <div id="analyticsRouteEtaList" class="analytics-route-eta-list" aria-live="polite"></div>
+    </div>
+
+    <p class="analytics-map-source muted-text" id="analyticsMapSource">Hydrants will use the public OpenStreetMap layer when available.</p>
+
+    <div class="analytics-map-wrap">
+      <div id="analyticsMap" class="analytics-map-canvas" role="img" aria-label="GIS map of Makati fire stations, incidents, and hydrants"></div>
+      <div id="analyticsMapStatus" class="analytics-map-status">Loading GIS map...</div>
+    </div>
+  </section>
+
+  <section class="analytics-layout">
+    <article class="portal-card analytics-highlight-card">
+      <p class="analytics-kicker">Live Incident Focus</p>
+      <h3>Latest Active Incident</h3>
+      <p class="analytics-highlight-title" id="analyticsLatestLabel">No active incidents.</p>
+      <p class="muted-text" id="analyticsLatestMeta">Analytics will update when new incidents are recorded.</p>
+    </article>
+
+    <article class="portal-card analytics-notes-card">
+      <p class="analytics-kicker">How To Read</p>
+      <h3>Analytics Notes</h3>
+      <ul class="simple-list analytics-list">
+        <li>Active incidents exclude completed and fire out incidents.</li>
+        <li>Completed incidents include after incident records and finished timestamps.</li>
+        <li>Use Reports to drill into individual incident timelines.</li>
+      </ul>
+    </article>
+  </section>
+</section>

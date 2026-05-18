@@ -1,0 +1,285 @@
+/* Global portal theme layer to make non-dashboard pages feel dashboard-like. */
+:root {
+  --portal-surface: #ffffff;
+  --portal-surface-soft: #f8fafc;
+  --portal-border: #dde2e9;
+  --portal-shadow: 0 10px 22px rgba(17, 18, 22, 0.08);
+  --portal-shadow-hover: 0 14px 28px rgba(17, 18, 22, 0.14);
+  --portal-text: #17202d;
+  --portal-muted: #5a687c;
+  --portal-accent: #bc1f2d;
+  --portal-accent-deep: #8f1722;
+  --portal-accent-soft: #fde8ea;
+  --portal-radius: 14px;
+}
+
+body {
+  color: var(--portal-text);
+}
+
+/* Shared page rhythm */
+.reports-shell,
+.settings-shell,
+.users-shell,
+.analytics-shell,
+.calendar-shell {
+  display: grid;
+  gap: 16px;
+}
+
+.reports-shell > h2,
+.settings-shell > h2,
+.users-shell > .users-hero,
+.analytics-shell > h2,
+.calendar-shell > h2 {
+  margin: 0;
+}
+
+.reports-shell > h2,
+.settings-shell > h2,
+.analytics-shell > h2,
+.calendar-shell > h2 {
+  font-size: clamp(2rem, 4vw, 2.4rem);
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+  color: var(--portal-text);
+}
+
+.muted-text {
+  color: var(--portal-muted);
+}
+
+/* Shared card language */
+.portal-card,
+.users-filter-card,
+.users-table-card,
+.users-brgy-panel,
+.settings-profile-card,
+.settings-section-card,
+.settings-modal-dialog,
+.report-modal-dialog,
+.report-type-dialog,
+.calendar-shell .portal-card,
+.analytics-shell .portal-card {
+  border: 1px solid var(--portal-border);
+  border-radius: var(--portal-radius);
+  background: linear-gradient(180deg, #ffffff 0%, #fcfcfd 100%);
+  box-shadow: var(--portal-shadow);
+  position: relative;
+  overflow: hidden;
+}
+
+.portal-card::before,
+.users-filter-card::before,
+.users-table-card::before,
+.users-brgy-panel::before,
+.settings-profile-card::before,
+.settings-section-card::before,
+.calendar-shell .portal-card::before,
+.analytics-shell .portal-card::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 3px;
+  background: linear-gradient(90deg, rgba(188, 31, 45, 0.72) 0%, rgba(188, 31, 45, 0.16) 45%, rgba(188, 31, 45, 0.02) 100%);
+}
+
+.portal-card:hover,
+.users-filter-card:hover,
+.users-table-card:hover,
+.settings-profile-card:hover,
+.settings-section-card:hover,
+.calendar-shell .portal-card:hover,
+.analytics-shell .portal-card:hover {
+  box-shadow: var(--portal-shadow-hover);
+  transform: translateY(-2px);
+}
+
+/* Shared table styling */
+.portal-table,
+.users-table {
+  border-collapse: separate;
+  border-spacing: 0;
+  width: 100%;
+}
+
+.portal-table thead th,
+.users-table thead th {
+  background: #edf3fb;
+  color: #263140;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border-bottom: 1px solid #d9e1ec;
+}
+
+.portal-table tbody tr,
+.users-table tbody tr {
+  background: #ffffff;
+}
+
+.portal-table tbody tr:nth-child(even),
+.users-table tbody tr:nth-child(even) {
+  background: #fbfdff;
+}
+
+.portal-table tbody tr:hover,
+.users-table tbody tr:hover {
+  background: #f4f8ff;
+}
+
+.portal-table th,
+.portal-table td,
+.users-table th,
+.users-table td {
+  border-color: #e3e8f0;
+}
+
+/* Shared form styling */
+.reports-form input,
+.reports-form select,
+.reports-form textarea,
+.settings-form input,
+.settings-form select,
+.users-form input,
+.users-form select,
+.users-form textarea,
+.calendar-shell input,
+.calendar-shell select,
+.analytics-shell input,
+.analytics-shell select {
+  border: 1px solid #d9dee6;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font: inherit;
+  background: #ffffff;
+  color: #171b22;
+}
+
+.reports-form input:focus,
+.reports-form select:focus,
+.reports-form textarea:focus,
+.settings-form input:focus,
+.settings-form select:focus,
+.users-form input:focus,
+.users-form select:focus,
+.users-form textarea:focus,
+.calendar-shell input:focus,
+.calendar-shell select:focus,
+.analytics-shell input:focus,
+.analytics-shell select:focus {
+  outline: none;
+  border-color: #bc1f2d;
+  box-shadow: 0 0 0 3px rgba(188, 31, 45, 0.15);
+}
+
+/* Shared button polish */
+.primary-btn,
+.secondary-btn,
+.ghost-btn,
+.plus-btn,
+.report-step-tab,
+.report-type-option,
+.quick-action-btn {
+  transition: transform 0.16s ease, box-shadow 0.16s ease, background 0.16s ease, border-color 0.16s ease, color 0.16s ease;
+}
+
+.plus-btn {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  border: 1px solid var(--portal-accent);
+  background: linear-gradient(135deg, #d63a47 0%, var(--portal-accent) 50%, var(--portal-accent-deep) 100%);
+  color: #ffffff;
+  box-shadow: 0 8px 18px rgba(151, 28, 40, 0.28);
+}
+
+.plus-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 22px rgba(151, 28, 40, 0.34);
+}
+
+/* Shared list and utility cards */
+.simple-list {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 8px;
+  color: var(--portal-muted);
+}
+
+.simple-list li {
+  line-height: 1.45;
+}
+
+/* Shared settings / reports layout details */
+.reports-info-card,
+.ongoing-incidents-hint,
+.settings-admin-note,
+.settings-photo-note,
+.settings-field-inline,
+.settings-toggle-item,
+.users-toggle-item,
+.users-brgy-toggle {
+  border-color: #dbe2ec;
+  background: #f7f9fc;
+}
+
+.settings-grid,
+.settings-section-grid,
+.report-details-split,
+.form-grid,
+.equipment-form-grid,
+.users-brgy-grid {
+  gap: 12px;
+}
+
+.settings-toggle-item,
+.settings-field-inline,
+.users-toggle-item {
+  align-items: center;
+}
+
+.settings-section-head h3,
+.report-modal-header h3,
+.report-type-dialog strong,
+.users-brgy-head h3 {
+  color: var(--portal-text);
+}
+
+/* Page-specific shell refinements */
+.reports-toolbar {
+  margin: 2px 0 4px;
+}
+
+.users-hero,
+.settings-hero {
+  border: 1px solid var(--portal-border);
+  border-radius: var(--portal-radius);
+  background: linear-gradient(165deg, #ffffff 0%, #f8f9fb 58%, #f1f3f6 100%);
+  box-shadow: var(--portal-shadow);
+}
+
+.users-hero h2,
+.settings-hero-text h3,
+.reports-shell h2 {
+  letter-spacing: -0.03em;
+}
+
+@media (max-width: 900px) {
+  .reports-shell > h2,
+  .settings-shell > h2,
+  .analytics-shell > h2,
+  .calendar-shell > h2 {
+    font-size: 1.8rem;
+  }
+
+  .settings-section-grid,
+  .report-details-split,
+  .form-grid,
+  .equipment-form-grid,
+  .users-brgy-grid {
+    grid-template-columns: 1fr;
+  }
+}

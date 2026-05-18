@@ -1,0 +1,9 @@
+{
+  "name": "firenet/portal",
+  "description": "FireNet Portal",
+  "type": "project",
+  "require": {
+    "phpmailer/phpmailer": "^6.9",
+    "cloudinary/cloudinary_php": "^2.0"
+  }
+}

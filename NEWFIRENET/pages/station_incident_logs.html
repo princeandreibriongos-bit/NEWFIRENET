@@ -1,0 +1,81 @@
+<section class="station-logs-shell">
+  <h2>Station Incident Logs</h2>
+  <p class="muted-text" id="stationLogsSummary">Loading station logs...</p>
+
+  <section class="station-logs-kpis" aria-label="Incident log overview">
+    <article class="station-logs-kpi">
+      <span class="station-logs-kpi-label">Total Logs</span>
+      <strong class="station-logs-kpi-value" id="stationLogsTotal">0</strong>
+    </article>
+    <article class="station-logs-kpi station-logs-kpi--station">
+      <span class="station-logs-kpi-label">Station</span>
+      <strong class="station-logs-kpi-value station-logs-kpi-value--station" id="stationLogsStation">Station</strong>
+    </article>
+    <article class="station-logs-kpi station-logs-kpi--active">
+      <span class="station-logs-kpi-label">Under Control</span>
+      <strong class="station-logs-kpi-value" id="stationLogsUnderControl">0</strong>
+    </article>
+    <article class="station-logs-kpi station-logs-kpi--resolved">
+      <span class="station-logs-kpi-label">Fire Out</span>
+      <strong class="station-logs-kpi-value" id="stationLogsFireOut">0</strong>
+    </article>
+  </section>
+
+  <section class="portal-card station-logs-controls" aria-label="Sorting and export controls">
+    <label>
+      Sort By
+      <select id="stationLogsSortField">
+        <option value="date">Date</option>
+        <option value="name">Incident Name</option>
+        <option value="submitted_by">Submitted By</option>
+        <option value="alarm">Alarm Level</option>
+        <option value="stage">Stage</option>
+        <option value="status">Status</option>
+        <option value="report_id">Report ID</option>
+      </select>
+    </label>
+
+    <label>
+      Order
+      <select id="stationLogsSortDir">
+        <option value="desc">Descending</option>
+        <option value="asc">Ascending</option>
+      </select>
+    </label>
+
+    <button type="button" id="stationLogsApplySort" class="secondary-btn">Apply Sort</button>
+    <button type="button" id="stationLogsDownloadCsv" class="primary-btn">Download CSV</button>
+  </section>
+
+  <section class="portal-card station-logs-upload" aria-label="Incident attachment upload">
+    <h3>Upload Incident Attachment to Cloud</h3>
+    <p class="muted-text">Upload supporting documents, photos, or files directly to your station's Cloudinary folder.</p>
+    <div id="stationLogsCloudinaryContainer"></div>
+    <p class="muted-text" id="stationLogsCloudinaryMessage" style="margin-top: 12px;"></p>
+    <p id="stationLogsUploadMessage" class="upload-success-message" hidden></p>
+  </section>
+
+  <section class="portal-card">
+  <h3>Incident Logs For This Station</h3>
+    <table class="portal-table" id="stationLogsTable">
+      <thead>
+        <tr>
+          <th>Date/Time</th>
+          <th>Report ID</th>
+          <th>Station</th>
+          <th>Incident Details</th>
+          <th>Submitted By</th>
+          <th>Stage</th>
+          <th>Status</th>
+          <th>Alarm</th>
+          <th>Attachments</th>
+        </tr>
+      </thead>
+      <tbody id="stationLogsTableBody">
+        <tr>
+          <td colspan="9" class="muted-text">Loading logs...</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+</section>

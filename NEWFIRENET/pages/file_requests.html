@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>File Requests - FireNet</title>
+    <link rel="stylesheet" href="../assets/css/style.css">
+    <link rel="stylesheet" href="../assets/css/station-mails.css">
+    <link rel="stylesheet" href="../assets/css/file-requests.css">
+</head>
+<body>
+    <div class="file-request-container">
+        <!-- Sidebar -->
+        <div class="file-request-sidebar">
+            <h3>File Requests</h3>
+            <div class="file-request-filter">
+                <button class="filter-btn active" data-filter="all">All Requests</button>
+                <button class="filter-btn" data-filter="outgoing">My Requests</button>
+                <button class="filter-btn" data-filter="pending_origin" id="btn-pending-origin">
+                    Pending Origin Review
+                </button>
+                <button class="filter-btn" data-filter="pending_target" id="btn-pending-target">
+                    Pending Target Review
+                </button>
+                <button class="filter-btn" data-filter="incoming">Incoming Requests</button>
+                <button id="btn-new-request">
+                    + New Request
+                </button>
+            </div>
+        </div>
+        
+        <!-- Main Content -->
+        <div class="file-request-main">
+            <!-- Compose Section -->
+            <div id="file-request-compose" class="file-request-compose">
+                <h3>Create File Request</h3>
+                <form class="file-request-compose-form" id="file-request-form">
+                    <div class="form-group">
+                        <label>Target Station *</label>
+                        <select id="request-target-station" required>
+                            <option value="">-- Select a station --</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Subject *</label>
+                        <input type="text" id="request-subject" placeholder="Enter request subject" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Description *</label>
+                        <textarea id="request-description" placeholder="Describe the files or information you need..." required></textarea>
+                    </div>
+                    
+                    <div class="form-group">
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="request-is-confidential">
+                            <label for="request-is-confidential" style="margin: 0;">This request contains confidential information</label>
+                        </div>
+                    </div>
+                    
+                    <div class="confidentiality-level" id="confidentiality-level-group">
+                        <label>Confidentiality Level</label>
+                        <select id="request-confidentiality-level">
+                            <option value="restricted">Restricted</option>
+                            <option value="confidential">Confidential</option>
+                            <option value="highly_confidential">Highly Confidential</option>
+                        </select>
+                    </div>
+                    
+                    <div style="display: flex; gap: 10px;">
+                        <button type="submit" class="btn-primary" style="flex: 1;">Send Request</button>
+                        <button type="button" class="btn-secondary" id="btn-cancel-request" style="flex: 1; background: #999;">Cancel</button>
+                    </div>
+                </form>
+            </div>
+            
+            <!-- Request List -->
+            <div id="file-request-list-container">
+                <div class="file-request-list" id="file-request-list">
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📋</div>
+                        <p>No file requests found</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Detail View -->
+            <div id="file-request-detail-container" class="file-request-detail">
+                <div class="file-request-detail-header">
+                    <div>
+                        <h2 id="detail-subject" style="margin: 0; margin-bottom: 10px;"></h2>
+                        <p id="detail-meta" style="margin: 0; color: #666; font-size: 14px;"></p>
+                    </div>
+                    <div id="detail-actions" class="file-request-actions"></div>
+                </div>
+                
+                <div id="confidential-banner-container"></div>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+                    <div>
+                        <h4 style="margin-top: 0;">Request Details</h4>
+                        <p id="detail-description"></p>
+                        <div style="background: #f5f5f5; padding: 12px; border-radius: 4px; font-size: 14px;">
+                            <div><strong>From:</strong> <span id="detail-from-user"></span></div>
+                            <div><strong>Origin Station:</strong> <span id="detail-origin-station"></span></div>
+                            <div><strong>Target Station:</strong> <span id="detail-target-station"></span></div>
+                            <div><strong>Status:</strong> <span id="detail-status"></span></div>
+                            <div><strong>Created:</strong> <span id="detail-created"></span></div>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <h4 style="margin-top: 0;">Approval Timeline</h4>
+                        <div class="approval-timeline" id="approval-timeline">
+                            <p style="color: #999; text-align: center; margin: 0;">No approvals yet</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Files Section -->
+                <div id="files-section" style="display:none;">
+                    <h4>Files</h4>
+                    <div class="file-list" id="detail-files">
+                        <p style="color: #999;">No files uploaded</p>
+                    </div>
+                </div>
+                
+                <!-- Upload Response Section (ComL only) -->
+                <div id="upload-response-section" style="display:none; margin-top: 20px; padding: 15px; background: #f0f8ff; border-radius: 6px; border: 1px solid #cce5ff;">
+                    <h4 style="margin-top: 0;">Upload Response File</h4>
+                    <form id="upload-response-form" style="display: flex; flex-direction: column; gap: 15px;">
+                        <input type="hidden" id="upload-route-id" value="">
+                        
+                        <div class="form-group">
+                            <label>Select File *</label>
+                            <input type="file" id="upload-response-file" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>File Access Restrictions</label>
+                            <div class="confidentiality-options">
+                                <div class="checkbox-group">
+                                    <input type="checkbox" id="upload-view-only" checked>
+                                    <label for="upload-view-only" style="margin: 0;">View Only</label>
+                                </div>
+                                <div class="checkbox-group">
+                                    <input type="checkbox" id="upload-download-allowed" checked>
+                                    <label for="upload-download-allowed" style="margin: 0;">Allow Download</label>
+                                </div>
+                                <div class="checkbox-group">
+                                    <input type="checkbox" id="upload-print-allowed">
+                                    <label for="upload-print-allowed" style="margin: 0;">Allow Print</label>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <button type="submit" class="btn-upload">Upload Response</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="../assets/js/file-requests.js"></script>
+</body>
+</html>
