@@ -66,6 +66,7 @@ try {
     <title>File Requests - FireNet</title>
     <link rel="stylesheet" href="../assets/css/style.css">
     <link rel="stylesheet" href="../assets/css/station-mails.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
     <style>
         .navbar {
             background: #fff;
@@ -96,10 +97,10 @@ try {
 </head>
 <body>
     <div class="navbar">
-        <h1 class="navbar-title">📨 File Requests</h1>
+        <h1 class="navbar-title"><i class="bi bi-inbox icon-inline" aria-hidden="true"></i>File Requests</h1>
         <div class="navbar-user">
             <?php if ($isComl): ?>
-                <span style="color: #0066cc; font-weight: 600;">🔒 ComL Position</span>
+                <span style="color: #0066cc; font-weight: 600;"><i class="bi bi-shield-lock icon-inline" aria-hidden="true"></i>ComL Position</span>
             <?php endif; ?>
             <span><?php echo htmlspecialchars($userProfile['username']); ?></span> 
             @ <?php echo htmlspecialchars($userProfile['station_name']); ?>
@@ -516,7 +517,7 @@ try {
             <div id="file-request-list-container">
                 <div class="file-request-list" id="file-request-list">
                     <div class="empty-state">
-                        <div class="empty-state-icon">📋</div>
+                        <div class="empty-state-icon"><i class="bi bi-inbox" aria-hidden="true"></i></div>
                         <p>No file requests found</p>
                     </div>
                 </div>

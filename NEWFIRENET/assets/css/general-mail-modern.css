@@ -15,9 +15,9 @@
   margin-bottom: 32px;
   padding: 24px;
   background: linear-gradient(135deg, #ffffff 0%, #f8f9fb 100%);
-  border-radius: 12px;
-  border: 1px solid rgba(27, 36, 48, 0.08);
-  box-shadow: 0 2px 8px rgba(18, 26, 36, 0.04);
+  border-radius: var(--fn-radius-md, 14px);
+  border: 1px solid var(--fn-card-border, #dde2e9);
+  box-shadow: var(--fn-shadow-card);
 }
 
 .mail-hero > div:first-child {
@@ -128,10 +128,10 @@
 
 .mail-card {
   background: white;
-  border-radius: 11px;
-  border: 1px solid rgba(27, 36, 48, 0.08);
+  border-radius: var(--fn-radius-md, 14px);
+  border: 1px solid var(--fn-card-border, #dde2e9);
   padding: 20px;
-  box-shadow: 0 1px 3px rgba(18, 26, 36, 0.04);
+  box-shadow: var(--fn-shadow-card);
 }
 
 .mail-card h2 {
@@ -182,10 +182,10 @@
   display: flex;
   flex-direction: column;
   background: white;
-  border-radius: 11px;
-  border: 1px solid rgba(27, 36, 48, 0.08);
+  border-radius: var(--fn-radius-md, 14px);
+  border: 1px solid var(--fn-card-border, #dde2e9);
   overflow: hidden;
-  box-shadow: 0 1px 3px rgba(18, 26, 36, 0.04);
+  box-shadow: var(--fn-shadow-card);
 }
 
 /* Panel Headers */
@@ -589,7 +589,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.48);
+  background: var(--fn-backdrop, rgba(14, 18, 24, 0.48));
   backdrop-filter: blur(2px);
   -webkit-backdrop-filter: blur(2px);
   cursor: pointer;
@@ -598,8 +598,8 @@
 .mail-modal-dialog {
   position: relative;
   background: white;
-  border-radius: 12px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+  border-radius: var(--fn-radius-md, 14px);
+  box-shadow: var(--fn-shadow-modal);
   z-index: 1001;
   max-width: 600px;
   width: 95%;

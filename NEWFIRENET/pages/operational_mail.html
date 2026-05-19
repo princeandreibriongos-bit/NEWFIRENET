@@ -14,35 +14,35 @@
   <section class="mail-stats-grid">
     <article class="mail-stat-card">
       <strong id="inboxCount">0</strong>
-      <span>📋 Requests</span>
+      <span><i class="bi bi-clipboard-data icon-inline" aria-hidden="true"></i>Requests</span>
     </article>
     <article class="mail-stat-card">
       <strong id="unreadCount">0</strong>
-      <span>✨ Unread</span>
+      <span><i class="bi bi-envelope icon-inline" aria-hidden="true"></i>Unread</span>
     </article>
     <article class="mail-stat-card">
       <strong id="sentCount">0</strong>
-      <span>📤 Sent</span>
+      <span><i class="bi bi-send icon-inline" aria-hidden="true"></i>Sent</span>
     </article>
     <article class="mail-stat-card">
       <strong id="draftCount">0</strong>
-      <span>📝 Drafts</span>
+      <span><i class="bi bi-file-earmark-text icon-inline" aria-hidden="true"></i>Drafts</span>
     </article>
   </section>
 
   <div class="mail-panel-grid">
     <aside class="mail-side">
       <div class="mail-card">
-        <h2>📁 Folders</h2>
+        <h2><i class="bi bi-folder2 icon-inline" aria-hidden="true"></i>Folders</h2>
         <div class="mail-folder-list">
-          <button type="button" class="mail-folder-btn active" data-folder="inbox">📬 Inbox</button>
-          <button type="button" class="mail-folder-btn" data-folder="sent">📤 Sent</button>
-          <button type="button" class="mail-folder-btn" data-folder="drafts">📝 Drafts</button>
+          <button type="button" class="mail-folder-btn active" data-folder="inbox"><i class="bi bi-inbox icon-inline" aria-hidden="true"></i>Inbox</button>
+          <button type="button" class="mail-folder-btn" data-folder="sent"><i class="bi bi-send icon-inline" aria-hidden="true"></i>Sent</button>
+          <button type="button" class="mail-folder-btn" data-folder="drafts"><i class="bi bi-file-earmark-text icon-inline" aria-hidden="true"></i>Drafts</button>
         </div>
       </div>
 
       <div class="mail-card">
-        <h2>🔍 Request Filters</h2>
+        <h2><i class="bi bi-funnel icon-inline" aria-hidden="true"></i>Request Filters</h2>
         <label class="form-field">
           Search
           <input type="search" id="searchInput" placeholder="Search subject, station, body">
@@ -62,7 +62,7 @@
       </div>
 
       <div class="mail-card">
-        <h2>📊 Operational Flow</h2>
+        <h2><i class="bi bi-diagram-3 icon-inline" aria-hidden="true"></i>Operational Flow</h2>
         <p class="muted-text">Operational mail routes through ComL and uses Cloudinary links for file attachments.</p>
         <ul class="simple-list">
           <li>Each station has a Cloudinary folder: <code>firenet/orgmail/station_&lt;id&gt;</code></li>
@@ -133,7 +133,7 @@
         Cloudinary file (your station folder)
         <div class="cloudinary-url-input-group">
           <input type="url" id="composeCloudinaryUrl" placeholder="https://res.cloudinary.com/.../station_X/...">
-          <button type="button" class="secondary-btn" id="browseCloudinareFilesBtn" title="Browse your station folder">📁 Browse</button>
+          <button type="button" class="secondary-btn" id="browseCloudinareFilesBtn" title="Browse your station folder"><i class="bi bi-folder2-open icon-inline" aria-hidden="true"></i>Browse</button>
         </div>
         <p class="form-note" id="composeOrgmailHint">Select a file from your station's folder, or upload a new file.</p>
         <div class="mail-inline-upload" id="composeOrgmailUploadRow">

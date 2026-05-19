@@ -2369,7 +2369,7 @@
             return;
           }
 
-          window.alert('✓ Report uploaded to Cloudinary!\n\nURL:\n' + (result.data.url || 'Upload successful'));
+          window.alert('Report uploaded to Cloudinary!\n\nURL:\n' + (result.data.url || 'Upload successful'));
           console.log('Upload successful:', result.data);
         })
         .catch(error => {
@@ -2408,7 +2408,7 @@
               const fileName = String(result.info.display_name || result.info.public_id || 'file');
               const messageEl = document.getElementById('reportsUploadMessage');
               if (messageEl) {
-                messageEl.textContent = '✓ File uploaded successfully to: ' + folderPath;
+                messageEl.textContent = 'File uploaded successfully to: ' + folderPath;
                 messageEl.hidden = false;
                 messageEl.style.color = '#1f5e2d';
                 setTimeout(function() {

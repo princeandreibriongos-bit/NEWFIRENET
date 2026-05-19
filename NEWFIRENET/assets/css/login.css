@@ -2,24 +2,11 @@
     box-sizing: border-box;
 }
 
-:root {
-    --bg-top: #f4f6f8;
-    --bg-bottom: #e4e9ef;
-    --panel: #ffffff;
-    --line: #ced7e2;
-    --ink: #1d283a;
-    --muted: #52627c;
-    --brand: #bc1f2d;
-    --brand-dark: #8f1722;
-    --brand-soft: #ffe5e8;
-    --command: #18324f;
-}
-
 body {
     margin: 0;
     font-family: 'Manrope', 'Segoe UI', Tahoma, sans-serif;
-    background: var(--bg-bottom);
-    color: var(--ink);
+    background: var(--bg-bottom, #e4e9ef);
+    color: var(--ink, #1d283a);
 }
 
 .page-bg {
@@ -36,6 +23,9 @@ body {
     z-index: -1;
 }
 
+
+
+/* ── Auth shell ── */
 .auth-shell {
     min-height: 100vh;
     width: min(1060px, 92vw);
@@ -44,23 +34,41 @@ body {
     grid-template-columns: 1.06fr 1fr;
     gap: 20px;
     align-items: center;
+    animation: fn-auth-entrance 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes fn-auth-entrance {
+    from {
+        opacity: 0;
+        transform: translateY(12px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 .auth-aside,
 .auth-panel {
-    background: var(--panel);
-    border: 1px solid var(--line);
-    border-radius: 16px;
-    padding: 26px;
-    box-shadow: 0 20px 50px rgba(13, 29, 47, 0.15);
-    backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: var(--fn-radius-lg, 16px);
+    padding: 38px 42px;
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
 }
 
 .auth-aside {
-    background: linear-gradient(160deg, #203b5b 0%, #14273f 100%);
-    border-color: #213a5a;
+    background: linear-gradient(160deg, rgba(27, 38, 59, 0.95) 0%, rgba(16, 22, 34, 0.98) 100%);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 20px 40px rgba(0, 0, 0, 0.4);
     color: #edf3ff;
+    animation: fn-auth-entrance 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.08s both;
+}
+
+.auth-panel {
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.95) 0%, rgba(248, 249, 252, 0.9) 100%);
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7), 0 20px 50px rgba(10, 21, 37, 0.15);
+    animation: fn-auth-entrance 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.16s both;
 }
 
 .aside-label {
@@ -81,7 +89,7 @@ body {
 .brand-logo {
     width: 118px;
     height: 118px;
-    border-radius: 14px;
+    border-radius: var(--fn-radius-md, 14px);
     object-fit: cover;
     border: 2px solid rgba(255, 255, 255, 0.24);
     background: rgba(255, 255, 255, 0.14);
@@ -120,7 +128,7 @@ h2 {
     border: 1px solid rgba(255, 255, 255, 0.26);
     background: rgba(255, 255, 255, 0.14);
     color: #eef4ff;
-    border-radius: 999px;
+    border-radius: var(--fn-radius-pill, 999px);
     padding: 6px 10px;
     font-size: 12px;
     font-weight: 600;
@@ -129,9 +137,16 @@ h2 {
 .panel-top-bar {
     width: 100%;
     height: 6px;
-    border-radius: 999px;
+    border-radius: var(--fn-radius-pill, 999px);
     margin-bottom: 14px;
-    background: linear-gradient(90deg, var(--command) 0%, var(--brand) 100%);
+    background: linear-gradient(90deg, var(--command, #18324f) 0%, var(--brand, #bc1f2d) 100%);
+    background-size: 200% 100%;
+    animation: fn-bar-shimmer 3s ease-in-out infinite;
+}
+
+@keyframes fn-bar-shimmer {
+    0%, 100% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
 }
 
 .overline {
@@ -148,21 +163,7 @@ h2 {
     color: #415777;
 }
 
-.feature-ribbon {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin: 14px 0 16px;
-}
 
-.ribbon-item {
-    background: #edf1f7;
-    border: 1px solid #d3dceb;
-    border-radius: 6px;
-    padding: 6px 8px;
-    font-size: 12px;
-    font-weight: 600;
-}
 
 .message-box {
     margin: 10px 0 12px;
@@ -197,19 +198,32 @@ label {
 
 input {
     width: 100%;
-    border: 1px solid #c6d1e2;
-    border-radius: 8px;
-    padding: 11px 12px;
+    border: 1px solid var(--fn-input-border, #d0d7e2);
+    border-radius: var(--fn-input-radius, 10px);
+    padding: 11px 14px;
     font-size: 14px;
-    color: var(--ink);
-    transition: border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+    color: var(--ink, #1d283a);
+    background: var(--fn-input-bg, #f8f9fb);
+    box-shadow: var(--fn-input-shadow);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
 }
 
+input:hover {
+    border-color: #b8c2d1;
+    background: #f4f6f9;
+}
+
+/* ── Focus ring matches the brand-red system ── */
 input:focus {
     outline: 0;
-    border-color: #8ba5d6;
-    box-shadow: 0 0 0 3px rgba(60, 104, 181, 0.14);
-    background: #fcfeff;
+    border-color: var(--fn-input-focus-border, #c0424f);
+    box-shadow: var(--fn-input-focus-ring, 0 0 0 3px rgba(188, 31, 45, 0.10));
+    background: #ffffff;
+}
+
+input::placeholder {
+    color: #9aa5b4;
+    font-weight: 500;
 }
 
 .password-row {
@@ -238,8 +252,8 @@ input:focus {
 
 .toggle-password:focus-visible {
     outline: none;
-    border-color: #8ba5d6;
-    box-shadow: 0 0 0 3px rgba(60, 104, 181, 0.16), 0 8px 16px rgba(15, 23, 42, 0.12);
+    border-color: var(--fn-input-focus-border, #bc1f2d);
+    box-shadow: var(--fn-input-focus-ring), 0 8px 16px rgba(15, 23, 42, 0.12);
 }
 
 .caps-hint {
@@ -251,7 +265,7 @@ input:focus {
 .field-hint {
     display: block;
     margin-top: 6px;
-    color: var(--muted);
+    color: var(--muted, #52627c);
     font-size: 12px;
 }
 
@@ -294,7 +308,7 @@ input:focus {
     border: none;
     border-radius: 11px;
     padding: 12px;
-    background: linear-gradient(135deg, #c12635 0%, #971c28 100%);
+    background: linear-gradient(135deg, var(--brand-bright, #d42536) 0%, var(--brand, #b31926) 48%, var(--brand-dark, #7a1019) 100%);
     color: #fff;
     font-size: 15px;
     font-weight: 700;
@@ -306,6 +320,7 @@ input:focus {
     transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
     position: relative;
     overflow: hidden;
+    box-shadow: 0 8px 18px rgba(122, 16, 25, 0.28);
 }
 
 .btn-login::before {
@@ -380,14 +395,11 @@ input:focus {
     text-align: center;
 }
 
-.panel-support,
+
 .footer-text {
     margin-top: 15px;
     color: #5a667d;
     font-size: 13px;
-}
-
-.footer-text {
     border-top: 1px dashed #d9dfeb;
     padding-top: 12px;
 }
@@ -409,6 +421,8 @@ input:focus {
     .auth-panel {
         padding: 22px;
     }
+
+
 }
 
 @media (max-width: 540px) {
@@ -418,5 +432,3 @@ input:focus {
         gap: 8px;
     }
 }
-
-

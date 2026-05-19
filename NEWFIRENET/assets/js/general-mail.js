@@ -488,7 +488,7 @@
 
     if (selected.length === 0 && activeThreadId) {
       updateThreadAction(action, activeThreadId).catch(function (err) {
-        setMessage('✗ ' + (err.message || 'Action failed'), true);
+        setMessage('Action failed: ' + (err.message || 'Unknown error'), true);
       });
       return;
     }
@@ -513,9 +513,9 @@
         if (state.activeThread && state.activeThread.threadId && action !== 'delete') {
           await openThread(Number(state.activeThread.threadId));
         }
-        setMessage('✓ Action completed', false);
+        setMessage('Action completed', false);
       } catch (err) {
-        setMessage('✗ ' + (err.message || 'Action failed'), true);
+        setMessage('Action failed: ' + (err.message || 'Unknown error'), true);
       }
     })();
   }
@@ -886,7 +886,7 @@
     modal.innerHTML = `
       <div class="shortcuts-modal-header">
         <h2>⌨️ Keyboard Shortcuts</h2>
-        <button class="shortcuts-modal-close" type="button">✕</button>
+        <button class="shortcuts-modal-close" type="button" aria-label="Close"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
       </div>
       <div class="shortcuts-modal-content">
         <div>
@@ -981,12 +981,12 @@
     const menu = document.createElement('div');
     menu.className = 'mail-context-menu';
     menu.innerHTML = `
-      <div class="mail-context-menu-item" data-action="reply">✏️ Reply</div>
-      <div class="mail-context-menu-item" data-action="mark-read">👁️ Mark as read</div>
-      <div class="mail-context-menu-item" data-action="mark-unread">💬 Mark as unread</div>
-      <div class="mail-context-menu-item" data-action="star">⭐ Star</div>
-      <div class="mail-context-menu-item" data-action="archive">📁 Archive</div>
-      <div class="mail-context-menu-item danger" data-action="delete">🗑️ Delete</div>
+      <div class="mail-context-menu-item" data-action="reply"><i class="bi bi-reply icon-inline" aria-hidden="true"></i>Reply</div>
+      <div class="mail-context-menu-item" data-action="mark-read"><i class="bi bi-eye icon-inline" aria-hidden="true"></i>Mark as read</div>
+      <div class="mail-context-menu-item" data-action="mark-unread"><i class="bi bi-eye-slash icon-inline" aria-hidden="true"></i>Mark as unread</div>
+      <div class="mail-context-menu-item" data-action="star"><i class="bi bi-star icon-inline" aria-hidden="true"></i>Star</div>
+      <div class="mail-context-menu-item" data-action="archive"><i class="bi bi-archive icon-inline" aria-hidden="true"></i>Archive</div>
+      <div class="mail-context-menu-item danger" data-action="delete"><i class="bi bi-trash icon-inline" aria-hidden="true"></i>Delete</div>
     `;
 
     menu.style.left = event.clientX + 'px';

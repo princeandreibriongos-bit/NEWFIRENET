@@ -1,12 +1,11 @@
 .reports-shell h2 {
   margin: 0 0 8px;
-  font-size: 38px;
+  font-size: var(--fn-heading-xl);
   line-height: 1.1;
-  color: #171b22;
+  color: var(--ink, #171b22);
 }
 
 .reports-info-card {
-  border-left: 4px solid #bc1f2d;
 }
 
 .ongoing-incidents-hint {
@@ -41,29 +40,10 @@
   border-color: #8f1722;
 }
 
-.portal-card {
-  border: 1px solid #dde2e9;
-  border-radius: 14px;
-  background: linear-gradient(180deg, #ffffff 0%, #fcfcfd 100%);
+/* .portal-card is defined in portal-theme.css */
+.reports-shell .portal-card {
   padding: 16px;
   margin-bottom: 14px;
-  box-shadow: 0 10px 22px rgba(17, 18, 22, 0.08);
-  position: relative;
-  overflow: hidden;
-  transition: transform 0.16s ease, box-shadow 0.16s ease;
-}
-
-.portal-card::before {
-  content: '';
-  position: absolute;
-  inset: 0 0 auto 0;
-  height: 3px;
-  background: linear-gradient(90deg, rgba(188, 31, 45, 0.72) 0%, rgba(188, 31, 45, 0.16) 45%, rgba(188, 31, 45, 0.02) 100%);
-}
-
-.portal-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 14px 28px rgba(17, 18, 22, 0.14);
 }
 
 .reports-form {
@@ -212,34 +192,7 @@
   margin-left: 0;
 }
 
-.primary-btn {
-  background: linear-gradient(135deg, #c12635 0%, #971c28 100%);
-  border-color: #971c28;
-  color: #ffffff;
-  box-shadow: 0 8px 18px rgba(151, 28, 40, 0.28);
-}
-
-.primary-btn:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 12px 22px rgba(151, 28, 40, 0.34);
-}
-
-.primary-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.secondary-btn {
-  background: #f8fafd;
-  border-color: #d4dde8;
-  color: #243042;
-}
-
-.secondary-btn:hover {
-  background: #eef3f9;
-  border-color: #bcc9d9;
-  transform: translateY(-1px);
-}
+/* .primary-btn / .secondary-btn are defined globally in style.css */
 
 .incident-map-field {
   border: 1px solid #d2dcec;

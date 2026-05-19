@@ -95,13 +95,7 @@
   animation: mailCardRise 0.45s var(--ease-out) both;
 }
 
-.mail-landing .mail-card::before {
-  content: '';
-  position: absolute;
-  inset: 0 0 auto 0;
-  height: 3px;
-  background: linear-gradient(90deg, rgba(188, 31, 45, 0.72) 0%, rgba(188, 31, 45, 0.16) 45%, rgba(188, 31, 45, 0.02) 100%);
-}
+
 
 .mail-landing .landing-card::after {
   content: '';
@@ -183,7 +177,6 @@
   padding: 18px;
   border: 1px solid #dde2e9;
   border-radius: 14px;
-  border-left: 4px solid #bc1f2d;
   background: linear-gradient(165deg, #ffffff 0%, #f8f9fb 58%, #f1f3f6 100%);
   box-shadow: 0 10px 22px rgba(17, 18, 22, 0.08);
   position: relative;
@@ -191,13 +184,7 @@
   transition: transform 0.16s ease, box-shadow 0.16s ease;
 }
 
-.mail-hero::before {
-  content: '';
-  position: absolute;
-  inset: 0 0 auto 0;
-  height: 3px;
-  background: linear-gradient(90deg, rgba(188, 31, 45, 0.72) 0%, rgba(188, 31, 45, 0.16) 45%, rgba(188, 31, 45, 0.02) 100%);
-}
+
 
 .mail-hero:hover {
   transform: translateY(-2px);
@@ -220,7 +207,7 @@
 }
 
 .mail-hero h2 {
-  font-size: 38px;
+  font-size: var(--fn-heading-xl);
   line-height: 1.1;
 }
 
@@ -240,13 +227,7 @@
   overflow: hidden;
 }
 
-.mail-stat-card::before {
-  content: '';
-  position: absolute;
-  inset: 0 0 auto 0;
-  height: 3px;
-  background: linear-gradient(90deg, rgba(188, 31, 45, 0.7) 0%, rgba(188, 31, 45, 0.16) 45%, rgba(188, 31, 45, 0.02) 100%);
-}
+
 
 .mail-stat-card strong {
   display: block;
@@ -286,14 +267,7 @@
   overflow: hidden;
 }
 
-.mail-folder-card::before,
-.mail-list-panel::before {
-  content: '';
-  position: absolute;
-  inset: 0 0 auto 0;
-  height: 3px;
-  background: linear-gradient(90deg, rgba(188, 31, 45, 0.62) 0%, rgba(188, 31, 45, 0.16) 45%, rgba(188, 31, 45, 0.03) 100%);
-}
+
 
 .mail-folder-card {
   padding: 16px;
@@ -722,18 +696,21 @@
 .mail-modal-backdrop {
   position: absolute;
   inset: 0;
-  background: rgba(14, 18, 24, 0.55);
+  background: var(--fn-backdrop, rgba(14, 18, 24, 0.48));
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
 }
 
 .mail-modal-dialog {
   position: relative;
   width: min(860px, calc(100vw - 32px));
   max-height: 90vh;
-  border-radius: 14px;
-  border: 1px solid #dde2e9;
-  background: linear-gradient(180deg, #ffffff 0%, #fcfcfd 100%);
-  box-shadow: 0 20px 44px rgba(17, 18, 22, 0.24);
+  border-radius: var(--fn-radius-md, 14px);
+  border: 1px solid var(--fn-card-border, #e0e5ec);
+  background: var(--fn-card-bg);
+  box-shadow: var(--fn-shadow-modal);
   z-index: 41;
+  overflow-y: auto;
 }
 
 .mail-compose-modal-dialog {
@@ -748,6 +725,12 @@
   overflow: auto;
   padding: 14px 18px 16px;
   gap: 12px;
+}
+
+.mail-compose-modal-dialog .mail-form {
+  overflow: auto;
+  padding: 14px 18px 16px;
+  min-height: 0;
 }
 
 .mail-thread-modal-dialog {
@@ -905,8 +888,115 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
-  padding: 18px 20px;
-  border-bottom: 1px solid #e2e7ef;
+  padding: 20px 24px;
+  border-bottom: 1px solid rgba(27, 36, 48, 0.06);
+}
+
+/* ── Form styling for compose modals ── */
+.mail-form {
+  display: grid;
+  gap: 16px;
+  padding: 20px 24px 24px;
+}
+
+.form-field {
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+  color: #3a4759;
+  font-weight: 700;
+}
+
+.form-field input,
+.form-field select,
+.form-field textarea {
+  border: 1px solid var(--fn-input-border, #d0d7e2);
+  border-radius: var(--fn-input-radius, 10px);
+  padding: 11px 14px;
+  font: inherit;
+  font-size: 14px;
+  background: var(--fn-input-bg, #f8f9fb);
+  color: var(--ink, #161b22);
+  box-shadow: var(--fn-input-shadow);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.form-field input:hover,
+.form-field select:hover,
+.form-field textarea:hover {
+  border-color: #b8c2d1;
+  background: #f4f6f9;
+}
+
+.form-field input:focus,
+.form-field select:focus,
+.form-field textarea:focus {
+  outline: none;
+  border-color: var(--fn-input-focus-border, #c0424f);
+  box-shadow: var(--fn-input-focus-ring);
+  background: #ffffff;
+}
+
+.form-field input::placeholder,
+.form-field textarea::placeholder {
+  color: #9aa5b4;
+  font-weight: 500;
+}
+
+.form-note {
+  font-size: 12px;
+  color: var(--muted, #5c6678);
+  margin: 2px 0 0;
+}
+
+/* ── Icon close button for modals ── */
+.mail-modal-header .icon-button {
+  appearance: none;
+  -webkit-appearance: none;
+  background: #f5f7fb;
+  border: 1px solid var(--fn-card-border, #e0e5ec);
+  font-size: 20px;
+  cursor: pointer;
+  color: #5c6678;
+  padding: 0;
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--fn-input-radius, 10px);
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+  flex-shrink: 0;
+}
+
+.mail-modal-header .icon-button:hover {
+  background: #eef3f9;
+  border-color: #bcc9d9;
+  transform: translateY(-1px);
+}
+
+/* ── Cloudinary URL input group ── */
+.cloudinary-url-input-group {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.cloudinary-url-input-group input {
+  flex: 1;
+  min-width: 0;
+}
+
+.cloudinary-url-input-group .secondary-btn {
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.mail-inline-upload {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 4px;
 }
 
 .mail-compose-form {

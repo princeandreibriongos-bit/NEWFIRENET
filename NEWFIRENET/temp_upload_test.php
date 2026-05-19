@@ -43,7 +43,7 @@ echo "Upload Response (HTTP $httpCode):\n\n";
 $data = json_decode($response, true);
 
 if ($httpCode === 200 && isset($data['secure_url'])) {
-    echo "✓ File uploaded successfully!\n\n";
+    echo "File uploaded successfully!\n\n";
     echo "Public ID: " . $data['public_id'] . "\n";
     echo "Secure URL: " . $data['secure_url'] . "\n";
     echo "Format: " . $data['format'] . "\n";

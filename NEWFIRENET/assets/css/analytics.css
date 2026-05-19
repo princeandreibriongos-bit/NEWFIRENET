@@ -1,11 +1,11 @@
 .analytics-shell {
-  --ana-text: #101828;
-  --ana-muted: #627087;
-  --ana-border: #d9e1ec;
-  --ana-shadow: 0 18px 42px rgba(15, 23, 42, 0.08);
-  --ana-brand: #b32034;
+  --ana-text: var(--ink, #101828);
+  --ana-muted: var(--muted, #627087);
+  --ana-border: var(--fn-card-border, #d9e1ec);
+  --ana-shadow: var(--fn-shadow-card);
+  --ana-brand: var(--brand, #b32034);
   --ana-brand-soft: rgba(179, 32, 52, 0.12);
-  --ana-success: #147a48;
+  --ana-success: var(--fn-green, #147a48);
   --ana-success-soft: rgba(20, 122, 72, 0.12);
   color: var(--ana-text);
   position: relative;
@@ -66,11 +66,10 @@
 
 .analytics-shell h2 {
   margin: 0 0 6px;
-  font-size: clamp(28px, 3.1vw, 42px);
+  font-size: var(--fn-heading-xl);
   line-height: 1.06;
   color: #0f1b30;
   letter-spacing: -0.03em;
-  font-family: "Sora", "Manrope", sans-serif;
 }
 
 .analytics-shell h3 {
@@ -525,7 +524,6 @@
   margin: 2px 0 6px;
   color: #0f1a30;
   letter-spacing: -0.03em;
-  font-family: "Sora", "Manrope", sans-serif;
 }
 
 .analytics-layout {

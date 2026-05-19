@@ -157,7 +157,7 @@
         if (!state.requests.length) {
             els.list.innerHTML = `
                 <div class="empty-state">
-                    <div class="empty-state-icon">📋</div>
+                    <div class="empty-state-icon"><i class="bi bi-inbox" aria-hidden="true"></i></div>
                     <p>No file requests found</p>
                 </div>
             `;
@@ -174,7 +174,7 @@
                     <span>From: ${escapeHtml(req.request_username || 'Unknown')}</span>
                     <span>${escapeHtml(req.origin_station_name || '')} → ${escapeHtml(req.target_station_name || '')}</span>
                     <span>${formatDate(req.created_at)}</span>
-                    ${req.is_confidential ? '<span>🔒 Confidential</span>' : ''}
+                    ${req.is_confidential ? '<span><i class="bi bi-lock-fill icon-inline" aria-hidden="true"></i>Confidential</span>' : ''}
                 </div>
             </div>
         `).join('');
@@ -235,7 +235,7 @@
             const levelClass = request.confidentiality_level === 'highly_confidential' ? 'highly' : '';
             els.confidentialBannerContainer.innerHTML = `
                 <div class="confidential-banner ${levelClass}">
-                    🔒 <strong>Confidential Information</strong><br>
+                    <i class="bi bi-shield-lock icon-inline" aria-hidden="true"></i><strong>Confidential Information</strong><br>
                     Level: ${request.confidentiality_level.replace(/_/g, ' ').toUpperCase()}
                 </div>
             `;
@@ -255,7 +255,7 @@
             els.detailFiles.innerHTML = files.map(file => `
                 <div class="file-item">
                     <div class="file-item-info">
-                        <div class="file-item-name">📎 ${escapeHtml(file.original_file_name)}</div>
+                        <div class="file-item-name"><i class="bi bi-paperclip icon-inline" aria-hidden="true"></i>${escapeHtml(file.original_file_name)}</div>
                         <div class="file-item-meta">
                             ${(file.file_size_bytes / 1024).toFixed(2)} KB • Uploaded by ${escapeHtml(file.uploader_name || 'Unknown')}
                         </div>
@@ -264,7 +264,7 @@
                             ${!file.download_allowed ? '<span class="restriction-tag">No Download</span>' : ''}
                             ${!file.print_allowed ? '<span class="restriction-tag">No Print</span>' : ''}
                         </div>
-                        ${file.cloudinary_url ? `<div class="file-item-cloudinary">☁️ Uploaded to Cloud</div>` : ''}
+                        ${file.cloudinary_url ? `<div class="file-item-cloudinary"><i class="bi bi-cloud-check icon-inline" aria-hidden="true"></i>Uploaded to Cloud</div>` : ''}
                     </div>
                     <div class="file-item-actions">
                         <a href="../uploads/file_requests/${file.stored_file_name}"
@@ -487,7 +487,7 @@
             // Refresh file list
             const fileDetail = document.createElement('div');
             fileDetail.className = 'file-item-cloudinary';
-            fileDetail.textContent = '☁️ Uploaded to Cloud';
+            fileDetail.innerHTML = '<i class="bi bi-cloud-check icon-inline" aria-hidden="true"></i>Uploaded to Cloud';
             button.parentElement.parentElement.querySelector('.file-item-restrictions').parentElement.appendChild(fileDetail);
 
         } catch (error) {

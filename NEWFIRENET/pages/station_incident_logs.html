@@ -55,10 +55,13 @@
     <p id="stationLogsUploadMessage" class="upload-success-message" hidden></p>
   </section>
 
-  <section class="portal-card">
-  <h3>Incident Logs For This Station</h3>
-    <table class="portal-table" id="stationLogsTable">
-      <thead>
+  <section class="portal-card station-logs-table-card">
+    <div class="logs-panel-head">
+      <h3>Incident Logs For This Station</h3>
+    </div>
+    <div class="logs-table-wrap">
+      <table class="logs-table" id="stationLogsTable">
+        <thead>
         <tr>
           <th>Date/Time</th>
           <th>Report ID</th>
@@ -76,6 +79,7 @@
           <td colspan="9" class="muted-text">Loading logs...</td>
         </tr>
       </tbody>
-    </table>
+      </table>
+    </div>
   </section>
 </section>

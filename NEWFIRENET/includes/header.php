@@ -12,7 +12,7 @@ if (!headers_sent()) {
   header('Referrer-Policy: no-referrer-when-downgrade');
   header('Permissions-Policy: geolocation=(), microphone=()');
   header('Strict-Transport-Security: max-age=31536000; includeSubDomains; preload');
-  header("Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://maps.googleapis.com https://www.gstatic.com https://accounts.google.com https://apis.google.com https://cdn.jsdelivr.net https://upload-widget.cloudinary.com https://product-uploads.s3.amazonaws.com https://unpkg.com https://js.cloudinary.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://upload-widget.cloudinary.com https://unpkg.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https:; connect-src 'self' https://maps.googleapis.com https://accounts.google.com https://www.googleapis.com https://api.cloudinary.com https://upload.cloudinary.com; frame-src 'self' https://accounts.google.com https://www.google.com;");
+  header("Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://maps.googleapis.com https://www.gstatic.com https://accounts.google.com https://apis.google.com https://cdn.jsdelivr.net https://upload-widget.cloudinary.com https://product-uploads.s3.amazonaws.com https://unpkg.com https://js.cloudinary.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net https://upload-widget.cloudinary.com https://unpkg.com; font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net data:; img-src 'self' data: https:; connect-src 'self' https://maps.googleapis.com https://accounts.google.com https://www.googleapis.com https://api.cloudinary.com https://upload.cloudinary.com; frame-src 'self' https://accounts.google.com https://www.google.com;");
 }
 
 $currentPath = (string) parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH);
@@ -114,6 +114,7 @@ if ($sessionUserId > 0) {
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
   <link rel="stylesheet" href="/firenet/NEWFIRENET/assets/css/style.css">
   <?php if (isset($pageStyles) && is_array($pageStyles)): ?>
     <?php foreach ($pageStyles as $stylePath): ?>
@@ -169,18 +170,18 @@ if ($sessionUserId > 0) {
               <div id="appsMenuPanel" class="apps-menu-panel" hidden>
                 <p class="apps-menu-title">Go to</p>
                 <div class="apps-menu-grid">
-                  <a class="apps-tile" href="<?php echo htmlspecialchars($dashboardPath); ?>"><span class="apps-tile-icon" aria-hidden="true">◆</span><span>Dashboard</span></a>
-                  <a class="apps-tile" href="<?php echo htmlspecialchars($reportsPath); ?>"><span class="apps-tile-icon" aria-hidden="true">▤</span><span>Reports</span></a>
-                  <a class="apps-tile" href="<?php echo htmlspecialchars($calendarPath); ?>"><span class="apps-tile-icon" aria-hidden="true">▦</span><span>Calendar</span></a>
-                  <a class="apps-tile" href="<?php echo htmlspecialchars($stationIncidentLogsPath); ?>"><span class="apps-tile-icon" aria-hidden="true">☰</span><span>Incident logs</span></a>
-                  <a class="apps-tile" href="<?php echo htmlspecialchars($fileRequestsPath); ?>"><span class="apps-tile-icon" aria-hidden="true">⎘</span><span>File requests</span></a>
-                  <a class="apps-tile" href="<?php echo htmlspecialchars($stationMailsPath); ?>"><span class="apps-tile-icon" aria-hidden="true">✉</span><span>Station mail</span></a>
-                  <a class="apps-tile" href="<?php echo htmlspecialchars($generalMailPath); ?>"><span class="apps-tile-icon" aria-hidden="true">✉</span><span>General mail</span></a>
-                  <a class="apps-tile" href="<?php echo htmlspecialchars($operationalMailPath); ?>"><span class="apps-tile-icon" aria-hidden="true">✉</span><span>Ops mail</span></a>
-                  <a class="apps-tile" href="<?php echo htmlspecialchars($analyticsPath); ?>"><span class="apps-tile-icon" aria-hidden="true">▣</span><span>Analytics</span></a>
-                  <a class="apps-tile" href="<?php echo htmlspecialchars($settingsPath); ?>"><span class="apps-tile-icon" aria-hidden="true">⚙</span><span>Settings</span></a>
+                  <a class="apps-tile" href="<?php echo htmlspecialchars($dashboardPath); ?>"><span class="apps-tile-icon" aria-hidden="true"><i class="bi bi-speedometer2"></i></span><span>Dashboard</span></a>
+                  <a class="apps-tile" href="<?php echo htmlspecialchars($reportsPath); ?>"><span class="apps-tile-icon" aria-hidden="true"><i class="bi bi-file-earmark-text"></i></span><span>Reports</span></a>
+                  <a class="apps-tile" href="<?php echo htmlspecialchars($calendarPath); ?>"><span class="apps-tile-icon" aria-hidden="true"><i class="bi bi-calendar3"></i></span><span>Calendar</span></a>
+                  <a class="apps-tile" href="<?php echo htmlspecialchars($stationIncidentLogsPath); ?>"><span class="apps-tile-icon" aria-hidden="true"><i class="bi bi-clipboard-data"></i></span><span>Incident logs</span></a>
+                  <a class="apps-tile" href="<?php echo htmlspecialchars($fileRequestsPath); ?>"><span class="apps-tile-icon" aria-hidden="true"><i class="bi bi-inbox"></i></span><span>File requests</span></a>
+                  <a class="apps-tile" href="<?php echo htmlspecialchars($stationMailsPath); ?>"><span class="apps-tile-icon" aria-hidden="true"><i class="bi bi-envelope"></i></span><span>Station mail</span></a>
+                  <a class="apps-tile" href="<?php echo htmlspecialchars($generalMailPath); ?>"><span class="apps-tile-icon" aria-hidden="true"><i class="bi bi-envelope-paper"></i></span><span>General mail</span></a>
+                  <a class="apps-tile" href="<?php echo htmlspecialchars($operationalMailPath); ?>"><span class="apps-tile-icon" aria-hidden="true"><i class="bi bi-envelope-exclamation"></i></span><span>Ops mail</span></a>
+                  <a class="apps-tile" href="<?php echo htmlspecialchars($analyticsPath); ?>"><span class="apps-tile-icon" aria-hidden="true"><i class="bi bi-graph-up"></i></span><span>Analytics</span></a>
+                  <a class="apps-tile" href="<?php echo htmlspecialchars($settingsPath); ?>"><span class="apps-tile-icon" aria-hidden="true"><i class="bi bi-gear"></i></span><span>Settings</span></a>
                   <?php if (in_array($sessionRoleKey, ['admin', 'superadmin'], true)): ?>
-                    <a class="apps-tile" href="<?php echo htmlspecialchars($usersPath); ?>"><span class="apps-tile-icon" aria-hidden="true">U</span><span>Users</span></a>
+                    <a class="apps-tile" href="<?php echo htmlspecialchars($usersPath); ?>"><span class="apps-tile-icon" aria-hidden="true"><i class="bi bi-people"></i></span><span>Users</span></a>
                   <?php endif; ?>
                 </div>
               </div>

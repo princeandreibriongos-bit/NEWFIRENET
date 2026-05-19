@@ -282,12 +282,12 @@
     });
 
     const fullUrl = apiUrl + '?' + params.toString();
-    console.log('🔍 API URL:', fullUrl);
-    console.log('🔍 Context:', context);
+    console.log('API URL:', fullUrl);
+    console.log('Context:', context);
     tableBody.innerHTML = '<tr><td colspan="9" class="muted-text">Loading logs...</td></tr>';
 
     try {
-      console.log('📡 Starting fetch with 10s timeout...');
+      console.log('Starting fetch with 10s timeout...');
 
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000);
@@ -299,10 +299,10 @@
       });
 
       clearTimeout(timeoutId);
-      console.log('✓ Response received. Status:', response.status, response.statusText);
+      console.log('Response received. Status:', response.status, response.statusText);
 
       const text = await response.text();
-      console.log('📝 Response body (first 500 chars):', text.substring(0, 500));
+      console.log('Response body (first 500 chars):', text.substring(0, 500));
 
       if (!text) {
         throw new Error('Empty response from server');
@@ -312,7 +312,7 @@
       try {
         payload = JSON.parse(text);
       } catch (parseError) {
-        console.error('❌ Failed to parse JSON:', parseError);
+        console.error('Failed to parse JSON:', parseError);
         throw new Error('Invalid JSON: ' + text.substring(0, 200));
       }
 
@@ -324,20 +324,20 @@
         throw new Error(payload.message || 'Backend returned ok=false');
       }
 
-      console.log('✓ Got', payload.logs?.length || 0, 'logs from backend');
+      console.log('Got', payload.logs?.length || 0, 'logs from backend');
       renderRows(payload.logs || []);
       updateKpis(payload.logs || [], payload);
       uploadConfig = payload.uploadConfig || { cloudinary: { available: false, missing: [] } };
       refreshUploadReportOptions(payload.logs || []);
       refreshCloudinaryHint();
       summary.textContent = (context.stationName || 'Station') + ' has ' + (payload.logs || []).length + ' incident log(s) in this view.';
-      console.log('✅ Done!');
+      console.log('Done.');
     } catch (error) {
       if (error.name === 'AbortError') {
-        console.error('❌ Request timeout after 10 seconds');
+        console.error('Request timeout after 10 seconds');
         tableBody.innerHTML = '<tr><td colspan="9" class="muted-text">Request timeout - server not responding</td></tr>';
       } else {
-        console.error('❌ Error:', error.message);
+        console.error('Error:', error.message);
         tableBody.innerHTML = '<tr><td colspan="9" class="muted-text">Error: ' + escapeHtml(error.message) + '</td></tr>';
       }
       summary.textContent = 'Error: ' + error.message;
@@ -505,7 +505,7 @@
             } else if (result && result.event === 'success') {
               const messageEl = document.getElementById('stationLogsUploadMessage');
               if (messageEl) {
-                messageEl.textContent = '✓ File uploaded successfully to: ' + folderPath;
+                messageEl.textContent = 'File uploaded successfully to: ' + folderPath;
                 messageEl.hidden = false;
                 messageEl.style.color = '#1f5e2d';
                 setTimeout(function() {

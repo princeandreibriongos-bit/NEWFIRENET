@@ -1,16 +1,18 @@
-/* Global portal theme layer to make non-dashboard pages feel dashboard-like. */
+/* Global portal theme layer — unified card/form/button language.
+   All values reference the global --fn-* tokens from style.css. */
+
 :root {
-  --portal-surface: #ffffff;
+  --portal-surface: var(--panel, #ffffff);
   --portal-surface-soft: #f8fafc;
-  --portal-border: #dde2e9;
-  --portal-shadow: 0 10px 22px rgba(17, 18, 22, 0.08);
-  --portal-shadow-hover: 0 14px 28px rgba(17, 18, 22, 0.14);
-  --portal-text: #17202d;
-  --portal-muted: #5a687c;
-  --portal-accent: #bc1f2d;
-  --portal-accent-deep: #8f1722;
-  --portal-accent-soft: #fde8ea;
-  --portal-radius: 14px;
+  --portal-border: var(--fn-card-border, #dde2e9);
+  --portal-shadow: var(--fn-shadow-card);
+  --portal-shadow-hover: var(--fn-shadow-card-hover);
+  --portal-text: var(--ink, #17202d);
+  --portal-muted: var(--muted, #5a687c);
+  --portal-accent: var(--brand, #bc1f2d);
+  --portal-accent-deep: var(--brand-dark, #8f1722);
+  --portal-accent-soft: var(--brand-soft, #fde8ea);
+  --portal-radius: var(--fn-radius-md, 14px);
 }
 
 body {
@@ -39,7 +41,7 @@ body {
 .settings-shell > h2,
 .analytics-shell > h2,
 .calendar-shell > h2 {
-  font-size: clamp(2rem, 4vw, 2.4rem);
+  font-size: var(--fn-heading-xl);
   line-height: 1.05;
   letter-spacing: -0.03em;
   color: var(--portal-text);
@@ -49,7 +51,7 @@ body {
   color: var(--portal-muted);
 }
 
-/* Shared card language */
+/* ── Shared card language ── */
 .portal-card,
 .users-filter-card,
 .users-table-card,
@@ -63,25 +65,11 @@ body {
 .analytics-shell .portal-card {
   border: 1px solid var(--portal-border);
   border-radius: var(--portal-radius);
-  background: linear-gradient(180deg, #ffffff 0%, #fcfcfd 100%);
+  background: var(--fn-card-bg);
   box-shadow: var(--portal-shadow);
   position: relative;
   overflow: hidden;
-}
-
-.portal-card::before,
-.users-filter-card::before,
-.users-table-card::before,
-.users-brgy-panel::before,
-.settings-profile-card::before,
-.settings-section-card::before,
-.calendar-shell .portal-card::before,
-.analytics-shell .portal-card::before {
-  content: '';
-  position: absolute;
-  inset: 0 0 auto 0;
-  height: 3px;
-  background: linear-gradient(90deg, rgba(188, 31, 45, 0.72) 0%, rgba(188, 31, 45, 0.16) 45%, rgba(188, 31, 45, 0.02) 100%);
+  transition: var(--fn-transition-lift);
 }
 
 .portal-card:hover,
@@ -92,10 +80,10 @@ body {
 .calendar-shell .portal-card:hover,
 .analytics-shell .portal-card:hover {
   box-shadow: var(--portal-shadow-hover);
-  transform: translateY(-2px);
+  transform: var(--fn-hover-lift);
 }
 
-/* Shared table styling */
+/* ── Shared table styling ── */
 .portal-table,
 .users-table {
   border-collapse: separate;
@@ -136,7 +124,7 @@ body {
   border-color: #e3e8f0;
 }
 
-/* Shared form styling */
+/* ── Shared form styling ── */
 .reports-form input,
 .reports-form select,
 .reports-form textarea,
@@ -145,16 +133,47 @@ body {
 .users-form input,
 .users-form select,
 .users-form textarea,
+.users-filter-card input,
+.users-filter-card select,
+.users-brgy-form input,
+.users-brgy-form select,
+.users-brgy-form textarea,
 .calendar-shell input,
 .calendar-shell select,
 .analytics-shell input,
 .analytics-shell select {
-  border: 1px solid #d9dee6;
-  border-radius: 10px;
-  padding: 10px 12px;
+  box-sizing: border-box;
+  width: 100%;
+  border: 1px solid var(--fn-input-border);
+  border-radius: var(--fn-input-radius);
+  padding: 11px 14px;
   font: inherit;
-  background: #ffffff;
-  color: #171b22;
+  font-size: 14px;
+  background: var(--fn-input-bg, #f8f9fb);
+  color: var(--ink, #171b22);
+  box-shadow: var(--fn-input-shadow);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.reports-form input:hover,
+.reports-form select:hover,
+.reports-form textarea:hover,
+.settings-form input:hover,
+.settings-form select:hover,
+.users-form input:hover,
+.users-form select:hover,
+.users-form textarea:hover,
+.users-filter-card input:hover,
+.users-filter-card select:hover,
+.users-brgy-form input:hover,
+.users-brgy-form select:hover,
+.users-brgy-form textarea:hover,
+.calendar-shell input:hover,
+.calendar-shell select:hover,
+.analytics-shell input:hover,
+.analytics-shell select:hover {
+  border-color: #b8c2d1;
+  background: #f4f6f9;
 }
 
 .reports-form input:focus,
@@ -165,16 +184,36 @@ body {
 .users-form input:focus,
 .users-form select:focus,
 .users-form textarea:focus,
+.users-filter-card input:focus,
+.users-filter-card select:focus,
+.users-brgy-form input:focus,
+.users-brgy-form select:focus,
+.users-brgy-form textarea:focus,
 .calendar-shell input:focus,
 .calendar-shell select:focus,
 .analytics-shell input:focus,
 .analytics-shell select:focus {
   outline: none;
-  border-color: #bc1f2d;
-  box-shadow: 0 0 0 3px rgba(188, 31, 45, 0.15);
+  border-color: var(--fn-input-focus-border);
+  box-shadow: var(--fn-input-focus-ring);
+  background: #ffffff;
 }
 
-/* Shared button polish */
+.reports-form input::placeholder,
+.reports-form textarea::placeholder,
+.settings-form input::placeholder,
+.users-form input::placeholder,
+.users-form textarea::placeholder,
+.users-filter-card input::placeholder,
+.users-brgy-form input::placeholder,
+.users-brgy-form textarea::placeholder,
+.calendar-shell input::placeholder,
+.analytics-shell input::placeholder {
+  color: #9aa5b4;
+  font-weight: 500;
+}
+
+/* ── Shared button polish ── */
 .primary-btn,
 .secondary-btn,
 .ghost-btn,
@@ -200,7 +239,7 @@ body {
   box-shadow: 0 12px 22px rgba(151, 28, 40, 0.34);
 }
 
-/* Shared list and utility cards */
+/* ── Shared list and utility cards ── */
 .simple-list {
   margin: 0;
   padding-left: 18px;
@@ -213,7 +252,7 @@ body {
   line-height: 1.45;
 }
 
-/* Shared settings / reports layout details */
+/* ── Shared settings / reports layout details ── */
 .reports-info-card,
 .ongoing-incidents-hint,
 .settings-admin-note,
@@ -222,8 +261,8 @@ body {
 .settings-toggle-item,
 .users-toggle-item,
 .users-brgy-toggle {
-  border-color: #dbe2ec;
-  background: #f7f9fc;
+  border-color: var(--fn-card-border, #e0e5ec);
+  background: var(--fn-input-bg, #f8f9fb);
 }
 
 .settings-grid,
@@ -248,16 +287,16 @@ body {
   color: var(--portal-text);
 }
 
-/* Page-specific shell refinements */
+/* ── Page-specific shell refinements ── */
 .reports-toolbar {
   margin: 2px 0 4px;
 }
 
 .users-hero,
 .settings-hero {
-  border: 1px solid var(--portal-border);
+  border: 1px solid var(--fn-card-border, #e0e5ec);
   border-radius: var(--portal-radius);
-  background: linear-gradient(165deg, #ffffff 0%, #f8f9fb 58%, #f1f3f6 100%);
+  background: linear-gradient(165deg, #ffffff 0%, #f9fafb 60%, #f3f5f8 100%);
   box-shadow: var(--portal-shadow);
 }
 

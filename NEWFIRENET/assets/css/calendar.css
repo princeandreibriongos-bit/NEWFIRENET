@@ -1,8 +1,8 @@
 .calendar-shell h2 {
   margin: 0 0 8px;
-  font-size: 38px;
+  font-size: var(--fn-heading-xl);
   line-height: 1.1;
-  color: #171b22;
+  color: var(--ink, #171b22);
 }
 
 .calendar-hero {
@@ -67,74 +67,34 @@
 .calendar-side-card,
 .calendar-hero,
 .calendar-modal-dialog {
-  border: 1px solid #dde2e9;
-  border-radius: 16px;
-  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
-  box-shadow: 0 12px 28px rgba(17, 18, 22, 0.08);
+  border: 1px solid var(--fn-card-border, #dde2e9);
+  border-radius: var(--fn-radius-lg, 16px);
+  background: var(--fn-card-bg);
+  box-shadow: var(--fn-shadow-card);
 }
 
-.portal-card {
-  border: 1px solid #dde2e9;
-  border-radius: 16px;
-  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
-  box-shadow: 0 12px 28px rgba(17, 18, 22, 0.08);
+/* .portal-card is defined in portal-theme.css — local overrides only */
+.calendar-shell .portal-card {
   padding: 16px;
-  position: relative;
-  overflow: hidden;
 }
 
-.portal-card::before {
-  content: '';
-  position: absolute;
-  inset: 0 0 auto 0;
-  height: 3px;
-  background: linear-gradient(90deg, rgba(188, 31, 45, 0.75) 0%, rgba(188, 31, 45, 0.18) 48%, rgba(188, 31, 45, 0.02) 100%);
+/* .primary-btn / .secondary-btn / .ghost-btn are defined in style.css */
+.calendar-modal-close {
+  border-radius: 12px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
 }
 
-.portal-card:hover {
-  box-shadow: 0 16px 34px rgba(17, 18, 22, 0.12);
-}
-
-.primary-btn,
-.secondary-btn,
 .calendar-modal-close {
   appearance: none;
   -webkit-appearance: none;
-  border-radius: 11px;
+  border-radius: 12px;
   padding: 10px 16px;
   font-size: 14px;
   font-weight: 700;
   border: 1px solid transparent;
   cursor: pointer;
   transition: transform 0.16s ease, box-shadow 0.16s ease, background 0.16s ease, border-color 0.16s ease, color 0.16s ease;
-}
-
-.primary-btn {
-  background: linear-gradient(135deg, #c12635 0%, #971c28 100%);
-  border-color: #971c28;
-  color: #ffffff;
-  box-shadow: 0 8px 18px rgba(151, 28, 40, 0.28);
-}
-
-.primary-btn:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 12px 22px rgba(151, 28, 40, 0.34);
-}
-
-.secondary-btn {
-  background: #f8fafd;
-  border-color: #d4dde8;
-  color: #243042;
-}
-
-.secondary-btn:hover {
-  background: #eef3f9;
-  border-color: #bcc9d9;
-  transform: translateY(-1px);
-}
-
-.muted-text {
-  color: #5e6570;
 }
 
 .calendar-board {
@@ -743,12 +703,12 @@
 .calendar-shell {
   --cal-bg: #f3f6fb;
   --cal-surface: #ffffff;
-  --cal-border: #d7deea;
-  --cal-text: #101828;
-  --cal-muted: #627087;
-  --cal-brand: #b32034;
-  --cal-shadow: 0 18px 38px rgba(15, 23, 42, 0.08);
-  font-family: "Manrope", "Sora", "Nunito Sans", sans-serif;
+  --cal-border: var(--fn-card-border, #d7deea);
+  --cal-text: var(--ink, #101828);
+  --cal-muted: var(--muted, #627087);
+  --cal-brand: var(--brand, #b32034);
+  --cal-shadow: var(--fn-shadow-card);
+  font-family: "Manrope", "Nunito Sans", sans-serif;
   color: var(--cal-text);
 }
 
@@ -759,10 +719,6 @@
   box-shadow: var(--cal-shadow);
 }
 
-.calendar-shell .portal-card::before {
-  height: 2px;
-  background: linear-gradient(90deg, rgba(179, 32, 52, 0.58) 0%, rgba(179, 32, 52, 0.15) 52%, rgba(179, 32, 52, 0.01) 100%);
-}
 
 .calendar-shell .portal-card:hover {
   box-shadow: 0 22px 44px rgba(15, 23, 42, 0.11);
@@ -774,8 +730,7 @@
 }
 
 .calendar-shell h2 {
-  font-family: "Sora", "Manrope", sans-serif;
-  font-size: clamp(28px, 3.2vw, 42px);
+  font-size: var(--fn-heading-xl);
   letter-spacing: -0.03em;
   margin-bottom: 4px;
 }
@@ -784,9 +739,6 @@
   gap: 10px;
 }
 
-.primary-btn,
-.secondary-btn,
-.ghost-btn,
 .calendar-modal-close {
   border-radius: 12px;
   font-weight: 700;

@@ -17,6 +17,80 @@
   --command: #121a24;
   --glass: rgba(255, 255, 255, 0.78);
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* ── Unified design tokens ── */
+  --fn-radius-sm: 10px;
+  --fn-radius-md: 14px;
+  --fn-radius-lg: 16px;
+  --fn-radius-pill: 999px;
+
+  --fn-card-bg: linear-gradient(180deg, #ffffff 0%, #fafbfc 100%);
+  --fn-card-border: #e0e5ec;
+  --fn-shadow-card: 0 1px 2px rgba(15, 23, 42, 0.04), 0 6px 16px rgba(15, 23, 42, 0.06);
+  --fn-shadow-card-hover: 0 2px 4px rgba(15, 23, 42, 0.05), 0 12px 28px rgba(15, 23, 42, 0.10);
+  --fn-shadow-modal: 0 4px 6px rgba(10, 21, 37, 0.04), 0 24px 50px rgba(10, 21, 37, 0.22);
+
+  --fn-backdrop: rgba(14, 18, 24, 0.48);
+
+  --fn-input-border: #d0d7e2;
+  --fn-input-radius: 10px;
+  --fn-input-bg: #f8f9fb;
+  --fn-input-focus-ring: 0 0 0 3px rgba(188, 31, 45, 0.10);
+  --fn-input-focus-border: #c0424f;
+  --fn-input-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.06);
+
+  --fn-heading-xl: clamp(2rem, 3.2vw, 2.6rem);
+  --fn-heading-lg: clamp(1.5rem, 2.6vw, 2rem);
+  --fn-heading-md: clamp(1.1rem, 2vw, 1.4rem);
+
+  --fn-transition-lift: transform 0.16s ease, box-shadow 0.16s ease;
+  --fn-hover-lift: translateY(-2px);
+
+  --fn-green: #16a34a;
+  --fn-red: #dc2626;
+  --fn-amber: #d97e00;
+  --fn-blue: #1d74b8;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+/* ── Global selection ── */
+::selection {
+  background: rgba(179, 25, 38, 0.18);
+  color: var(--ink);
+}
+
+/* ── Global focus-visible ── */
+:focus-visible {
+  outline: 2px solid rgba(179, 25, 38, 0.4);
+  outline-offset: 2px;
+}
+
+/* ── Scrollbar styling (Webkit) ── */
+::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(27, 36, 48, 0.14);
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(27, 36, 48, 0.24);
+}
+
+/* Firefox scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(27, 36, 48, 0.14) transparent;
 }
 
 @keyframes fn-fade-in {
@@ -38,11 +112,13 @@ body {
   color: var(--ink);
   background-color: var(--bg-bottom);
   background-image:
-    radial-gradient(900px 520px at 8% -8%, rgba(179, 25, 38, 0.11), transparent 55%),
-    radial-gradient(700px 480px at 92% 0%, rgba(21, 32, 43, 0.09), transparent 50%),
-    radial-gradient(520px 400px at 50% 100%, rgba(201, 162, 77, 0.06), transparent 45%),
+    radial-gradient(900px 520px at 8% -8%, rgba(21, 32, 43, 0.06), transparent 55%),
+    radial-gradient(700px 480px at 92% 0%, rgba(21, 32, 43, 0.05), transparent 50%),
+    radial-gradient(520px 400px at 50% 100%, rgba(201, 162, 77, 0.04), transparent 45%),
     linear-gradient(165deg, var(--bg-top) 0%, var(--bg-bottom) 100%);
   background-attachment: fixed;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 body.is-authenticated .app-main {
@@ -55,13 +131,14 @@ body.is-authenticated .app-main {
 .modal-close-btn {
   appearance: none;
   -webkit-appearance: none;
-  border-radius: 11px;
-  padding: 10px 16px;
-  font-size: 14px;
+  border-radius: var(--fn-input-radius);
+  padding: 10px 18px;
+  font-size: 13.5px;
   font-weight: 700;
+  letter-spacing: 0.01em;
   border: 1px solid transparent;
   cursor: pointer;
-  transition: transform 0.16s ease, box-shadow 0.16s ease, background 0.16s ease, border-color 0.16s ease, color 0.16s ease;
+  transition: transform 0.18s var(--ease-out), box-shadow 0.18s var(--ease-out), background 0.18s var(--ease-out), border-color 0.18s var(--ease-out), color 0.18s var(--ease-out);
 }
 
 .primary-btn {
@@ -78,15 +155,17 @@ body.is-authenticated .app-main {
 
 .secondary-btn,
 .ghost-btn {
-  background: #f8fafd;
+  background: linear-gradient(180deg, #ffffff 0%, #f5f7fb 100%);
   border-color: #d4dde8;
   color: #243042;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
 }
 
 .secondary-btn:hover,
 .ghost-btn:hover {
-  background: #eef3f9;
+  background: linear-gradient(180deg, #ffffff 0%, #eef3fa 100%);
   border-color: #bcc9d9;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
   transform: translateY(-1px);
 }
 
@@ -173,19 +252,19 @@ button[class='']:disabled {
   position: sticky;
   top: 0;
   z-index: 40;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.92) 0%, rgba(248, 249, 252, 0.88) 100%);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border-bottom: 1px solid var(--line);
-  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.7) inset, 0 8px 28px rgba(18, 26, 36, 0.06);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.95) 0%, rgba(248, 249, 252, 0.92) 100%);
+  backdrop-filter: blur(16px) saturate(1.2);
+  -webkit-backdrop-filter: blur(16px) saturate(1.2);
+  border-bottom: 1px solid rgba(27, 36, 48, 0.06);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.7) inset, 0 4px 20px rgba(18, 26, 36, 0.04);
 }
 
 .app-header::after {
   content: '';
   display: block;
-  height: 2px;
-  background: linear-gradient(90deg, transparent 0%, var(--brand) 18%, var(--crest-gold) 50%, var(--brand) 82%, transparent 100%);
-  opacity: 0.85;
+  height: 1.5px;
+  background: linear-gradient(90deg, transparent 0%, rgba(21, 32, 43, 0.12) 20%, rgba(201, 162, 77, 0.35) 50%, rgba(21, 32, 43, 0.12) 80%, transparent 100%);
+  opacity: 0.7;
 }
 
 .app-header-inner {
@@ -230,8 +309,8 @@ button[class='']:disabled {
 
 .app-brand:hover {
   text-decoration: none;
-  background: rgba(179, 25, 38, 0.06);
-  box-shadow: 0 0 0 1px rgba(179, 25, 38, 0.12);
+  background: rgba(27, 36, 48, 0.04);
+  box-shadow: 0 0 0 1px rgba(27, 36, 48, 0.08);
 }
 
 .brand-mark {
@@ -320,9 +399,10 @@ button[class='']:disabled {
 .ribbon-pill:hover {
   text-decoration: none;
   background: #ffffff;
-  border-color: rgba(179, 25, 38, 0.22);
-  color: var(--brand-dark);
+  border-color: rgba(27, 36, 48, 0.14);
+  color: var(--ink);
   transform: translateY(-1px);
+  box-shadow: 0 3px 10px rgba(18, 26, 36, 0.06);
 }
 
 .ribbon-pill.is-active {
@@ -412,9 +492,9 @@ nav a:hover {
 
 .quick-action-btn:hover {
   transform: translateY(-1px);
-  background: #fafbfc;
-  border-color: rgba(179, 25, 38, 0.25);
-  color: var(--brand-dark);
+  background: #f5f7fb;
+  border-color: rgba(27, 36, 48, 0.16);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
 }
 
 .quick-mail-btn {
@@ -433,6 +513,12 @@ nav a:hover {
   width: 18px;
   height: 18px;
   display: block;
+}
+
+.icon-inline {
+  display: inline-block;
+  margin-right: 0.45rem;
+  vertical-align: -0.08em;
 }
 
 .header-profile-icon {
@@ -549,7 +635,7 @@ nav a:hover {
 
 .apps-tile:hover {
   transform: translateY(-2px);
-  border-color: rgba(179, 25, 38, 0.28);
+  border-color: rgba(27, 36, 48, 0.14);
   box-shadow: 0 8px 18px rgba(18, 26, 36, 0.08);
   text-decoration: none;
 }
@@ -674,8 +760,8 @@ nav a:hover {
   border-radius: 16px;
   padding: 0.55rem 0.5rem 0.45rem;
   box-shadow:
-    0 0 0 1px rgba(201, 162, 77, 0.12),
-    0 18px 40px rgba(8, 12, 18, 0.45);
+    0 0 0 1px rgba(255, 255, 255, 0.04),
+    0 18px 40px rgba(8, 12, 18, 0.42);
   position: sticky;
   top: calc(var(--header-h) + 10px);
   align-self: flex-start;
@@ -879,10 +965,10 @@ nav.sidebar-nav > * {
 }
 
 .sidebar-link.is-active {
-  border-color: rgba(201, 162, 77, 0.45);
-  background: linear-gradient(90deg, rgba(179, 25, 38, 0.35) 0%, rgba(255, 255, 255, 0.08) 100%);
+  border-color: rgba(255, 255, 255, 0.12);
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0.04) 100%);
   color: #ffffff;
-  box-shadow: inset 3px 0 0 var(--crest-gold);
+  box-shadow: inset 3px 0 0 rgba(201, 162, 77, 0.65);
 }
 
 .sidebar-link-disabled {

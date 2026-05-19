@@ -54,7 +54,7 @@ function ensureCloudinaryLoaded(callback, urlIndex) {
     console.log('Script loaded from:', url);
     setTimeout(function() {
       if (isCloudinaryReady()) {
-        console.log('✓ Cloudinary is now available');
+        console.log('Cloudinary is now available');
         if (typeof callback === 'function') {
           callback(true);
         }
@@ -132,7 +132,7 @@ function testCloudinaryUrls() {
 function ensureCloudinaryNamespace() {
   if (typeof window.cloudinary === 'undefined' && typeof window.CloudinaryUploadWidget !== 'undefined') {
     window.cloudinary = window.CloudinaryUploadWidget;
-    console.log('✓ Polyfilled window.cloudinary from CloudinaryUploadWidget');
+    console.log('Polyfilled window.cloudinary from CloudinaryUploadWidget');
   }
 }
 
