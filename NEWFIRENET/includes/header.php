@@ -41,6 +41,35 @@ $sidebarMailOpen = in_array(
 $sessionUserId = (int) ($sessionUser['user_id'] ?? 0);
 $sessionStationName = 'Station ' . $sessionStationId;
 $headerProfilePhotoUrl = '';
+$headerProfileInitials = 'FN';
+
+function firenet_build_initials(string $primary, string $fallback): string {
+  $source = trim($primary) !== '' ? $primary : $fallback;
+  $clean = preg_replace('/[^A-Za-z0-9\s]+/', ' ', $source) ?? '';
+  $parts = preg_split('/\s+/', trim($clean)) ?: [];
+  $parts = array_values(array_filter($parts, 'strlen'));
+
+  if (count($parts) >= 2) {
+    $initials = substr($parts[0], 0, 1) . substr($parts[1], 0, 1);
+  } elseif (count($parts) === 1) {
+    $initials = substr($parts[0], 0, 2);
+  } else {
+    $initials = 'FN';
+  }
+
+  return strtoupper($initials);
+}
+$roleLabelForInitials = $sessionRole;
+if ($sessionRoleKey === 'superadmin') {
+  $roleLabelForInitials = 'Super Admin';
+}
+$usernameKey = strtolower(trim($sessionUsername));
+$roleLabelKey = strtolower(str_replace(' ', '', $roleLabelForInitials));
+$initialsSource = $sessionUsername;
+if ($usernameKey === $sessionRoleKey || $usernameKey === $roleLabelKey) {
+  $initialsSource = $roleLabelForInitials;
+}
+$headerProfileInitials = firenet_build_initials($initialsSource, $roleLabelForInitials);
 
 if ($sessionStationId > 0) {
   try {
@@ -180,7 +209,7 @@ if ($sessionUserId > 0) {
               <button type="button" class="quick-action-btn profile-btn" id="profileMenuToggle" aria-expanded="false" aria-controls="profileMenuPanel" title="Account menu" aria-label="Account menu">
                 <span class="quick-icon header-profile-icon" aria-hidden="true">
                   <img id="headerProfilePhoto" class="header-profile-photo" src="<?php echo htmlspecialchars($headerProfilePhotoUrl); ?>" alt=""<?php echo $headerProfilePhotoUrl === '' ? ' hidden' : ''; ?>>
-                  <svg id="headerProfileFallbackIcon" viewBox="0 0 24 24" focusable="false" aria-hidden="true"<?php echo $headerProfilePhotoUrl !== '' ? ' hidden' : ''; ?>><path d="M12 12a4.5 4.5 0 1 0-4.5-4.5A4.5 4.5 0 0 0 12 12zm0 2c-4.2 0-8 2.1-8 4.9V21h16v-2.1c0-2.8-3.8-4.9-8-4.9z" fill="currentColor"></path></svg>
+                  <span id="headerProfileInitials" class="header-profile-initials" aria-hidden="true"<?php echo $headerProfilePhotoUrl !== '' ? ' hidden' : ''; ?>><?php echo htmlspecialchars($headerProfileInitials); ?></span>
                 </span>
                 <span class="online-dot" aria-hidden="true"></span>
               </button>

@@ -1,20 +1,88 @@
+.station-logs-shell {
+  --logs-accent: #bc1f2d;
+  --logs-accent-soft: rgba(188, 31, 45, 0.16);
+  --logs-deep: #15202b;
+  display: grid;
+  gap: 16px;
+  position: relative;
+  padding: 6px 2px 24px;
+  isolation: isolate;
+}
+
+.station-logs-shell::before {
+  content: '';
+  position: absolute;
+  inset: -30px 20% auto 0;
+  height: 160px;
+  background: transparent;
+  z-index: -1;
+  pointer-events: none;
+}
+
+.station-logs-shell::after {
+  content: '';
+  position: absolute;
+  inset: auto 0 -40px 40%;
+  height: 180px;
+  background: transparent;
+  z-index: -1;
+  pointer-events: none;
+}
+
 .station-logs-shell h2 {
   margin: 0;
-  font-size: clamp(1.8rem, 2.2vw, 2.2rem);
+  font-size: clamp(2rem, 3vw, 2.6rem);
+  letter-spacing: -0.03em;
+  color: var(--logs-deep);
+}
+
+.station-logs-shell > .muted-text {
+  max-width: 760px;
+  font-size: 0.95rem;
 }
 
 .station-logs-kpis {
   margin-top: 14px;
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 10px;
+  gap: 14px;
 }
 
 .station-logs-kpi {
   background: linear-gradient(180deg, #ffffff 0%, #f7f9fc 100%);
   border: 1px solid #d8e0ea;
   border-radius: 12px;
-  padding: 10px 12px;
+  padding: 12px 14px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 12px 24px rgba(18, 26, 36, 0.08);
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+  animation: stationLogsRise 0.4s var(--ease-out) both;
+}
+
+.station-logs-kpi::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 3px;
+  background: linear-gradient(90deg, rgba(188, 31, 45, 0.68) 0%, rgba(188, 31, 45, 0.14) 55%, transparent 100%);
+}
+
+.station-logs-kpi:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 30px rgba(18, 26, 36, 0.14);
+}
+
+.station-logs-kpi:nth-child(2) {
+  animation-delay: 0.05s;
+}
+
+.station-logs-kpi:nth-child(3) {
+  animation-delay: 0.1s;
+}
+
+.station-logs-kpi:nth-child(4) {
+  animation-delay: 0.15s;
 }
 
 .station-logs-kpi--active {
@@ -56,9 +124,10 @@
 .station-logs-controls {
   display: flex;
   flex-wrap: wrap;
-  align-items: end;
+  align-items: flex-end;
   gap: 12px;
   margin-top: 16px;
+  padding: 16px 18px;
 }
 
 .station-logs-controls label {
@@ -77,10 +146,50 @@
   padding: 8px 10px;
   font: inherit;
   background: #fff;
+  transition: border-color 0.16s ease, box-shadow 0.16s ease;
+}
+
+.station-logs-controls select:focus {
+  outline: none;
+  border-color: var(--logs-accent);
+  box-shadow: 0 0 0 3px var(--logs-accent-soft);
 }
 
 .station-logs-upload h3 {
   margin: 0;
+}
+
+.station-logs-upload {
+  padding: 16px 18px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.92) 0%, rgba(246, 248, 252, 0.95) 100%);
+}
+
+#stationLogsCloudinaryContainer {
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px dashed rgba(188, 31, 45, 0.35);
+  background: rgba(255, 255, 255, 0.7);
+}
+
+#stationLogsCloudinaryMessage {
+  margin: 0;
+  color: #6b778b;
+}
+
+#stationLogsUploadMessage {
+  margin: 12px 0 0;
+  font-weight: 700;
+}
+
+.upload-success-message {
+  padding: 12px 16px;
+  margin: 12px 0;
+  background-color: #f0f8f5;
+  border: 1px solid #1f5e2d;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  animation: stationLogsRise 0.3s ease-out;
 }
 
 .station-logs-upload-grid {
@@ -136,13 +245,17 @@
 #stationLogsTable {
   margin-top: 12px;
   border-collapse: collapse;
+  width: 100%;
+  border-radius: 12px;
+  overflow: hidden;
 }
 
 #stationLogsTable th,
 #stationLogsTable td {
   vertical-align: top;
   border-bottom: 1px solid #e6ebf1;
-  padding: 10px 8px;
+  padding: 12px 10px;
+  font-size: 0.92rem;
 }
 
 #stationLogsTable thead th {
@@ -158,6 +271,7 @@
 .incident-title {
   font-weight: 700;
   color: #192335;
+  font-size: 0.98rem;
 }
 
 .incident-meta {
@@ -170,10 +284,40 @@
 }
 
 .incident-meta span {
-  background: #f1f4f8;
-  border: 1px solid #e1e7ef;
+  background: #f3f6fb;
+  border: 1px solid #dde5f0;
   border-radius: 999px;
   padding: 2px 8px;
+}
+
+.table-action-btn {
+  border: 1px solid #d4dde8;
+  background: #f8fafd;
+  color: #243042;
+  border-radius: 10px;
+  padding: 7px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.16s ease, box-shadow 0.16s ease, background 0.16s ease, border-color 0.16s ease, color 0.16s ease;
+}
+
+.table-action-btn:hover {
+  background: #eef3f9;
+  border-color: #bcc9d9;
+  transform: translateY(-1px);
+}
+
+.table-action-btn.upload {
+  margin-top: 6px;
+  border-color: rgba(188, 31, 45, 0.35);
+  background: linear-gradient(135deg, rgba(188, 31, 45, 0.08) 0%, rgba(188, 31, 45, 0.16) 100%);
+  color: #7f1722;
+}
+
+.table-action-btn.upload:hover {
+  border-color: rgba(188, 31, 45, 0.6);
+  background: linear-gradient(135deg, rgba(188, 31, 45, 0.16) 0%, rgba(188, 31, 45, 0.22) 100%);
 }
 
 .log-badge {
@@ -254,6 +398,17 @@
   color: #164e89;
 }
 
+@keyframes stationLogsRise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 @media (max-width: 920px) {
   .station-logs-kpis {
     grid-template-columns: 1fr;
@@ -273,24 +428,6 @@
   }
 
   .upload-success-message {
-    padding: 12px 16px;
-    margin: 12px 0;
-    background-color: #f0f8f5;
-    border: 1px solid #1f5e2d;
-    border-radius: 4px;
-    font-size: 14px;
-    font-weight: 500;
-    animation: slideIn 0.3s ease-out;
-  }
-
-  @keyframes slideIn {
-    from {
-      opacity: 0;
-      transform: translateY(-10px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
+    border-radius: 10px;
   }
 }

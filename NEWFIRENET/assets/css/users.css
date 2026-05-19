@@ -1,6 +1,29 @@
 .users-shell {
   display: grid;
   gap: 16px;
+  position: relative;
+  padding: 6px 4px 26px;
+  isolation: isolate;
+}
+
+.users-shell::before {
+  content: '';
+  position: absolute;
+  inset: -40px 25% auto 0;
+  height: 180px;
+  background: transparent;
+  z-index: -1;
+  pointer-events: none;
+}
+
+.users-shell::after {
+  content: '';
+  position: absolute;
+  inset: auto -10px -50px 40%;
+  height: 200px;
+  background: transparent;
+  z-index: -1;
+  pointer-events: none;
 }
 
 .users-hero {
@@ -32,11 +55,30 @@
   box-shadow: 0 14px 28px rgba(17, 18, 22, 0.14);
 }
 
+.users-hero::after {
+  content: '';
+  position: absolute;
+  inset: auto 16px 16px auto;
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(188, 31, 45, 0.2), transparent 70%);
+  opacity: 0.55;
+}
+
 .users-hero h2 {
   margin: 0;
-  font-size: 38px;
+  font-size: clamp(2.2rem, 3.2vw, 2.8rem);
   line-height: 1.1;
+  letter-spacing: -0.03em;
   color: #171b22;
+}
+
+.users-hero-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 .users-kicker {
@@ -51,7 +93,7 @@
 .users-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
+  gap: 14px;
 }
 
 .users-brgy-panel {
@@ -134,6 +176,25 @@
   box-shadow: 0 10px 22px rgba(17, 18, 22, 0.08);
   position: relative;
   overflow: hidden;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+  animation: usersCardRise 0.4s var(--ease-out) both;
+}
+
+.users-card:nth-child(2) {
+  animation-delay: 0.05s;
+}
+
+.users-card:nth-child(3) {
+  animation-delay: 0.1s;
+}
+
+.users-card:nth-child(4) {
+  animation-delay: 0.15s;
+}
+
+.users-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 30px rgba(17, 18, 22, 0.14);
 }
 
 .users-card::before {
@@ -167,6 +228,19 @@
   gap: 16px;
 }
 
+.users-sidebar {
+  align-self: start;
+  display: grid;
+  gap: 14px;
+}
+
+@media (min-width: 1101px) {
+  .users-sidebar {
+    position: sticky;
+    top: calc(var(--header-h) + 1rem);
+  }
+}
+
 .users-filter-card,
 .users-table-card {
   border: 1px solid #dde2e9;
@@ -190,6 +264,7 @@
   padding: 16px;
   display: grid;
   gap: 12px;
+  background: linear-gradient(180deg, #ffffff 0%, #f7f9fc 100%);
 }
 
 .users-filter-card h3,
@@ -241,6 +316,7 @@
   border-bottom: 1px solid #e2e7ef;
   position: relative;
   z-index: 1;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.95) 0%, rgba(247, 248, 251, 0.95) 100%);
 }
 
 .users-panel-meta {
@@ -269,6 +345,8 @@
 
 .users-table-wrap {
   overflow-x: auto;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96) 0%, rgba(249, 250, 252, 0.98) 100%);
+  padding: 10px 16px 16px;
 }
 
 .users-table {
@@ -301,6 +379,10 @@
   background: #f4f8ff;
 }
 
+.users-table tbody tr {
+  transition: background 0.18s ease;
+}
+
 .users-table td {
   padding-top: 12px;
   padding-bottom: 12px;
@@ -326,7 +408,7 @@
   height: 36px;
   border-radius: 50%;
   border: 1px solid #e6d3d5;
-  background: linear-gradient(180deg, #fff4f5 0%, #f9ecee 100%);
+  background: linear-gradient(160deg, #fff6f7 0%, #f4e4e7 100%);
   color: #a31d2a;
   font-size: 12px;
   font-weight: 800;
@@ -334,6 +416,7 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  box-shadow: 0 6px 14px rgba(163, 29, 42, 0.14);
 }
 
 .users-account-meta {
@@ -527,6 +610,22 @@
   gap: 8px;
 }
 
+.users-edit-btn,
+.users-warning-btn {
+  min-width: 96px;
+}
+
+.users-warning-btn {
+  border-color: rgba(188, 31, 45, 0.35);
+  background: rgba(188, 31, 45, 0.08);
+  color: #7f1722;
+}
+
+.users-warning-btn:hover {
+  border-color: rgba(188, 31, 45, 0.55);
+  background: rgba(188, 31, 45, 0.16);
+}
+
 .users-edit-btn {
   min-width: 92px;
 }
@@ -551,6 +650,7 @@
   border: 1px solid #dde2e9;
   background: linear-gradient(180deg, #ffffff 0%, #fcfcfd 100%);
   box-shadow: 0 20px 44px rgba(17, 18, 22, 0.24);
+  animation: usersModalRise 0.22s var(--ease-out) both;
 }
 
 .users-modal-header {
@@ -577,6 +677,28 @@
 .users-form-actions {
   display: flex;
   justify-content: flex-end;
+}
+
+@keyframes usersCardRise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes usersModalRise {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 @media (max-width: 1100px) {

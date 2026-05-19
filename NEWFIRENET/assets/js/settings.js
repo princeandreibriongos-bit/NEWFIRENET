@@ -131,8 +131,22 @@
     setInfo(securityMessage, text, isError);
   }
 
-  function getInitials(username, email) {
-    const source = String(username || email || 'FN').trim();
+  function getInitials(username, email, role) {
+    const primary = String(username || '').trim();
+    const rawRole = String(role || '').trim();
+    let roleLabel = rawRole;
+    if (roleLabel.toLowerCase() === 'superadmin') {
+      roleLabel = 'Super Admin';
+    }
+
+    const userKey = primary.toLowerCase().replace(/\s+/g, '');
+    const roleKey = roleLabel.toLowerCase().replace(/\s+/g, '');
+    let source = primary;
+
+    if (source === '' || (roleKey && userKey === roleKey)) {
+      source = roleLabel || String(email || '').trim();
+    }
+
     if (source === '') {
       return 'FN';
     }
@@ -160,7 +174,7 @@
     emailInput.value = String(profile.email || '');
     displayName.textContent = String(profile.username || 'FireNet User');
     displayEmail.textContent = String(profile.email || 'No email set');
-    avatarInitials.textContent = getInitials(profile.username, profile.email);
+    avatarInitials.textContent = getInitials(profile.username, profile.email, profile.role);
 
     const photoUrl = String(profile.profilePhotoUrl || '').trim();
     if (photoUrl !== '') {
@@ -174,16 +188,17 @@
     }
 
     const headerProfilePhoto = document.getElementById('headerProfilePhoto');
-    const headerProfileFallbackIcon = document.getElementById('headerProfileFallbackIcon');
-    if (headerProfilePhoto && headerProfileFallbackIcon) {
+    const headerProfileInitials = document.getElementById('headerProfileInitials');
+    if (headerProfilePhoto && headerProfileInitials) {
+      headerProfileInitials.textContent = getInitials(profile.username, profile.email, profile.role);
       if (photoUrl !== '') {
         headerProfilePhoto.src = photoUrl + (photoUrl.indexOf('?') === -1 ? '?v=' : '&v=') + Date.now();
         headerProfilePhoto.hidden = false;
-        headerProfileFallbackIcon.hidden = true;
+        headerProfileInitials.hidden = true;
       } else {
         headerProfilePhoto.hidden = true;
         headerProfilePhoto.removeAttribute('src');
-        headerProfileFallbackIcon.hidden = false;
+        headerProfileInitials.hidden = false;
       }
     }
 
