@@ -6,6 +6,8 @@ firenet_require_login();
 $user = (string) ($_SESSION['user']['username'] ?? 'Unknown User');
 $userId = (int) ($_SESSION['user']['user_id'] ?? 0);
 $role = strtolower((string) ($_SESSION['user']['role'] ?? 'user'));
+$positionCode = strtolower((string) ($_SESSION['user']['position_code'] ?? ''));
+$positionName = (string) ($_SESSION['user']['position_name'] ?? '');
 $stationId = (int) ($_SESSION['user']['station_id'] ?? 1);
 $stationName = 'Station ' . $stationId;
 $quickMode = strtolower((string) ($_GET['quick'] ?? ''));
@@ -46,7 +48,12 @@ $streetsByBarangay = [
     'Barangay 3' => ['JP Rizal Extension', 'Kalayaan Ave', 'Narra St']
 ];
 
-$canCreateReports = true;
+$canCreateIncidentReports = $positionCode !== 'position2';
+$canCreateEquipmentReports = $positionCode === 'position2' || $positionCode === '';
+$canCreateReports = $canCreateIncidentReports || $canCreateEquipmentReports;
+$canUpdateIncidentReports = $positionCode === 'position1';
+$canViewAllReports = $positionCode === 'position1';
+$defaultReportsScope = 'mine';
 
 $stationGeo = [];
 try {
@@ -81,10 +88,17 @@ $reportsContext = [
     'userId' => $userId,
     'user' => $user,
     'role' => $role,
+    'positionCode' => $positionCode,
+    'positionName' => $positionName,
     'stationId' => $stationId,
     'stationName' => $stationName,
     'stationLogoUrl' => '/firenet/NEWFIRENET/assets/img/bfpmakatilogo.jpg',
     'canCreateReports' => $canCreateReports,
+    'canCreateIncidentReports' => $canCreateIncidentReports,
+    'canCreateEquipmentReports' => $canCreateEquipmentReports,
+    'canUpdateIncidentReports' => $canUpdateIncidentReports,
+    'canViewAllReports' => $canViewAllReports,
+    'defaultReportsScope' => $defaultReportsScope,
     'quickMode' => $quickMode,
     'barangays' => $barangays,
     'streetsByBarangay' => $streetsByBarangay,

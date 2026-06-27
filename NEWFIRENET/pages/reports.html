@@ -9,10 +9,23 @@
   <section class="portal-card reports-info-card">
     <h3>My Report History</h3>
     <ul class="simple-list">
-      <li>This page shows only your submitted reports.</li>
+      <li>This page shows your personal report transactions by default.</li>
       <li>Incident reports include Call Intake, During Incident, and After Incident stages.</li>
-      <li>Equipment reports can be filed by any authorized account.</li>
+      <li>Position 2 accounts can file equipment reports only.</li>
     </ul>
+  </section>
+
+  <section class="portal-card reports-scope-card" id="reportsScopeCard" hidden>
+    <div class="reports-scope-head">
+      <div>
+        <h3>Report Scope</h3>
+        <p class="muted-text" id="reportsScopeDescription">Showing only your own report transactions.</p>
+      </div>
+      <div class="reports-scope-switch" role="tablist" aria-label="Report scope">
+        <button type="button" id="reportsScopeMine" class="reports-scope-btn is-active" role="tab" aria-selected="true">My Reports</button>
+        <button type="button" id="reportsScopeAll" class="reports-scope-btn" role="tab" aria-selected="false">All Reports</button>
+      </div>
+    </div>
   </section>
 
   <p id="reportsUploadMessage" class="upload-success-message" hidden></p>

@@ -66,6 +66,10 @@
   const alarmPriorityLevel = document.getElementById('alarmPriorityLevel');
   const alarmPriorityMeta = document.getElementById('alarmPriorityMeta');
   const reportsOngoingHint = document.getElementById('reportsOngoingHint');
+  const reportsScopeCard = document.getElementById('reportsScopeCard');
+  const reportsScopeMine = document.getElementById('reportsScopeMine');
+  const reportsScopeAll = document.getElementById('reportsScopeAll');
+  const reportsScopeDescription = document.getElementById('reportsScopeDescription');
   const sidebar = document.querySelector('.app-sidebar');
   const reportsApiUrl = '/firenet/NEWFIRENET/backend/controllers/reports.php';
   const reportsById = new Map();
@@ -79,6 +83,7 @@
   let manualPinMode = false;
   let locateDebounceTimer = null;
   let activeReportStep = 'details';
+  let reportsScope = 'mine';
   const STATION_PROXIMITY_RADIUS_METERS = 1200;
   const INCIDENT_PROXIMITY_RADIUS_METERS = 280;
 
@@ -148,7 +153,11 @@
     !reportStepPrev ||
     !alarmPriorityBadge ||
     !alarmPriorityLevel ||
-    !alarmPriorityMeta
+    !alarmPriorityMeta ||
+    !reportsScopeCard ||
+    !reportsScopeMine ||
+    !reportsScopeAll ||
+    !reportsScopeDescription
   ) {
     return;
   }
@@ -173,13 +182,72 @@
       .replace(/'/g, '&#039;');
   }
 
-  const canCreate = Boolean(context.canCreateReports);
+  const canCreateIncidentReports = Boolean(context.canCreateIncidentReports);
+  const canCreateEquipmentReports = Boolean(context.canCreateEquipmentReports);
+  const canUpdateIncidentReports = Boolean(context.canUpdateIncidentReports);
+  const canViewAllReports = Boolean(context.canViewAllReports);
+  const canCreate = canCreateIncidentReports || canCreateEquipmentReports;
+  reportsScope = canViewAllReports && String(context.defaultReportsScope || 'mine') === 'all' ? 'all' : 'mine';
+  const incidentTypeOption = reportType.querySelector('option[value="incident_report"]');
+  const equipmentTypeOption = reportType.querySelector('option[value="equipment_report"]');
+
+  function getAllowedCreateTypes() {
+    const allowedTypes = [];
+    if (canCreateIncidentReports) {
+      allowedTypes.push('incident_report');
+    }
+    if (canCreateEquipmentReports) {
+      allowedTypes.push('equipment_report');
+    }
+    return allowedTypes;
+  }
+
+  function getDefaultCreateType() {
+    const allowedTypes = getAllowedCreateTypes();
+    if (allowedTypes.indexOf('incident_report') !== -1) {
+      return 'incident_report';
+    }
+    if (allowedTypes.indexOf('equipment_report') !== -1) {
+      return 'equipment_report';
+    }
+    return 'incident_report';
+  }
+
+  function renderReportsScopeToggle() {
+    if (!canViewAllReports) {
+      reportsScopeCard.hidden = true;
+      return;
+    }
+
+    reportsScopeCard.hidden = false;
+    const showingAll = reportsScope === 'all';
+    reportsScopeMine.classList.toggle('is-active', !showingAll);
+    reportsScopeAll.classList.toggle('is-active', showingAll);
+    reportsScopeMine.setAttribute('aria-selected', showingAll ? 'false' : 'true');
+    reportsScopeAll.setAttribute('aria-selected', showingAll ? 'true' : 'false');
+    reportsScopeDescription.textContent = showingAll
+      ? 'Showing all reports across every station.'
+      : 'Showing only your own report transactions.';
+  }
+
+  function setReportsScope(nextScope) {
+    if (!canViewAllReports) {
+      reportsScope = 'mine';
+      renderReportsScopeToggle();
+      return loadMyReports();
+    }
+
+    reportsScope = nextScope === 'all' ? 'all' : 'mine';
+    renderReportsScopeToggle();
+    return loadMyReports();
+  }
 
   welcome.textContent =
     'Signed in as ' +
     (context.user || 'Unknown User') +
     ' | role: ' +
     (context.role || 'user') +
+    (context.positionName ? ' | position: ' + context.positionName : '') +
     ' | station: ' +
     String(context.stationId || 1) +
     '. This page displays only your report transactions.';
@@ -187,6 +255,18 @@
   if (!canCreate) {
     openReportModal.hidden = true;
   }
+
+  if (incidentTypeOption) {
+    incidentTypeOption.hidden = !canCreateIncidentReports;
+    incidentTypeOption.disabled = !canCreateIncidentReports;
+  }
+
+  if (equipmentTypeOption) {
+    equipmentTypeOption.hidden = !canCreateEquipmentReports;
+    equipmentTypeOption.disabled = !canCreateEquipmentReports;
+  }
+
+  renderReportsScopeToggle();
 
   function formatDateTimeLocal(date) {
     const year = date.getFullYear();
@@ -1707,12 +1787,18 @@
 
         if ((item.type || '') === 'incident_report') {
           const isCompleted = isIncidentCompleted(item);
-          if (isIncidentActive(item)) {
+          if (isIncidentActive(item) && canUpdateIncidentReports) {
             actionsHtml +=
               '<button type="button" class="table-action-btn progress" data-action="progress" data-id="' + escapeHtml(itemId) + '">Update Incident</button>' +
               '<span class="incident-ongoing-note" title="This incident is active and needs continuous monitoring">' +
               '<span class="incident-ongoing-dot" aria-hidden="true"></span>' +
               'Ongoing Incident' +
+              '</span>';
+          } else if (isIncidentActive(item)) {
+            actionsHtml +=
+              '<span class="incident-ongoing-note" title="This incident is active and waiting for a Position 1 update">' +
+              '<span class="incident-ongoing-dot" aria-hidden="true"></span>' +
+              'Awaiting Update' +
               '</span>';
           } else {
             actionsHtml +=
@@ -1769,7 +1855,9 @@
   async function loadMyReports() {
     tableBody.innerHTML = '<tr><td colspan="4" class="muted-text">Loading your reports...</td></tr>';
     try {
-      const response = await fetch(reportsApiUrl, { method: 'GET', credentials: 'same-origin' });
+      const url = new URL(reportsApiUrl, window.location.origin);
+      url.searchParams.set('scope', reportsScope);
+      const response = await fetch(url.toString(), { method: 'GET', credentials: 'same-origin' });
       const payload = await response.json();
       if (!response.ok || !payload || payload.ok !== true) {
         tableBody.innerHTML = '<tr><td colspan="4" class="muted-text">Unable to load your reports right now.</td></tr>';
@@ -1788,6 +1876,10 @@
   }
 
   function openProgressFromQuery() {
+    if (!canUpdateIncidentReports) {
+      return false;
+    }
+
     const params = new URLSearchParams(window.location.search);
     const mode = String(params.get('mode') || '').toLowerCase();
     const id = String(params.get('id') || '');
@@ -1808,6 +1900,16 @@
   reportType.addEventListener('change', toggleIncidentStage);
   reportType.addEventListener('change', syncReportTypeDefaults);
   incidentStage.addEventListener('change', toggleIncidentStage);
+  if (reportsScopeMine) {
+    reportsScopeMine.addEventListener('click', function () {
+      setReportsScope('mine');
+    });
+  }
+  if (reportsScopeAll) {
+    reportsScopeAll.addEventListener('click', function () {
+      setReportsScope('all');
+    });
+  }
   reportStepTabDetails.addEventListener('click', function () {
     setReportStep('details');
   });
@@ -1868,6 +1970,14 @@
   setReportStep('details');
 
   function openTypeChooserModal() {
+    const allowedTypes = getAllowedCreateTypes();
+    if (allowedTypes.length === 1) {
+      openCreateModalForType(allowedTypes[0]);
+      return;
+    }
+
+    chooseIncidentReport.hidden = !canCreateIncidentReports;
+    chooseEquipmentReport.hidden = !canCreateEquipmentReports;
     reportTypeModal.hidden = false;
   }
 
