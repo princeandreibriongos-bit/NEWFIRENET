@@ -147,17 +147,6 @@
     }));
 
     items.push(buildSearchItem({
-      id: 'incident-logs',
-      type: 'incident',
-      title: 'Incident Logs',
-      subtitle: 'Review incident logs and status history.',
-      url: '/firenet/NEWFIRENET/backend/pages/station_incident_logs.php',
-      keywords: ['incident', 'incidents', 'logs', 'history', 'alarm', 'response'],
-      weight: 96,
-      hint: 'Useful for incident review'
-    }));
-
-    items.push(buildSearchItem({
       id: 'calendar-events',
       type: 'event',
       title: 'Calendar / Events',

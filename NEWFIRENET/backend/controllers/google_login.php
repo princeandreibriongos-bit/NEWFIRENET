@@ -120,9 +120,10 @@ if ($aud !== $clientId || !$issuerValid || $email === '' || !$emailVerified || (
 try {
     $pdo = firenet_get_pdo();
     $stmt = $pdo->prepare('
-        SELECT u.user_id, u.username, u.station_id, u.status, r.role_name
+                SELECT u.user_id, u.username, u.station_id, u.status, r.role_name, p.position_code, p.position_name
         FROM users u
         JOIN roles r ON r.role_id = u.role_id
+                LEFT JOIN positions p ON p.position_id = u.position_id
         WHERE LOWER(u.email) = ?
           AND LOWER(u.status) = "active"
           AND LOWER(r.role_name) IN ("user", "admin", "superadmin")
@@ -149,7 +150,9 @@ try {
         'user_id' => (int) ($row['user_id'] ?? 0),
         'username' => (string) ($row['username'] ?? ''),
         'role' => strtolower((string) ($row['role_name'] ?? 'user')),
-        'station_id' => (int) ($row['station_id'] ?? 1)
+        'station_id' => (int) ($row['station_id'] ?? 1),
+        'position_code' => strtolower((string) ($row['position_code'] ?? '')),
+        'position_name' => (string) ($row['position_name'] ?? '')
     ];
 
     echo json_encode([

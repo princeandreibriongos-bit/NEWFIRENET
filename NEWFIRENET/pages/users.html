@@ -11,6 +11,66 @@
     </div>
   </header>
 
+  <section class="users-news-manager" id="newsManagerSection">
+    <header class="users-hero users-news-hero">
+      <div>
+        <p class="users-kicker">News desk</p>
+        <h2>Login News Feed</h2>
+        <p class="muted-text">Upload a photo, write the news title and what happened, then publish. The login page will auto-flash it.</p>
+      </div>
+      <div class="users-hero-actions">
+        <button type="button" class="primary-btn" id="openNewsModalBtn">Publish News</button>
+      </div>
+    </header>
+  </section>
+
+  <div id="newsModal" class="users-modal" hidden>
+    <div class="users-modal-backdrop" data-close-news-modal="true"></div>
+    <div class="users-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="newsModalTitle">
+      <header class="users-modal-header">
+        <div>
+          <p class="users-kicker">Publish update</p>
+          <h3 id="newsModalTitle">Create News Item</h3>
+        </div>
+        <button type="button" class="modal-close-btn" id="closeNewsModalBtn" aria-label="Close">x</button>
+      </header>
+
+      <form id="newsForm" class="users-form" novalidate enctype="multipart/form-data">
+        <div class="users-form-grid">
+          <label>
+            News Photo
+            <input type="file" id="newsPhotoInput" name="photo" accept="image/*" required>
+          </label>
+
+          <label>
+            Title
+            <input type="text" id="newsTitleInput" name="title" maxlength="160" placeholder="e.g. Fire incident update - Station 1" required>
+          </label>
+
+          <label class="users-full-width">
+            What happened
+            <textarea id="newsBodyInput" name="body" maxlength="4000" rows="6" placeholder="Write the official update for the public/internal login news feed." required></textarea>
+          </label>
+
+          <label>
+            Publish Status
+            <select id="newsStatusSelect" name="status">
+              <option value="approved" selected>Approved (visible)</option>
+              <option value="draft">Draft (hidden)</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="users-form-actions">
+          <button type="submit" class="primary-btn" id="publishNewsBtn">Publish News</button>
+          <button type="button" class="secondary-btn" id="cancelNewsBtn">Cancel</button>
+        </div>
+
+        <p class="muted-text" id="newsFormMessage"></p>
+      </form>
+    </div>
+  </div>
+
   <section class="users-brgy-panel" id="barangayPanel" hidden>
     <div class="users-brgy-head">
       <div>

@@ -13,7 +13,15 @@
 <body>
     <div class="page-bg" aria-hidden="true"></div>
 
-
+    <div class="login-ribbon" role="navigation" aria-label="Account sections">
+        <div class="login-ribbon-inner">
+            <a class="login-ribbon-pill is-active" href="javascript:void(0)" aria-current="page">login</a>
+            <a class="login-ribbon-pill" href="/firenet/NEWFIRENET/pages/dashboard.html">news</a>
+            <a class="login-ribbon-pill" href="/firenet/NEWFIRENET/pages/reports.html">announcements</a>
+            <a class="login-ribbon-pill" href="/firenet/NEWFIRENET/pages/general_mail.html">civilian reporting</a>
+            <a class="login-ribbon-pill" href="/firenet/NEWFIRENET/pages/settings.html">about</a>
+        </div>
+    </div>
 
     <main class="auth-shell" aria-labelledby="pageTitle">
         <aside class="auth-aside">
@@ -25,6 +33,35 @@
 
             <h1 id="pageTitle">FIRENET</h1>
             <p class="subtitle">A simple command page for dispatch, people, and emergency operations.</p>
+
+            <section class="login-news" id="loginNewsModule" aria-label="News updates">
+                <div class="login-news-head">
+                    <span class="login-news-kicker">NEWS</span>
+                    <span class="login-news-pulse" id="loginNewsPulse" aria-hidden="true"></span>
+                </div>
+
+                <div class="login-news-body">
+                    <div class="login-news-media" aria-hidden="true">
+                        <img
+                            id="loginNewsImage"
+                            class="login-news-image"
+                            alt=""
+                            loading="eager"
+                            decoding="async"
+                        >
+                        <div class="login-news-gradient"></div>
+                    </div>
+
+                    <div class="login-news-text">
+                        <h3 class="login-news-title" id="loginNewsTitle">Loading updates...</h3>
+                        <p class="login-news-content" id="loginNewsBody"></p>
+                    </div>
+                </div>
+
+                <div class="login-news-loading" id="loginNewsLoading" hidden>
+                    Loading news...
+                </div>
+            </section>
 
             <ul class="feature-list">
                 <li>Live incident and response updates</li>
@@ -110,6 +147,7 @@
 
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script src="../assets/js/login.js"></script>
+    <script src="../assets/js/login-news.js"></script>
     <script>
         function updateTimeAndDate() {
             const now = new Date();

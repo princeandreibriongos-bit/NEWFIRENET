@@ -9,6 +9,11 @@ header('Content-Type: application/json; charset=utf-8');
 
 $userId = (int) ($_SESSION['user']['user_id'] ?? 0);
 $username = (string) ($_SESSION['user']['username'] ?? '');
+$positionCode = strtolower((string) ($_SESSION['user']['position_code'] ?? ''));
+$canViewAllReports = $positionCode === 'position1';
+$canCreateIncidentReports = $positionCode !== 'position2';
+$canCreateEquipmentReports = $positionCode === 'position2' || $positionCode === '';
+$canUpdateIncidentReports = $positionCode === 'position1';
 if ($username === '' || $userId < 1) {
     http_response_code(401);
     echo json_encode(['ok' => false, 'message' => 'Unauthorized']);
@@ -727,23 +732,171 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         exit;
     }
 
+    if ($action === 'logs') {
+        try {
+            $pdo = firenet_get_pdo();
+            $sort = strtolower(trim((string) ($_GET['sort'] ?? 'date')));
+            $dir = strtolower(trim((string) ($_GET['dir'] ?? 'desc')));
+            $search = trim((string) ($_GET['q'] ?? ''));
+            $stationFilter = (int) ($_GET['stationId'] ?? 0);
+
+            $sortMap = [
+                'date' => 'COALESCE(i.incident_finished_at, i.updated_at, r.updated_at, r.created_at)',
+                'name' => 'COALESCE(NULLIF(r.title, ""), NULLIF(i.incident_location, ""), "Untitled Incident")',
+                'station' => 'COALESCE(ds.station_name, s_report.station_name, "")',
+                'alarm' => 'i.alarm_level',
+                'status' => 'i.incident_status'
+            ];
+            $sortColumn = $sortMap[$sort] ?? $sortMap['date'];
+            $sortDirection = $dir === 'asc' ? 'ASC' : 'DESC';
+
+            $where = ["(s.stage_code = 'after_incident' OR i.incident_status = 'fire_out' OR i.incident_finished_at IS NOT NULL)"];
+            $params = [];
+
+            if ($search !== '') {
+                $where[] = '(r.title LIKE ? OR i.incident_location LIKE ? OR u.username LIKE ? OR COALESCE(ds.station_name, s_report.station_name, "") LIKE ?)';
+                $like = '%' . $search . '%';
+                $params = array_merge($params, [$like, $like, $like, $like]);
+            }
+
+            if ($stationFilter > 0) {
+                $where[] = '(s_report.station_id = ? OR i.dispatched_station_id = ? OR d.station_id = ?)';
+                $params = array_merge($params, [$stationFilter, $stationFilter, $stationFilter]);
+            }
+
+            $sql = '
+                SELECT DISTINCT r.report_id, r.title, r.description, r.created_at, r.updated_at, r.created_by,
+                       u.username AS creator_username,
+                       i.incident_report_id, i.incident_location, i.alarm_level, i.incident_status,
+                       i.incident_started_at, i.incident_finished_at, i.caller_name, i.remarks AS incident_remarks,
+                       i.incident_report_stage_id, s.stage_code, i.latitude, i.longitude, i.geocode_status,
+                       i.assignment_method, i.assignment_distance_km, i.dispatched_station_id,
+                       ds.station_name AS assigned_station_name,
+                       s_report.station_id AS report_station_id, s_report.station_name AS report_station_name,
+                       e.equipment_name, e.equipment_category, e.issue_type, e.urgency, e.last_service_date,
+                       e.operational_status, e.action_taken, e.recommendation, e.issue_summary
+                FROM reports r
+                LEFT JOIN report_type rt ON r.report_type_id = rt.report_type_id
+                LEFT JOIN incident_reports i ON r.report_id = i.report_id
+                LEFT JOIN incident_report_stage s ON i.incident_report_stage_id = s.incident_report_stage_id
+                LEFT JOIN stations ds ON ds.station_id = i.dispatched_station_id
+                LEFT JOIN stations s_report ON s_report.station_id = r.station_id
+                LEFT JOIN incident_report_dispatch_stations d ON d.incident_report_id = i.incident_report_id
+                LEFT JOIN users u ON u.user_id = r.created_by
+                LEFT JOIN equipment_reports e ON e.report_id = r.report_id
+                WHERE ' . implode(' AND ', $where) . '
+                ORDER BY ' . $sortColumn . ' ' . $sortDirection . ', r.report_id DESC
+                LIMIT 250
+            ';
+
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute($params);
+            $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            $logs = [];
+            foreach ($rows as $row) {
+                $incidentReportId = (int) ($row['incident_report_id'] ?? 0);
+                if ($incidentReportId < 1) {
+                    continue;
+                }
+
+                $timelineUpdatesStmt = $pdo->prepare('
+                    SELECT alarm_level, incident_status, recorded_at
+                    FROM incident_report_updates
+                    WHERE incident_report_id = ?
+                    ORDER BY recorded_at ASC
+                ');
+                $timelineUpdatesStmt->execute([$incidentReportId]);
+                $timelineUpdates = array_map(static function (array $update): array {
+                    return [
+                        'alarmLevel' => (int) ($update['alarm_level'] ?? 0),
+                        'incidentStatus' => (string) ($update['incident_status'] ?? ''),
+                        'recordedAt' => (string) ($update['recorded_at'] ?? '')
+                    ];
+                }, $timelineUpdatesStmt->fetchAll(PDO::FETCH_ASSOC));
+
+                $timelineChangesStmt = $pdo->prepare('
+                    SELECT from_alarm_level, to_alarm_level, from_incident_status, to_incident_status, changed_at, notes
+                    FROM incident_report_change_logs
+                    WHERE incident_report_id = ?
+                    ORDER BY changed_at ASC
+                ');
+                $timelineChangesStmt->execute([$incidentReportId]);
+                $timelineChanges = array_map(static function (array $change): array {
+                    return [
+                        'fromAlarmLevel' => isset($change['from_alarm_level']) ? (int) $change['from_alarm_level'] : null,
+                        'toAlarmLevel' => isset($change['to_alarm_level']) ? (int) $change['to_alarm_level'] : null,
+                        'fromIncidentStatus' => (string) ($change['from_incident_status'] ?? ''),
+                        'toIncidentStatus' => (string) ($change['to_incident_status'] ?? ''),
+                        'changedAt' => (string) ($change['changed_at'] ?? ''),
+                        'notes' => (string) ($change['notes'] ?? '')
+                    ];
+                }, $timelineChangesStmt->fetchAll(PDO::FETCH_ASSOC));
+
+                $logs[] = [
+                    'id' => (int) ($row['report_id'] ?? 0),
+                    'incidentReportId' => $incidentReportId,
+                    'title' => (string) ($row['title'] ?? ''),
+                    'stationId' => (int) ($row['report_station_id'] ?? 0),
+                    'stationName' => (string) ($row['report_station_name'] ?? ''),
+                    'assignedStationName' => (string) ($row['assigned_station_name'] ?? ''),
+                    'incidentLocation' => (string) ($row['incident_location'] ?? ''),
+                    'alarmLevel' => (int) ($row['alarm_level'] ?? 0),
+                    'incidentStatus' => (string) ($row['incident_status'] ?? ''),
+                    'stage' => (string) ($row['stage_code'] ?? ''),
+                    'incidentStartedAt' => (string) ($row['incident_started_at'] ?? ''),
+                    'incidentFinishedAt' => (string) ($row['incident_finished_at'] ?? ''),
+                    'submittedBy' => (string) ($row['creator_username'] ?? ''),
+                    'submittedAt' => (string) ($row['created_at'] ?? ''),
+                    'updatedAt' => (string) ($row['updated_at'] ?? ''),
+                    'callerName' => (string) ($row['caller_name'] ?? ''),
+                    'remarks' => (string) ($row['incident_remarks'] ?? ($row['description'] ?? '')),
+                    'timelineUpdates' => $timelineUpdates,
+                    'timelineChanges' => $timelineChanges
+                ];
+            }
+
+            echo json_encode([
+                'ok' => true,
+                'logs' => $logs,
+                'summary' => [
+                    'total' => count($logs),
+                    'fireOut' => count($logs),
+                    'stationCount' => count(array_unique(array_map(static fn (array $log): int => (int) ($log['stationId'] ?? 0), $logs)))
+                ]
+            ]);
+        } catch (Throwable $e) {
+            http_response_code(500);
+            echo json_encode(['ok' => false, 'message' => 'Unable to load incident logs right now']);
+        }
+        exit;
+    }
+
+    $scope = strtolower(trim((string) ($_GET['scope'] ?? 'mine')));
+    if (!in_array($scope, ['mine', 'all'], true)) {
+        $scope = 'mine';
+    }
+    if ($scope === 'all' && !$canViewAllReports) {
+        $scope = 'mine';
+    }
+
     try {
         $pdo = firenet_get_pdo();
         firenet_ensure_equipment_reports_table($pdo);
-        $stmt = $pdo->prepare('
-                         SELECT DISTINCT r.report_id, r.report_type_id, rt.type_name,
-                                 r.title,
-                                 r.description,
-                   r.created_at, r.updated_at, r.created_by,
-                   u.username AS creator_username,
-                   i.incident_report_id, i.incident_location, i.alarm_level, 
-                   i.incident_status, i.incident_started_at, i.incident_finished_at,
-                                     i.caller_name, i.remarks AS incident_remarks, i.incident_report_stage_id, s.stage_code,
-                   i.latitude, i.longitude, i.geocode_status, i.assignment_method, i.assignment_distance_km,
-               i.dispatched_station_id, ds.station_name AS assigned_station_name,
-               e.equipment_name, e.equipment_category, e.issue_type, e.urgency,
-               e.last_service_date, e.operational_status,
-               e.action_taken, e.recommendation, e.issue_summary
+        $sql = '
+            SELECT DISTINCT r.report_id, r.report_type_id, rt.type_name,
+                    r.title,
+                    r.description,
+                    r.created_at, r.updated_at, r.created_by,
+                    u.username AS creator_username,
+                    i.incident_report_id, i.incident_location, i.alarm_level,
+                    i.incident_status, i.incident_started_at, i.incident_finished_at,
+                    i.caller_name, i.remarks AS incident_remarks, i.incident_report_stage_id, s.stage_code,
+                    i.latitude, i.longitude, i.geocode_status, i.assignment_method, i.assignment_distance_km,
+                    i.dispatched_station_id, ds.station_name AS assigned_station_name,
+                    e.equipment_name, e.equipment_category, e.issue_type, e.urgency,
+                    e.last_service_date, e.operational_status,
+                    e.action_taken, e.recommendation, e.issue_summary
             FROM reports r
             LEFT JOIN report_type rt ON r.report_type_id = rt.report_type_id
             LEFT JOIN incident_reports i ON r.report_id = i.report_id
@@ -752,13 +905,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             LEFT JOIN stations ds ON ds.station_id = i.dispatched_station_id
             LEFT JOIN incident_report_dispatch_stations d ON d.incident_report_id = i.incident_report_id
             LEFT JOIN users u ON u.user_id = r.created_by
-            WHERE r.station_id = ?
-               OR i.dispatched_station_id = ?
-               OR d.station_id = ?
-            ORDER BY r.updated_at DESC, r.created_at DESC
-            LIMIT 200
-        ');
-        $stmt->execute([$sessionStationId, $sessionStationId, $sessionStationId]);
+        ';
+        $params = [];
+        if ($scope === 'mine') {
+            $sql .= ' WHERE r.created_by = ?';
+            $params[] = $userId;
+        }
+        $sql .= ' ORDER BY r.updated_at DESC, r.created_at DESC LIMIT 200';
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($params);
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
         $reports = [];
@@ -1036,6 +1191,20 @@ try {
         echo json_encode(['ok' => false, 'message' => 'Invalid report type']);
         exit;
     }
+
+    if ($action === 'create') {
+        if ($reportType === 'incident_report' && !$canCreateIncidentReports) {
+            http_response_code(403);
+            echo json_encode(['ok' => false, 'message' => 'Your position can only submit equipment reports.']);
+            exit;
+        }
+
+        if ($reportType === 'equipment_report' && !$canCreateEquipmentReports) {
+            http_response_code(403);
+            echo json_encode(['ok' => false, 'message' => 'Your position can only submit incident reports.']);
+            exit;
+        }
+    }
     
     if ($reportType === 'incident_report' && !in_array($incidentStage, $allowedStages, true)) {
         http_response_code(422);
@@ -1222,15 +1391,25 @@ try {
         }
 
         if ($reportType === 'incident_report') {
-            if (!firenet_station_responding_to_incident($pdo, $reportId, $sessionStationId)) {
-                http_response_code(403);
-                echo json_encode(['ok' => false, 'message' => 'Station is not assigned to this incident and cannot update it.']);
-                exit;
+            if ($isProgressionUpdate) {
+                if (!$canUpdateIncidentReports) {
+                    http_response_code(403);
+                    echo json_encode(['ok' => false, 'message' => 'Only Position 1 can update incident progress.']);
+                    exit;
+                }
+            } else {
+                $ownershipStmt = $pdo->prepare('SELECT report_id FROM reports WHERE report_id = ? AND created_by = ?');
+                $ownershipStmt->execute([$reportId, $userId]);
+                if (!$ownershipStmt->fetch()) {
+                    http_response_code(404);
+                    echo json_encode(['ok' => false, 'message' => 'Report not found']);
+                    exit;
+                }
             }
         } else {
             // Verify ownership for non-incident reports
-            $stmt = $pdo->prepare('SELECT report_id FROM reports WHERE report_id = ? AND created_by = ? AND station_id = ?');
-            $stmt->execute([$reportId, $userId, $sessionStationId]);
+            $stmt = $pdo->prepare('SELECT report_id FROM reports WHERE report_id = ? AND created_by = ?');
+            $stmt->execute([$reportId, $userId]);
             if (!$stmt->fetch()) {
                 http_response_code(404);
                 echo json_encode(['ok' => false, 'message' => 'Report not found']);

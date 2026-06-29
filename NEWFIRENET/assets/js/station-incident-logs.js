@@ -1,546 +1,426 @@
 (function () {
-  const contextNode = document.getElementById('stationIncidentLogsContext');
+  const contextElement = document.getElementById('stationIncidentLogsContext');
   const summary = document.getElementById('stationLogsSummary');
-  const tableBody = document.getElementById('stationLogsTableBody');
+  const totalNode = document.getElementById('stationLogsTotal');
+  const stationNode = document.getElementById('stationLogsStation');
+  const underControlNode = document.getElementById('stationLogsUnderControl');
+  const fireOutNode = document.getElementById('stationLogsFireOut');
+  const searchInput = document.getElementById('stationLogsSearch');
+  const stationFilter = document.getElementById('stationLogsStationFilter');
   const sortField = document.getElementById('stationLogsSortField');
   const sortDir = document.getElementById('stationLogsSortDir');
-  const applySortButton = document.getElementById('stationLogsApplySort');
-  const downloadCsvButton = document.getElementById('stationLogsDownloadCsv');
-  const totalCountNode = document.getElementById('stationLogsTotal');
-  const stationNode = document.getElementById('stationLogsStation');
-  const underControlCountNode = document.getElementById('stationLogsUnderControl');
-  const fireOutCountNode = document.getElementById('stationLogsFireOut');
-  const uploadReportId = document.getElementById('stationLogsUploadReportId');
-  const uploadStorage = document.getElementById('stationLogsUploadStorage');
-  const uploadFile = document.getElementById('stationLogsUploadFile');
-  const uploadButton = document.getElementById('stationLogsUploadButton');
-  const uploadMessage = document.getElementById('stationLogsUploadMessage');
-  const cloudHint = document.getElementById('stationLogsCloudHint');
+  const applyButton = document.getElementById('stationLogsApplySort');
+  const downloadButton = document.getElementById('stationLogsDownloadCsv');
+  const tableBody = document.getElementById('stationLogsTableBody');
+  const modal = document.getElementById('stationLogsModal');
+  const closeModalButton = document.getElementById('closeStationLogsModal');
+  const modalTitle = document.getElementById('stationLogsModalTitle');
+  const modalMeta = document.getElementById('stationLogsModalMeta');
+  const modalLocation = document.getElementById('stationLogsModalLocation');
+  const modalSubmittedBy = document.getElementById('stationLogsModalSubmittedBy');
+  const modalFinishedAt = document.getElementById('stationLogsModalFinishedAt');
+  const modalTimeline = document.getElementById('stationLogsModalTimeline');
+  const apiUrl = '/firenet/NEWFIRENET/backend/controllers/reports.php?action=logs';
 
-  if (!contextNode || !summary || !tableBody || !sortField || !sortDir || !applySortButton || !downloadCsvButton) {
+  if (
+    !contextElement || !summary || !totalNode || !stationNode || !underControlNode || !fireOutNode ||
+    !searchInput || !stationFilter || !sortField || !sortDir || !applyButton || !downloadButton ||
+    !tableBody || !modal || !closeModalButton || !modalTitle || !modalMeta || !modalLocation ||
+    !modalSubmittedBy || !modalFinishedAt || !modalTimeline
+  ) {
     return;
   }
 
-  let context = {};
+  let context = null;
   try {
-    context = JSON.parse(contextNode.textContent || '{}');
+    context = JSON.parse(contextElement.textContent || '{}');
   } catch (error) {
-    context = {};
+    context = null;
   }
 
-  const apiUrl = String(context.apiUrl || '/firenet/NEWFIRENET/backend/controllers/station_incident_logs.php');
-  let uploadConfig = { cloudinary: { available: false, missing: [] } };
-
-  if (stationNode) {
-    const stationLabel = context.stationName ? String(context.stationName) : 'Station';
-    stationNode.textContent = stationLabel + ' (#' + String(context.stationId || '-') + ')';
+  if (!context) {
+    return;
   }
 
-  function labelForStage(stageCode) {
-    const normalized = String(stageCode || '').toLowerCase();
-    if (normalized === 'call_intake') {
-      return 'Call Intake';
-    }
-    if (normalized === 'during_incident') {
-      return 'During Incident';
-    }
-    if (normalized === 'after_incident') {
-      return 'After Incident';
-    }
-    return stageCode || '-';
-  }
-
-  function labelForStatus(statusCode) {
-    const normalized = normalizeStatusCode(statusCode);
-    if (normalized === 'under_control') {
-      return 'Under Control';
-    }
-    if (normalized === 'fire_out') {
-      return 'Fire Out';
-    }
-    if (normalized === 'newly_reported') {
-      return 'Newly Reported';
-    }
-    return statusCode || '-';
-  }
-
-  function badgeHtml(label, toneClass) {
-    return '<span class="log-badge ' + toneClass + '">' + escapeHtml(label) + '</span>';
-  }
-
-  function badgeForStage(stageCode) {
-    const normalized = String(stageCode || '').toLowerCase();
-    if (normalized === 'call_intake') {
-      return badgeHtml('Call Intake', 'log-badge--intake');
-    }
-    if (normalized === 'during_incident') {
-      return badgeHtml('During Incident', 'log-badge--during');
-    }
-    if (normalized === 'after_incident') {
-      return badgeHtml('After Incident', 'log-badge--after');
-    }
-    return badgeHtml(stageCode || '-', 'log-badge--neutral');
-  }
-
-  function badgeForStatus(statusCode) {
-    const normalized = normalizeStatusCode(statusCode);
-    if (normalized === 'under_control') {
-      return badgeHtml('Under Control', 'log-badge--under-control');
-    }
-    if (normalized === 'fire_out') {
-      return badgeHtml('Fire Out', 'log-badge--fire-out');
-    }
-    if (normalized === 'newly_reported') {
-      return badgeHtml('Newly Reported', 'log-badge--new');
-    }
-    return badgeHtml(statusCode || '-', 'log-badge--neutral');
-  }
-
-  function badgeForAlarm(levelValue) {
-    const level = Number(levelValue || 0);
-    let tone = 'log-badge--neutral';
-    if (level >= 4) {
-      tone = 'log-badge--alarm-high';
-    } else if (level >= 2) {
-      tone = 'log-badge--alarm-mid';
-    } else if (level >= 1) {
-      tone = 'log-badge--alarm-low';
-    }
-
-    const label = level > 0 ? ('Alarm ' + level) : '-';
-    return badgeHtml(label, tone);
-  }
-
-  function normalizeStatusCode(statusCode) {
-    return String(statusCode || '')
-      .toLowerCase()
-      .trim()
-      .replace(/[\s-]+/g, '_');
-  }
+  const state = {
+    logs: [],
+    filtered: []
+  };
 
   function escapeHtml(value) {
-    return String(value == null ? '' : value)
+    return String(value)
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
-      .replace(/\"/g, '&quot;')
-      .replace(/'/g, '&#39;');
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
   }
 
-  function formatDate(value) {
+  function formatDateTime(value) {
     if (!value) {
       return '-';
     }
-    const date = new Date(String(value));
+
+    const date = new Date(value);
     if (Number.isNaN(date.getTime())) {
       return String(value);
     }
+
     return date.toLocaleString();
   }
 
+  function formatAlarmLabel(level) {
+    const numeric = Number(level || 0);
+    if (!Number.isFinite(numeric) || numeric < 1) {
+      return 'Alarm -';
+    }
+    return 'Alarm ' + String(numeric);
+  }
+
+  function buildTimelineEntries(log) {
+    const entries = [];
+    const updates = Array.isArray(log.timelineUpdates) ? log.timelineUpdates : [];
+    const changes = Array.isArray(log.timelineChanges) ? log.timelineChanges : [];
+
+    updates.forEach(function (update) {
+      const status = String(update.incidentStatus || '').replace(/_/g, ' ');
+      const alarmLabel = formatAlarmLabel(update.alarmLevel);
+      entries.push({
+        at: update.recordedAt || '',
+        title: alarmLabel + ' | ' + (status || 'status update'),
+        meta: 'Recorded at ' + formatDateTime(update.recordedAt || '')
+      });
+    });
+
+    changes.forEach(function (change) {
+      const before = [];
+      const after = [];
+      if (change.fromAlarmLevel != null) {
+        before.push(formatAlarmLabel(change.fromAlarmLevel));
+      }
+      if (change.fromIncidentStatus) {
+        before.push(String(change.fromIncidentStatus).replace(/_/g, ' '));
+      }
+      if (change.toAlarmLevel != null) {
+        after.push(formatAlarmLabel(change.toAlarmLevel));
+      }
+      if (change.toIncidentStatus) {
+        after.push(String(change.toIncidentStatus).replace(/_/g, ' '));
+      }
+
+      entries.push({
+        at: change.changedAt || '',
+        title: (before.join(' / ') || 'Previous') + ' -> ' + (after.join(' / ') || 'Updated'),
+        meta: formatDateTime(change.changedAt || '') + (change.notes ? ' | ' + String(change.notes) : '')
+      });
+    });
+
+    entries.sort(function (a, b) {
+      return new Date(a.at || 0).getTime() - new Date(b.at || 0).getTime();
+    });
+
+    if (entries.length === 0 && log.incidentFinishedAt) {
+      entries.push({
+        at: log.incidentFinishedAt,
+        title: 'Incident completed',
+        meta: 'Completed at ' + formatDateTime(log.incidentFinishedAt)
+      });
+    }
+
+    return entries;
+  }
+
+  function normalizeSearchValue(value) {
+    return String(value || '').toLowerCase().trim();
+  }
+
+  function renderStationFilterOptions(logs) {
+    const stations = new Map();
+    logs.forEach(function (log) {
+      const id = String(log.stationId || '');
+      if (!id) {
+        return;
+      }
+      if (!stations.has(id)) {
+        stations.set(id, String(log.stationName || 'Station ' + id));
+      }
+    });
+
+    const currentValue = String(stationFilter.value || '');
+    stationFilter.innerHTML = '<option value="">All Stations</option>' + Array.from(stations.entries()).map(function ([id, name]) {
+      return '<option value="' + escapeHtml(id) + '">' + escapeHtml(name) + '</option>';
+    }).join('');
+
+    if (stations.has(currentValue)) {
+      stationFilter.value = currentValue;
+    }
+  }
+
+  function renderSummary(logs) {
+    const total = logs.length;
+    totalNode.textContent = String(total);
+    fireOutNode.textContent = String(total);
+    underControlNode.textContent = '0';
+    stationNode.textContent = context.stationName || 'All Stations';
+    summary.textContent = total === 0
+      ? 'No completed incident logs match your filters.'
+      : 'Showing ' + String(total) + ' completed incident log(s) across ' + String(new Set(logs.map(function (log) { return log.stationId; })).size) + ' station(s).';
+  }
+
+  function sortLogs(logs) {
+    const field = String(sortField.value || 'date');
+    const ascending = String(sortDir.value || 'desc') === 'asc';
+
+    return logs.slice().sort(function (a, b) {
+      let aValue = 0;
+      let bValue = 0;
+
+      if (field === 'name') {
+        aValue = String(a.title || '').toLowerCase();
+        bValue = String(b.title || '').toLowerCase();
+      } else if (field === 'station') {
+        aValue = String(a.stationName || '').toLowerCase();
+        bValue = String(b.stationName || '').toLowerCase();
+      } else if (field === 'submitted_by') {
+        aValue = String(a.submittedBy || '').toLowerCase();
+        bValue = String(b.submittedBy || '').toLowerCase();
+      } else if (field === 'alarm') {
+        aValue = Number(a.alarmLevel || 0);
+        bValue = Number(b.alarmLevel || 0);
+      } else if (field === 'status') {
+        aValue = String(a.incidentStatus || '').toLowerCase();
+        bValue = String(b.incidentStatus || '').toLowerCase();
+      } else {
+        aValue = new Date(a.incidentFinishedAt || a.updatedAt || a.submittedAt || 0).getTime();
+        bValue = new Date(b.incidentFinishedAt || b.updatedAt || b.submittedAt || 0).getTime();
+      }
+
+      if (aValue < bValue) {
+        return ascending ? -1 : 1;
+      }
+      if (aValue > bValue) {
+        return ascending ? 1 : -1;
+      }
+      return 0;
+    });
+  }
+
+  function applyFilters() {
+    const search = normalizeSearchValue(searchInput.value);
+    const stationId = String(stationFilter.value || '');
+
+    const filtered = state.logs.filter(function (log) {
+      if (stationId !== '' && String(log.stationId || '') !== stationId) {
+        return false;
+      }
+
+      if (search === '') {
+        return true;
+      }
+
+      const haystack = [
+        log.title,
+        log.stationName,
+        log.submittedBy,
+        log.incidentLocation,
+        log.callerName,
+        log.remarks,
+        log.incidentStatus,
+        log.stage,
+        log.alarmLevel
+      ].join(' ').toLowerCase();
+      return haystack.indexOf(search) !== -1;
+    });
+
+    state.filtered = sortLogs(filtered);
+    renderRows(state.filtered);
+    renderSummary(state.filtered);
+  }
+
   function renderRows(logs) {
-    if (!Array.isArray(logs) || logs.length === 0) {
-      tableBody.innerHTML = '<tr><td colspan="9" class="muted-text">No incident logs found for this station.</td></tr>';
+    if (!logs.length) {
+      tableBody.innerHTML = '<tr><td colspan="9" class="muted-text">No completed incident logs match your filters.</td></tr>';
       return;
     }
 
     tableBody.innerHTML = logs.map(function (log) {
-      return '<tr>' +
-        '<td>' + escapeHtml(formatDate(log.eventTime)) + '</td>' +
-        '<td>' + escapeHtml(log.reportId) + '</td>' +
-        '<td>' + badgeHtml((log.stationName || 'Station') + ' #' + (log.stationId || '-'), 'log-badge--station') + '</td>' +
-        '<td>' +
-          '<div class="incident-title">' + escapeHtml(log.incidentName || '-') + '</div>' +
-          '<div class="incident-meta">' +
-            '<span>' + escapeHtml(log.incidentLocation || 'No location') + '</span>' +
-            '<span>' + escapeHtml(log.callerName || 'No caller') + '</span>' +
-          '</div>' +
-        '</td>' +
+      const finishedAt = formatDateTime(log.incidentFinishedAt || log.updatedAt || log.submittedAt || '');
+      const details = [log.title || 'Untitled Incident', log.incidentLocation || '-', formatAlarmLabel(log.alarmLevel), String(log.incidentStatus || '').replace(/_/g, ' ') || 'fire out'];
+      return '<tr class="logs-row" tabindex="0" data-log-id="' + escapeHtml(String(log.id || '')) + '">' +
+        '<td>' + escapeHtml(finishedAt) + '</td>' +
+        '<td><strong>#' + escapeHtml(String(log.id || '')) + '</strong></td>' +
+        '<td>' + escapeHtml(log.stationName || '-') + '</td>' +
+        '<td>' + escapeHtml(details[0]) + '<div class="logs-row-subtitle">' + escapeHtml(details[1]) + '</div></td>' +
         '<td>' + escapeHtml(log.submittedBy || '-') + '</td>' +
-        '<td>' + badgeForStage(log.stage) + '</td>' +
-        '<td>' + badgeForStatus(log.status) + '</td>' +
-        '<td>' + badgeForAlarm(log.alarmLevel) + '</td>' +
-        '<td>' + renderAttachmentCell(log) + '</td>' +
+        '<td>' + escapeHtml(String(log.stage || 'after_incident').replace(/_/g, ' ')) + '</td>' +
+        '<td><span class="logs-status-pill logs-status-pill--completed">Fire Out</span></td>' +
+        '<td>' + escapeHtml(formatAlarmLabel(log.alarmLevel)) + '</td>' +
+        '<td><span class="logs-row-link">View timeline</span></td>' +
       '</tr>';
     }).join('');
   }
 
-  function renderAttachmentCell(log) {
-    const count = Number(log.attachmentCount || 0);
-    const latestUrl = String(log.latestAttachmentUrl || '');
-    const latestName = String(log.latestAttachmentName || 'Latest attachment');
-    const reportId = String(log.reportId || '');
-
-    let html = '<div class="incident-attachment-meta">';
-
-    if (count < 1) {
-      html += '<span class="muted-text">No attachments</span>';
-    } else {
-      html += '<span class="log-badge log-badge--station">' + escapeHtml(String(count)) + ' file(s)</span>';
-      if (latestUrl) {
-        html += '<a class="incident-attachment-link" href="' + escapeHtml(latestUrl) + '" target="_blank" rel="noopener noreferrer">' +
-          escapeHtml(latestName) +
-        '</a>';
-      }
+  function openModal(log) {
+    if (!log) {
+      return;
     }
 
-    html += '<button type="button" class="table-action-btn upload" data-action="upload" data-report-id="' + escapeHtml(reportId) + '">Upload</button>';
-    html += '</div>';
-    return html;
+    modalTitle.textContent = log.title || 'Incident Report';
+    modalMeta.textContent = [log.stationName || 'Station', formatAlarmLabel(log.alarmLevel), String(log.incidentStatus || '').replace(/_/g, ' ') || 'fire out'].join(' • ');
+    modalLocation.textContent = log.incidentLocation || '-';
+    modalSubmittedBy.textContent = log.submittedBy || '-';
+    modalFinishedAt.textContent = formatDateTime(log.incidentFinishedAt || log.updatedAt || log.submittedAt || '');
+
+    const entries = buildTimelineEntries(log);
+    modalTimeline.innerHTML = entries.length ? entries.map(function (entry, index) {
+      return '<li class="station-logs-timeline-item">' +
+        '<span class="station-logs-timeline-dot" aria-hidden="true"></span>' +
+        '<div class="station-logs-timeline-content">' +
+          '<strong>' + escapeHtml(entry.title || ('Event ' + String(index + 1))) + '</strong>' +
+          '<span>' + escapeHtml(entry.meta || '') + '</span>' +
+        '</div>' +
+      '</li>';
+    }).join('') : '<li class="station-logs-timeline-item"><strong>No timeline entries recorded</strong><span>Use the incident report page to view more detail.</span></li>';
+
+    modal.hidden = false;
   }
 
-  function setUploadMessage(text, isError) {
-    if (!uploadMessage) {
-      return;
-    }
-
-    uploadMessage.textContent = String(text || '');
-    uploadMessage.classList.remove('upload-message--error', 'upload-message--success');
-    if (!text) {
-      return;
-    }
-
-    uploadMessage.classList.add(isError ? 'upload-message--error' : 'upload-message--success');
-  }
-
-  function refreshUploadReportOptions(logs) {
-    if (!uploadReportId) {
-      return;
-    }
-
-    if (!Array.isArray(logs) || logs.length === 0) {
-      uploadReportId.innerHTML = '<option value="">No report available</option>';
-      return;
-    }
-
-    const options = logs.map(function (log) {
-      const reportId = String(log.reportId || '');
-      const title = String(log.incidentName || 'Untitled Incident');
-      return '<option value="' + escapeHtml(reportId) + '">#' + escapeHtml(reportId) + ' - ' + escapeHtml(title) + '</option>';
-    });
-
-    uploadReportId.innerHTML = options.join('');
-  }
-
-  function refreshCloudinaryHint() {
-    if (!uploadStorage || !cloudHint) {
-      return;
-    }
-
-    const cloud = (uploadConfig && uploadConfig.cloudinary) ? uploadConfig.cloudinary : { available: false, missing: [] };
-    if (uploadStorage.value === 'cloudinary' && !cloud.available) {
-      const missing = Array.isArray(cloud.missing) ? cloud.missing : [];
-      cloudHint.textContent = 'Cloudinary not ready. Missing: ' + (missing.length ? missing.join(', ') : 'configuration');
-    } else {
-      cloudHint.textContent = '';
-    }
-  }
-
-  function updateKpis(logs, payload) {
-    if (!Array.isArray(logs)) {
-      return;
-    }
-
-    let underControlCount = 0;
-    let fireOutCount = 0;
-
-    logs.forEach(function (log) {
-      const status = normalizeStatusCode(log.status);
-      if (status === 'under_control') {
-        underControlCount += 1;
-      }
-      if (status === 'fire_out') {
-        fireOutCount += 1;
-      }
-    });
-
-    if (payload && payload.statusCounts) {
-      const counts = payload.statusCounts;
-      if (typeof counts.under_control !== 'undefined') {
-        underControlCount = Number(counts.under_control) || 0;
-      }
-      if (typeof counts.fire_out !== 'undefined') {
-        fireOutCount = Number(counts.fire_out) || 0;
-      }
-    }
-
-    if (totalCountNode) {
-      totalCountNode.textContent = String(logs.length);
-    }
-    if (underControlCountNode) {
-      underControlCountNode.textContent = String(underControlCount);
-    }
-    if (fireOutCountNode) {
-      fireOutCountNode.textContent = String(fireOutCount);
-    }
+  function closeModal() {
+    modal.hidden = true;
   }
 
   async function loadLogs() {
-    const params = new URLSearchParams({
-      sort: String(sortField.value || 'date'),
-      dir: String(sortDir.value || 'desc')
-    });
-
-    const fullUrl = apiUrl + '?' + params.toString();
-    console.log('API URL:', fullUrl);
-    console.log('Context:', context);
     tableBody.innerHTML = '<tr><td colspan="9" class="muted-text">Loading logs...</td></tr>';
+    const url = new URL(apiUrl, window.location.origin);
+    url.searchParams.set('sort', sortField.value || 'date');
+    url.searchParams.set('dir', sortDir.value || 'desc');
+    if (searchInput.value.trim() !== '') {
+      url.searchParams.set('q', searchInput.value.trim());
+    }
+    if (stationFilter.value) {
+      url.searchParams.set('stationId', stationFilter.value);
+    }
 
     try {
-      console.log('Starting fetch with 10s timeout...');
-
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000);
-
-      const response = await fetch(fullUrl, {
-        method: 'GET',
-        credentials: 'same-origin',
-        signal: controller.signal
-      });
-
-      clearTimeout(timeoutId);
-      console.log('Response received. Status:', response.status, response.statusText);
-
-      const text = await response.text();
-      console.log('Response body (first 500 chars):', text.substring(0, 500));
-
-      if (!text) {
-        throw new Error('Empty response from server');
-      }
-
-      let payload;
-      try {
-        payload = JSON.parse(text);
-      } catch (parseError) {
-        console.error('Failed to parse JSON:', parseError);
-        throw new Error('Invalid JSON: ' + text.substring(0, 200));
-      }
-
-      if (!response.ok) {
-        throw new Error('HTTP ' + response.status + ': ' + (payload.message || 'Request failed'));
-      }
-
-      if (!payload.ok) {
-        throw new Error(payload.message || 'Backend returned ok=false');
-      }
-
-      console.log('Got', payload.logs?.length || 0, 'logs from backend');
-      renderRows(payload.logs || []);
-      updateKpis(payload.logs || [], payload);
-      uploadConfig = payload.uploadConfig || { cloudinary: { available: false, missing: [] } };
-      refreshUploadReportOptions(payload.logs || []);
-      refreshCloudinaryHint();
-      summary.textContent = (context.stationName || 'Station') + ' has ' + (payload.logs || []).length + ' incident log(s) in this view.';
-      console.log('Done.');
-    } catch (error) {
-      if (error.name === 'AbortError') {
-        console.error('Request timeout after 10 seconds');
-        tableBody.innerHTML = '<tr><td colspan="9" class="muted-text">Request timeout - server not responding</td></tr>';
-      } else {
-        console.error('Error:', error.message);
-        tableBody.innerHTML = '<tr><td colspan="9" class="muted-text">Error: ' + escapeHtml(error.message) + '</td></tr>';
-      }
-      summary.textContent = 'Error: ' + error.message;
-      updateKpis([]);
-    }
-  }
-
-  async function uploadAttachment() {
-    if (!uploadReportId || !uploadStorage || !uploadFile || !uploadButton) {
-      return;
-    }
-
-    const reportId = String(uploadReportId.value || '');
-    const storage = String(uploadStorage.value || 'local').toLowerCase();
-    const file = (uploadFile.files && uploadFile.files[0]) ? uploadFile.files[0] : null;
-
-    if (!reportId) {
-      setUploadMessage('Please choose an incident report first.', true);
-      return;
-    }
-
-    if (!file) {
-      setUploadMessage('Please choose a file to upload.', true);
-      return;
-    }
-
-    setUploadMessage('Uploading attachment...', false);
-    uploadButton.disabled = true;
-
-    const formData = new FormData();
-    formData.append('action', 'upload_attachment');
-    formData.append('reportId', reportId);
-    formData.append('storage', storage);
-    formData.append('incidentFile', file);
-
-    try {
-      const response = await fetch(apiUrl, {
-        method: 'POST',
-        credentials: 'same-origin',
-        body: formData
-      });
+      const response = await fetch(url.toString(), { credentials: 'same-origin' });
       const payload = await response.json();
       if (!response.ok || !payload || payload.ok !== true) {
-        const message = payload && payload.message ? payload.message : 'Upload failed.';
-        setUploadMessage(message, true);
+        state.logs = [];
+        state.filtered = [];
+        renderRows([]);
+        renderSummary([]);
+        summary.textContent = 'Unable to load incident logs right now.';
         return;
       }
 
-      const attachment = payload.attachment || {};
-      const url = String(attachment.url || '');
-      const successMessage = url
-        ? (String(payload.message || 'Upload successful.') + ' Open: ' + url)
-        : String(payload.message || 'Upload successful.');
-      setUploadMessage(successMessage, false);
-      uploadFile.value = '';
-      await loadLogs();
+      state.logs = Array.isArray(payload.logs) ? payload.logs : [];
+      renderStationFilterOptions(state.logs);
+      applyFilters();
     } catch (error) {
-      setUploadMessage('Upload failed. Please try again.', true);
-    } finally {
-      uploadButton.disabled = false;
+      state.logs = [];
+      state.filtered = [];
+      renderRows([]);
+      renderSummary([]);
+      summary.textContent = 'Unable to load incident logs right now.';
     }
   }
 
   function downloadCsv() {
-    const params = new URLSearchParams({
-      action: 'download',
-      format: 'csv',
-      sort: String(sortField.value || 'date'),
-      dir: String(sortDir.value || 'desc')
+    const rows = state.filtered.length ? state.filtered : state.logs;
+    if (!rows.length) {
+      window.alert('No logs available to export.');
+      return;
+    }
+
+    const headers = ['Finished At', 'Report ID', 'Station', 'Title', 'Submitted By', 'Status', 'Alarm', 'Location'];
+    const csvRows = [headers.join(',')];
+    rows.forEach(function (log) {
+      const row = [
+        formatDateTime(log.incidentFinishedAt || log.updatedAt || log.submittedAt || ''),
+        String(log.id || ''),
+        String(log.stationName || ''),
+        String(log.title || ''),
+        String(log.submittedBy || ''),
+        String(log.incidentStatus || ''),
+        String(log.alarmLevel || ''),
+        String(log.incidentLocation || '')
+      ].map(function (value) {
+        return '"' + String(value).replace(/"/g, '""') + '"';
+      });
+      csvRows.push(row.join(','));
     });
-    window.location.href = apiUrl + '?' + params.toString();
+
+    const blob = new Blob([csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const fileName = 'completed-incident-logs-' + new Date().toISOString().slice(0, 10) + '.csv';
+    link.href = URL.createObjectURL(blob);
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(link.href);
   }
 
-  applySortButton.addEventListener('click', function () {
+  tableBody.addEventListener('click', function (event) {
+    const row = event.target.closest('tr[data-log-id]');
+    if (!row) {
+      return;
+    }
+
+    const log = state.filtered.find(function (item) {
+      return String(item.id || '') === String(row.getAttribute('data-log-id') || '');
+    }) || state.logs.find(function (item) {
+      return String(item.id || '') === String(row.getAttribute('data-log-id') || '');
+    });
+
+    if (log) {
+      openModal(log);
+    }
+  });
+
+  tableBody.addEventListener('keydown', function (event) {
+    if (event.key !== 'Enter' && event.key !== ' ') {
+      return;
+    }
+
+    const row = event.target.closest('tr[data-log-id]');
+    if (!row) {
+      return;
+    }
+    event.preventDefault();
+    row.click();
+  });
+
+  applyButton.addEventListener('click', function () {
     loadLogs();
   });
 
-  downloadCsvButton.addEventListener('click', function () {
-    downloadCsv();
+  downloadButton.addEventListener('click', downloadCsv);
+  closeModalButton.addEventListener('click', closeModal);
+  modal.addEventListener('click', function (event) {
+    if (event.target && event.target.getAttribute('data-close-logs-modal') === 'true') {
+      closeModal();
+    }
+  });
+  searchInput.addEventListener('input', function () {
+    applyFilters();
+  });
+  stationFilter.addEventListener('change', function () {
+    applyFilters();
+  });
+  sortField.addEventListener('change', function () {
+    applyFilters();
+  });
+  sortDir.addEventListener('change', function () {
+    applyFilters();
+  });
+  document.addEventListener('keydown', function (event) {
+    if (event.key === 'Escape' && !modal.hidden) {
+      closeModal();
+    }
   });
 
-  if (uploadStorage) {
-    uploadStorage.addEventListener('change', function () {
-      refreshCloudinaryHint();
-    });
-  }
-
-  if (uploadButton) {
-    uploadButton.addEventListener('click', function () {
-      uploadAttachment();
-    });
-  }
-
-  const logsTable = document.getElementById('stationLogsTable');
-  if (logsTable) {
-    logsTable.addEventListener('click', function (event) {
-      const target = event.target;
-      if (!(target instanceof Element)) {
-        return;
-      }
-
-      const action = target.getAttribute('data-action');
-      const reportId = target.getAttribute('data-report-id');
-
-      if (action !== 'upload' || !reportId) {
-        return;
-      }
-
-      const stationName = String(context.stationName || 'AYALA');
-      const folderPath = 'FIRENET/' + stationName + '/reports';
-
-      console.log('Upload action triggered for incident:', reportId);
-      console.log('Station name:', stationName);
-      console.log('CLOUDINARY_CONFIG available:', !!window.CLOUDINARY_CONFIG);
-      console.log('cloudinary available:', !!window.cloudinary);
-
-      // Check if Cloudinary is ready, wait if not
-      if (!window.isCloudinaryReady || !window.isCloudinaryReady()) {
-        console.log('Waiting for Cloudinary to load...');
-        if (window.waitForCloudinary) {
-          window.waitForCloudinary(function(isReady) {
-            if (isReady) {
-              openUploadWidget(stationName, reportId, folderPath);
-            } else {
-              window.alert('Cloudinary service failed to load. Please refresh the page and try again.');
-            }
-          });
-        } else {
-          window.alert('Cloudinary service is not ready. Please refresh the page and try again.');
-        }
-        return;
-      }
-
-      if (!window.CLOUDINARY_CONFIG) {
-        window.alert('Upload configuration is missing. Please refresh the page.');
-        console.error('CLOUDINARY_CONFIG not found');
-        return;
-      }
-
-      openUploadWidget(stationName, reportId, folderPath);
-    }
-
-    function openUploadWidget(stationName, reportId, folderPath) {
-      try {
-        console.log('Creating upload widget...');
-        console.log('Config check - cloudName:', window.CLOUDINARY_CONFIG.cloudName);
-        console.log('Config check - preset:', window.CLOUDINARY_CONFIG.uploadPresets[stationName]);
-
-        const uploadWidget = window.cloudinary.createUploadWidget(
-          {
-            cloudName: window.CLOUDINARY_CONFIG.cloudName,
-            uploadPreset: window.CLOUDINARY_CONFIG.uploadPresets[stationName],
-            multiple: false,
-            maxFileSize: 52428800,
-            resourceType: 'auto',
-            folder: folderPath,
-            tags: [stationName, 'incident_log', reportId],
-            publicId: reportId + '_' + Date.now(),
-            clientAllowedFormats: ['image', 'video', 'pdf', 'doc', 'docx', 'txt', 'xlsx', 'pptx'],
-            context: { reportId: reportId, stationType: stationName }
-          },
-          function(error, result) {
-            if (error) {
-              console.error('Cloudinary error during upload:', error);
-            } else if (result && result.event === 'success') {
-              const messageEl = document.getElementById('stationLogsUploadMessage');
-              if (messageEl) {
-                messageEl.textContent = 'File uploaded successfully to: ' + folderPath;
-                messageEl.hidden = false;
-                messageEl.style.color = '#1f5e2d';
-                setTimeout(function() {
-                  messageEl.hidden = true;
-                }, 5000);
-              }
-              console.log('Incident attachment uploaded:', result.info);
-            }
-          }
-        );
-        console.log('Widget created, opening...');
-        uploadWidget.open();
-      } catch (err) {
-        console.error('Error creating upload widget:', err);
-        console.error('Error details:', {
-          message: err.message,
-          stack: err.stack,
-          cloudName: window.CLOUDINARY_CONFIG ? window.CLOUDINARY_CONFIG.cloudName : 'undefined',
-          presets: window.CLOUDINARY_CONFIG ? Object.keys(window.CLOUDINARY_CONFIG.uploadPresets) : 'undefined'
-        });
-        window.alert('Error opening upload dialog:\n' + err.message + '\n\nPlease check the browser console for more details.');
-      }
-    });
-  }
-
+  stationNode.textContent = context.stationName || 'All Stations';
+  summary.textContent = 'Loading completed incident logs...';
   loadLogs();
-
-  // Initialize Cloudinary upload
-  const context = JSON.parse(contextNode.textContent || '{}');
-  const stationName = String(context.stationName || 'AYALA');
-  createUploadButton(stationName, 'stationLogsCloudinaryContainer', function(uploadInfo) {
-    const messageEl = document.getElementById('stationLogsCloudinaryMessage');
-    if (messageEl) {
-      messageEl.textContent = 'File uploaded successfully to ' + stationName + ': ' + (uploadInfo.display_name || uploadInfo.public_id);
-      messageEl.style.color = '#1f5e2d';
-    }
-  });
 })();

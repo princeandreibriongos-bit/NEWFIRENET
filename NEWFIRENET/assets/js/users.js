@@ -66,14 +66,28 @@
   const barangayAdminPasswordInput = document.getElementById('barangayAdminPasswordInput');
   const barangayFormMessage = document.getElementById('barangayFormMessage');
 
+  // News manager (optional - only for pages/users.html)
+  const openNewsModalBtn = document.getElementById('openNewsModalBtn');
+  const newsModal = document.getElementById('newsModal');
+  const closeNewsModalBtn = document.getElementById('closeNewsModalBtn');
+  const newsForm = document.getElementById('newsForm');
+  const newsPhotoInput = document.getElementById('newsPhotoInput');
+  const newsTitleInput = document.getElementById('newsTitleInput');
+  const newsBodyInput = document.getElementById('newsBodyInput');
+  const newsStatusSelect = document.getElementById('newsStatusSelect');
+  const cancelNewsBtn = document.getElementById('cancelNewsBtn');
+  const publishNewsBtn = document.getElementById('publishNewsBtn');
+  const newsFormMessage = document.getElementById('newsFormMessage');
+
   if (
-    !contextElement || !usersTableBody || !usersWelcomeText || !openUserModalBtn || !refreshUsersBtn || !userModal ||
+    !contextElement ||
+    !usersTableBody || !usersWelcomeText || !openUserModalBtn || !refreshUsersBtn || !userModal ||
     !closeUserModalBtn || !userForm || !userIdInput || !usernameInput || !emailInput || !passwordInput || !roleSelect ||
     !stationSelect || !positionSelect || !statusSelect || !securityAlertsInput || !hideSensitiveInput || !autoLogoutInput ||
     !warningModal || !closeWarningModalBtn || !warningForm || !warningUserIdInput || !warningTypeInput || !warningTemplateInput || !warningMessageInput || !warningPrintBtn || !cancelWarningBtn || !warningFormMessage ||
-    !userFormMessage || !userTotalCount || !userAdminCount || !userActiveCount || !userStationCount || !userSearchInput || !userStationFilter || !userRoleFilter
+    !userFormMessage
   ) {
-    return;
+    // Continue so news publishing can still work even if the users UI is partially missing.
   }
 
   let context = {};
@@ -1028,6 +1042,125 @@
     state.roleFilter = userRoleFilter.value;
     renderTable();
   });
+
+  function setNewsMessage(text, isError) {
+    if (!newsFormMessage) {
+      return;
+    }
+    newsFormMessage.textContent = text;
+    newsFormMessage.style.color = isError ? '#a61d2a' : '#2e5b3f';
+  }
+
+  function openNewsModal() {
+    if (!newsModal) {
+      return;
+    }
+    newsModal.hidden = false;
+    document.body.style.overflow = 'hidden';
+    setNewsMessage('', false);
+  }
+
+  function closeNewsModal() {
+    if (!newsModal) {
+      return;
+    }
+    newsModal.hidden = true;
+    document.body.style.overflow = '';
+    if (newsForm) {
+      newsForm.reset();
+    }
+    setNewsMessage('', false);
+  }
+
+  if (openNewsModalBtn) {
+    openNewsModalBtn.addEventListener('click', function () {
+      openNewsModal();
+    });
+  }
+
+  if (closeNewsModalBtn) {
+    closeNewsModalBtn.addEventListener('click', closeNewsModal);
+  }
+
+  if (cancelNewsBtn) {
+    cancelNewsBtn.addEventListener('click', closeNewsModal);
+  }
+
+  if (newsModal) {
+    newsModal.addEventListener('click', function (event) {
+      if (!event || !event.target || !event.target.getAttribute) {
+        return;
+      }
+      if (event.target.getAttribute('data-close-news-modal') === 'true') {
+        closeNewsModal();
+      }
+    });
+  }
+
+  async function publishNews() {
+    if (!newsPhotoInput || !newsTitleInput || !newsBodyInput || !newsStatusSelect) {
+      throw new Error('News form is incomplete.');
+    }
+
+    const title = String(newsTitleInput.value || '').trim();
+    const body = String(newsBodyInput.value || '').trim();
+    const status = String(newsStatusSelect.value || 'approved');
+
+    const file = newsPhotoInput.files && newsPhotoInput.files[0] ? newsPhotoInput.files[0] : null;
+    if (!file) {
+      throw new Error('Please upload a news photo.');
+    }
+
+    if (title.length < 3) {
+      throw new Error('Title must be at least 3 characters.');
+    }
+    if (body.length < 10) {
+      throw new Error('What happened must be at least 10 characters.');
+    }
+
+    const formData = new FormData();
+    formData.append('action', 'create');
+    formData.append('photo', file);
+    formData.append('title', title);
+    formData.append('body', body);
+    formData.append('status', status);
+
+    const endpoint = '/firenet/NEWFIRENET/backend/controllers/news.php';
+
+    setNewsMessage('Publishing news...', false);
+
+    const response = await fetch(endpoint + '?action=create', {
+      method: 'POST',
+      body: formData,
+      credentials: 'same-origin'
+    });
+
+    let payload = null;
+    try {
+      payload = await response.json();
+    } catch (e) {
+      payload = null;
+    }
+
+    if (!response.ok || !payload || payload.ok !== true) {
+      throw new Error((payload && payload.message) ? payload.message : 'Unable to publish news.');
+    }
+
+    closeNewsModal();
+    if (newsForm) {
+      newsForm.reset();
+    }
+    window.alert(payload.message || 'News published successfully.');
+  }
+
+  if (newsForm) {
+    newsForm.addEventListener('submit', function (event) {
+      event.preventDefault();
+      publishNews().catch(function (error) {
+        setNewsMessage(error.message || 'Unable to publish news.', true);
+      });
+    });
+  }
 
   loadBootstrap().catch(function (error) {
     usersTableBody.innerHTML = '<tr><td colspan="7" class="muted-text">Unable to load users.</td></tr>';

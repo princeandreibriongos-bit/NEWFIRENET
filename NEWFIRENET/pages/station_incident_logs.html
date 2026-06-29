@@ -21,46 +21,54 @@
     </article>
   </section>
 
-  <section class="portal-card station-logs-controls" aria-label="Sorting and export controls">
-    <label>
-      Sort By
-      <select id="stationLogsSortField">
-        <option value="date">Date</option>
-        <option value="name">Incident Name</option>
-        <option value="submitted_by">Submitted By</option>
-        <option value="alarm">Alarm Level</option>
-        <option value="stage">Stage</option>
-        <option value="status">Status</option>
-        <option value="report_id">Report ID</option>
-      </select>
-    </label>
+  <section class="portal-card station-logs-controls" aria-label="Filter and sort controls">
+    <div class="station-logs-filter-grid">
+      <label>
+        Search
+        <input id="stationLogsSearch" type="search" placeholder="Search incident, station, or user">
+      </label>
 
-    <label>
-      Order
-      <select id="stationLogsSortDir">
-        <option value="desc">Descending</option>
-        <option value="asc">Ascending</option>
-      </select>
-    </label>
+      <label>
+        Station
+        <select id="stationLogsStationFilter">
+          <option value="">All Stations</option>
+        </select>
+      </label>
 
-    <button type="button" id="stationLogsApplySort" class="secondary-btn">Apply Sort</button>
-    <button type="button" id="stationLogsDownloadCsv" class="primary-btn">Download CSV</button>
-  </section>
+      <label>
+        Sort By
+        <select id="stationLogsSortField">
+          <option value="date">Date</option>
+          <option value="name">Incident Name</option>
+          <option value="station">Station</option>
+          <option value="submitted_by">Submitted By</option>
+          <option value="alarm">Alarm Level</option>
+          <option value="status">Status</option>
+        </select>
+      </label>
 
-  <section class="portal-card station-logs-upload" aria-label="Incident attachment upload">
-    <h3>Upload Incident Attachment to Cloud</h3>
-    <p class="muted-text">Upload supporting documents, photos, or files directly to your station's Cloudinary folder.</p>
-    <div id="stationLogsCloudinaryContainer"></div>
-    <p class="muted-text" id="stationLogsCloudinaryMessage" style="margin-top: 12px;"></p>
-    <p id="stationLogsUploadMessage" class="upload-success-message" hidden></p>
+      <label>
+        Order
+        <select id="stationLogsSortDir">
+          <option value="desc">Descending</option>
+          <option value="asc">Ascending</option>
+        </select>
+      </label>
+    </div>
+
+    <div class="station-logs-actions">
+      <button type="button" id="stationLogsApplySort" class="secondary-btn">Apply Filters</button>
+      <button type="button" id="stationLogsDownloadCsv" class="primary-btn">Download CSV</button>
+    </div>
   </section>
 
   <section class="portal-card station-logs-table-card">
     <div class="logs-panel-head">
-      <h3>Incident Logs For This Station</h3>
+      <h3>Completed Incident Logs</h3>
+      <span class="logs-panel-subtitle">Only fire out incidents are shown. Click any row to open the timeline.</span>
     </div>
     <div class="logs-table-wrap">
-      <table class="logs-table" id="stationLogsTable">
+      <table class="logs-table logs-table--interactive" id="stationLogsTable">
         <thead>
         <tr>
           <th>Date/Time</th>
@@ -82,4 +90,38 @@
       </table>
     </div>
   </section>
+
+  <div id="stationLogsModal" class="station-logs-modal" hidden>
+    <div class="station-logs-modal-backdrop" data-close-logs-modal="true"></div>
+    <section class="station-logs-modal-card" role="dialog" aria-modal="true" aria-labelledby="stationLogsModalTitle">
+      <div class="station-logs-modal-head">
+        <div>
+          <p class="station-logs-modal-kicker">Incident Timeline</p>
+          <h3 id="stationLogsModalTitle">Incident Report</h3>
+          <p id="stationLogsModalMeta" class="muted-text"></p>
+        </div>
+        <button type="button" id="closeStationLogsModal" class="modal-close-btn" aria-label="Close">x</button>
+      </div>
+      <div class="station-logs-modal-body">
+        <div class="station-logs-detail-grid">
+          <div class="station-logs-detail-card">
+            <span class="station-logs-detail-label">Location</span>
+            <strong id="stationLogsModalLocation">-</strong>
+          </div>
+          <div class="station-logs-detail-card">
+            <span class="station-logs-detail-label">Submitted By</span>
+            <strong id="stationLogsModalSubmittedBy">-</strong>
+          </div>
+          <div class="station-logs-detail-card">
+            <span class="station-logs-detail-label">Finished At</span>
+            <strong id="stationLogsModalFinishedAt">-</strong>
+          </div>
+        </div>
+        <div class="station-logs-timeline-panel">
+          <h4>Incident Timeline</h4>
+          <ul id="stationLogsModalTimeline" class="station-logs-timeline"></ul>
+        </div>
+      </div>
+    </section>
+  </div>
 </section>

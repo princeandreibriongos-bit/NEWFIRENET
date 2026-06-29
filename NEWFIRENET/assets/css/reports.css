@@ -8,6 +8,49 @@
 .reports-info-card {
 }
 
+.reports-scope-card {
+  margin-bottom: 14px;
+}
+
+.reports-scope-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+}
+
+.reports-scope-head h3 {
+  margin: 0 0 6px;
+}
+
+.reports-scope-switch {
+  display: inline-flex;
+  gap: 8px;
+  padding: 6px;
+  border-radius: 999px;
+  background: #f4f7fb;
+  border: 1px solid #d5deea;
+}
+
+.reports-scope-btn {
+  appearance: none;
+  border: 0;
+  border-radius: 999px;
+  min-height: 40px;
+  padding: 0 16px;
+  background: transparent;
+  color: #3b4a63;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.reports-scope-btn.is-active {
+  background: #ffffff;
+  box-shadow: 0 4px 10px rgba(31, 55, 96, 0.12);
+  color: #bc1f2d;
+}
+
 .ongoing-incidents-hint {
   margin: 4px 0 12px;
   padding: 8px 10px;
