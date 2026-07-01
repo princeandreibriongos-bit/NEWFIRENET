@@ -24,6 +24,19 @@
     </header>
   </section>
 
+  <section class="users-news-manager" id="announcementsManagerSection">
+    <header class="users-hero users-news-hero">
+      <div>
+        <p class="users-kicker">Announcements desk</p>
+        <h2>Public Notices</h2>
+        <p class="muted-text">Publish district/station announcements for the public. They will appear on the login page in the Announcements section.</p>
+      </div>
+      <div class="users-hero-actions">
+        <button type="button" class="primary-btn" id="openAnnouncementModalBtn">Publish Announcement</button>
+      </div>
+    </header>
+  </section>
+
   <div id="newsModal" class="users-modal" hidden>
     <div class="users-modal-backdrop" data-close-news-modal="true"></div>
     <div class="users-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="newsModalTitle">
@@ -67,6 +80,76 @@
         </div>
 
         <p class="muted-text" id="newsFormMessage"></p>
+      </form>
+    </div>
+  </div>
+
+  <div id="announcementModal" class="users-modal" hidden>
+    <div class="users-modal-backdrop" data-close-announcement-modal="true"></div>
+    <div class="users-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="announcementModalTitle">
+      <header class="users-modal-header">
+        <div>
+          <p class="users-kicker">Publish public notice</p>
+          <h3 id="announcementModalTitle">Create Announcement</h3>
+        </div>
+        <button type="button" class="modal-close-btn" id="closeAnnouncementModalBtn" aria-label="Close">x</button>
+      </header>
+
+      <form id="announcementForm" class="users-form" novalidate enctype="multipart/form-data">
+        <div class="users-form-grid">
+          <label>
+            Announcement Photo
+            <input type="file" id="announcementPhotoInput" name="photo" accept="image/*" required>
+          </label>
+
+          <label>
+            Title
+            <input type="text" id="announcementTitleInput" name="title" maxlength="160" placeholder="e.g. Fire safety advisory - Station 2" required>
+          </label>
+
+          <label class="users-full-width">
+            Details / Message
+            <textarea id="announcementBodyInput" name="body" maxlength="4000" rows="6" placeholder="Write the official announcement for the public." required></textarea>
+          </label>
+
+          <label>
+            Announcement Type
+            <select id="announcementTypeInput" name="announcementType" required>
+              <option value="PUBLIC NOTICE" selected>Public Notice</option>
+              <option value="DISTRICT NOTICE">District Notice</option>
+              <option value="TRAINING UPDATE">Training Update</option>
+              <option value="SAFETY ADVISORY">Safety Advisory</option>
+            </select>
+          </label>
+
+          <label>
+            Audience
+            <select id="announcementAudienceInput" name="audience" required>
+              <option value="PUBLIC" selected>All Public</option>
+              <option value="STATION PERSONNEL">Station Personnel</option>
+            </select>
+          </label>
+
+          <label>
+            Expires (optional)
+            <input type="date" id="announcementExpiresAtInput" name="expiresAt">
+          </label>
+
+          <label>
+            Publish Status
+            <select id="announcementStatusSelect" name="status">
+              <option value="approved" selected>Approved (visible)</option>
+              <option value="draft">Draft (hidden)</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="users-form-actions">
+          <button type="submit" class="primary-btn" id="publishAnnouncementBtn">Publish Announcement</button>
+          <button type="button" class="secondary-btn" id="cancelAnnouncementBtn">Cancel</button>
+        </div>
+
+        <p class="muted-text" id="announcementFormMessage"></p>
       </form>
     </div>
   </div>

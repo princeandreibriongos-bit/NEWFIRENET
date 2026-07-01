@@ -13,26 +13,128 @@
 <body>
     <div class="page-bg" aria-hidden="true"></div>
 
-    <div class="login-ribbon" role="navigation" aria-label="Account sections">
+    <div class="login-ribbon" role="banner" aria-label="FireNet login header">
         <div class="login-ribbon-inner">
-            <a class="login-ribbon-pill is-active" href="javascript:void(0)" aria-current="page">login</a>
-            <a class="login-ribbon-pill" href="/firenet/NEWFIRENET/pages/dashboard.html">news</a>
-            <a class="login-ribbon-pill" href="/firenet/NEWFIRENET/pages/reports.html">announcements</a>
-            <a class="login-ribbon-pill" href="/firenet/NEWFIRENET/pages/general_mail.html">civilian reporting</a>
-            <a class="login-ribbon-pill" href="/firenet/NEWFIRENET/pages/settings.html">about</a>
+            <div class="login-ribbon-brand">
+                <img src="../assets/img/bfpmakatilogo.jpg" alt="BFP Makati Logo" class="login-ribbon-logo">
+                <div class="login-ribbon-brand-copy">
+                    <span class="login-ribbon-eyebrow">Makati Fire District</span>
+                    <span class="login-ribbon-title">FireNet</span>
+                    <span class="login-ribbon-subtitle">Operations portal for dispatch, reporting, and live station updates</span>
+                </div>
+            </div>
+
+            <nav class="login-ribbon-nav" aria-label="Account sections">
+                <a class="login-ribbon-pill is-active" href="javascript:void(0)" aria-current="page">login</a>
+                <a class="login-ribbon-pill" href="/firenet/NEWFIRENET/pages/news.html">news</a>
+                <a class="login-ribbon-pill" href="/firenet/NEWFIRENET/pages/reports.html">announcements</a>
+                <a class="login-ribbon-pill" href="/firenet/NEWFIRENET/pages/general_mail.html">civilian reporting</a>
+                <a class="login-ribbon-pill" href="/firenet/NEWFIRENET/pages/settings.html">about</a>
+            </nav>
+
+            <div class="login-ribbon-status" aria-label="System status">
+                <span class="login-ribbon-status-pill">24/7 Operations</span>
+                <span class="login-ribbon-status-pill login-ribbon-status-pill--muted">Internal Access</span>
+            </div>
         </div>
     </div>
 
     <main class="auth-shell" aria-labelledby="pageTitle">
         <aside class="auth-aside">
-            <p class="aside-label">Makati Fire District</p>
+            <div class="login-top-row">
+                <div class="login-intro-copy">
+                    <p class="aside-label">Makati Fire District</p>
 
-            <div class="logo-row">
-                <img src="../assets/img/bfpmakatilogo.jpg" alt="BFP Makati Logo" class="brand-logo">
+                    <div class="logo-row">
+                        <img src="../assets/img/bfpmakatilogo.jpg" alt="BFP Makati Logo" class="brand-logo">
+                    </div>
+
+                    <h1 id="pageTitle">FIRENET</h1>
+                    <p class="subtitle">A simple command page for dispatch, people, and emergency operations.</p>
+                </div>
+
+                <section class="login-mission-vision" aria-labelledby="missionVisionTitle">
+                    <div class="login-mission-vision-brand-copy">
+                        <p class="login-mission-vision-kicker">Mission and Vision</p>
+                        <h2 id="missionVisionTitle">Guiding the FireNet service commitment</h2>
+                    </div>
+
+                    <p class="login-mission-vision-copy">
+                        The Bureau of Fire Protection’s new Mission and Vision embody a renewed commitment that strengthens our direction, sharpens our purpose, and guides every member of the organization in delivering responsive, professional, and compassionate public service.
+                    </p>
+                    <p class="login-mission-vision-copy">
+                        As we continue to evolve in the face of modern challenges, these guiding principles reflect our unwavering dedication to excellence, integrity, and genuine service to the Filipino people, ensuring safer, more resilient communities for generations to come.
+                    </p>
+
+                    <div class="login-mission-vision-columns">
+                        <article class="login-mission-vision-card">
+                            <p class="login-mission-vision-label">Mission</p>
+                            <p class="login-mission-vision-text">We protect life, property, and the environment through an integrated system of prevention, response, and investigation, strengthening public safety and community resilience.</p>
+                        </article>
+
+                        <article class="login-mission-vision-card">
+                            <p class="login-mission-vision-label">Vision</p>
+                            <p class="login-mission-vision-text">A modern and trusted fire and emergency service building safe and resilient communities.</p>
+                        </article>
+                    </div>
+                </section>
             </div>
 
-            <h1 id="pageTitle">FIRENET</h1>
-            <p class="subtitle">A simple command page for dispatch, people, and emergency operations.</p>
+            <div class="login-left-content">
+                <div class="login-info-grid">
+                    <section class="login-emergency" aria-labelledby="emergencyTitle">
+                        <div class="login-section-head">
+                            <p class="login-section-tag">Emergency Info</p>
+                            <h2 id="emergencyTitle">Important landlines and hotlines</h2>
+                        </div>
+
+                        <ul class="login-emergency-list">
+                            <li><strong>Makati Central Fire Station Landlines:</strong> 8818-5150 / 8816-2553</li>
+                            <li><strong>Makati Central Fire Mobile Line:</strong> 0931-145-1493</li>
+                            <li><strong>Makati Central Emergency Medical Services (EMS):</strong> 9682507956 / 8818-5150</li>
+                            <li><strong>Makati Local Emergency Hotline:</strong> 168 via the <a href="https://www.makati.gov.ph/content/makati-hotlines" target="_blank" rel="noopener noreferrer">Makati Web Portal</a></li>
+                        </ul>
+                    </section>
+
+                    <section class="login-announcement-slot" aria-label="Announcement space">
+                        <p class="login-section-tag">Announcements</p>
+
+                        <div id="loginAnnouncementsContainer" aria-label="Announcements list">
+                            <div class="login-news-loading" id="loginAnnouncementsLoading">Loading announcements...</div>
+                        </div>
+
+                        <template id="loginAnnouncementCardTemplate">
+                            <a class="login-news-card" href="#" data-announcement-id="" aria-label="Open announcement details">
+                                <div class="login-news-card-media" aria-hidden="true">
+                                    <img class="login-news-card-image" data-announcement-image="" alt="" loading="lazy" decoding="async" style="display:none;">
+                                    <div class="login-news-card-gradient"></div>
+                                </div>
+
+                                <div class="login-news-card-text">
+                                    <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+                                        <h3 class="login-news-card-title" data-announcement-title=""></h3>
+                                        <span class="login-news-card-meta" data-announcement-type=""></span>
+                                    </div>
+                                    <p class="login-news-card-body" data-announcement-excerpt=""></p>
+                                    <p class="login-news-card-meta" data-announcement-meta=""></p>
+                                </div>
+                            </a>
+                        </template>
+
+                        <p class="login-announcement-text" id="loginAnnouncementsEmptyText" hidden>
+                            Reserved space for station advisories, district notices, and live updates.
+                        </p>
+                    </section>
+
+                    <section class="login-report-cta" aria-label="Report an incident">
+                        <div>
+                            <p class="login-report-kicker">Report an incident?</p>
+                            <p class="login-report-text">Open the reporting flow for fire, smoke, rescue, or urgent safety concerns.</p>
+                        </div>
+                        <button type="button" class="login-report-button">Start report</button>
+                    </section>
+                </div>
+            </div>
 
             <section class="login-news" id="loginNewsModule" aria-label="News updates">
                 <div class="login-news-head">
@@ -40,39 +142,26 @@
                     <span class="login-news-pulse" id="loginNewsPulse" aria-hidden="true"></span>
                 </div>
 
-                <div class="login-news-body">
-                    <div class="login-news-media" aria-hidden="true">
-                        <img
-                            id="loginNewsImage"
-                            class="login-news-image"
-                            alt=""
-                            loading="eager"
-                            decoding="async"
-                        >
-                        <div class="login-news-gradient"></div>
-                    </div>
-
-                    <div class="login-news-text">
-                        <h3 class="login-news-title" id="loginNewsTitle">Loading updates...</h3>
-                        <p class="login-news-content" id="loginNewsBody"></p>
+                <div class="login-news-grid" id="loginNewsGrid" aria-label="News collage">
+                    <div class="login-news-loading" id="loginNewsLoading">
+                        Loading news...
                     </div>
                 </div>
 
-                <div class="login-news-loading" id="loginNewsLoading" hidden>
-                    Loading news...
-                </div>
+                <template id="loginNewsCardTemplate">
+                    <a class="login-news-card" href="#" data-news-id="" aria-label="Open news details">
+                        <div class="login-news-card-media" aria-hidden="true">
+                            <img class="login-news-card-image" alt="" loading="lazy" decoding="async">
+                            <div class="login-news-card-gradient"></div>
+                        </div>
+                        <div class="login-news-card-text">
+                            <h3 class="login-news-card-title"></h3>
+                            <p class="login-news-card-body"></p>
+                            <p class="login-news-card-meta"></p>
+                        </div>
+                    </a>
+                </template>
             </section>
-
-            <ul class="feature-list">
-                <li>Live incident and response updates</li>
-                <li>Staff attendance and assignment tracking</li>
-                <li>Quick access to reports and alerts</li>
-            </ul>
-
-            <div class="aside-meta">
-                <span class="meta-pill">24/7 Operations</span>
-                <span class="meta-pill">Internal Access</span>
-            </div>
         </aside>
 
         <section class="auth-panel">
@@ -148,6 +237,7 @@
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script src="../assets/js/login.js"></script>
     <script src="../assets/js/login-news.js"></script>
+    <script src="../assets/js/login-announcements.js"></script>
     <script>
         function updateTimeAndDate() {
             const now = new Date();

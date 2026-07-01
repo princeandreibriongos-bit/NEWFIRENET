@@ -22,6 +22,45 @@
       </div>
     </header>
 
+    <section class="dash-hero" aria-label="Command summary">
+      <div class="dash-hero-copy">
+        <p class="dash-hero-kicker">FireNet Command Center</p>
+        <h2 class="dash-hero-title">A cleaner, faster view of station readiness.</h2>
+        <p class="dash-hero-body">Live incident volume, response pace, and station health are arranged in one editorial-style control surface so you can read the system at a glance.</p>
+
+        <div class="dash-hero-chips" aria-label="Session summary">
+          <span class="dash-hero-chip" id="dashHeroStationName">Station</span>
+          <span class="dash-hero-chip" id="dashHeroRoleChip">Role</span>
+          <span class="dash-hero-chip" id="dashHeroStatusChip">Stable</span>
+          <span class="dash-hero-chip" id="dashHeroUpdatedChip">Updated</span>
+        </div>
+
+        <div class="dash-hero-actions">
+          <a class="dash-hero-action" href="/firenet/NEWFIRENET/backend/pages/reports.php">Open reports</a>
+          <a class="dash-hero-action dash-hero-action--ghost" href="/firenet/NEWFIRENET/backend/pages/analytics.php">View analytics</a>
+        </div>
+      </div>
+
+      <div class="dash-hero-panel" aria-label="Quick metrics">
+        <div class="dash-hero-metric">
+          <span class="dash-hero-metric-label">Active incidents</span>
+          <strong class="dash-hero-metric-value" id="heroOpenCount">0</strong>
+        </div>
+        <div class="dash-hero-metric">
+          <span class="dash-hero-metric-label">Resolved rate</span>
+          <strong class="dash-hero-metric-value" id="heroResolutionRate">0%</strong>
+        </div>
+        <div class="dash-hero-metric">
+          <span class="dash-hero-metric-label">Station coverage</span>
+          <strong class="dash-hero-metric-value" id="heroStationCoverage">0%</strong>
+        </div>
+        <div class="dash-hero-metric dash-hero-metric--accent">
+          <span class="dash-hero-metric-label">Offline stations</span>
+          <strong class="dash-hero-metric-value" id="heroOfflineCount">0</strong>
+        </div>
+      </div>
+    </section>
+
     <!-- KPI row with sparklines (mock style) -->
     <section class="dash-kpi-row" aria-label="Key metrics">
       <article class="dash-kpi-card dash-kpi-card--incidents">
@@ -82,6 +121,18 @@
           <p class="dash-ops-big" id="dashOpsBigNumber">0</p>
           <p class="dash-ops-caption" id="dashOpsCaption">Open incidents network-wide view</p>
           <ul class="dash-ops-list" id="dashOpsMiniList" aria-label="Status lines"></ul>
+        </article>
+        <article class="dash-card dash-health-card">
+          <div class="dash-card-head dash-card-head--compact">
+            <div>
+              <h2 class="dash-card-title">Station health</h2>
+              <p class="dash-card-desc">Responding vs standby vs offline</p>
+            </div>
+            <span class="dash-pill">Live</span>
+          </div>
+          <div class="dash-chart-box dash-chart-box--mini">
+            <canvas id="stationHealthChart"></canvas>
+          </div>
         </article>
         <article class="dash-card dash-feed-card">
           <div class="dash-card-head dash-card-head--compact">

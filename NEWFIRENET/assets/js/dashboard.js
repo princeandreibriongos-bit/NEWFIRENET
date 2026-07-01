@@ -25,6 +25,14 @@
     dashSearchPanel: document.getElementById('dashSearchPanel'),
     dashSearchResults: document.getElementById('dashSearchResults'),
     dashSearchClearBtn: document.getElementById('dashSearchClearBtn'),
+    dashHeroStationName: document.getElementById('dashHeroStationName'),
+    dashHeroRoleChip: document.getElementById('dashHeroRoleChip'),
+    dashHeroStatusChip: document.getElementById('dashHeroStatusChip'),
+    dashHeroUpdatedChip: document.getElementById('dashHeroUpdatedChip'),
+    heroOpenCount: document.getElementById('heroOpenCount'),
+    heroResolutionRate: document.getElementById('heroResolutionRate'),
+    heroStationCoverage: document.getElementById('heroStationCoverage'),
+    heroOfflineCount: document.getElementById('heroOfflineCount'),
     openIncidentsCount: document.getElementById('openIncidentsCount'),
     openIncidentsSummary: document.getElementById('openIncidentsSummary'),
     completedIncidentCount: document.getElementById('completedIncidentCount'),
@@ -48,7 +56,8 @@
     sparkCompleted: document.getElementById('sparkCompleted'),
     sparkReadiness: document.getElementById('sparkReadiness'),
     incidentTrendChart: document.getElementById('incidentTrendChart'),
-    weeklyBarChart: document.getElementById('weeklyBarChart')
+    weeklyBarChart: document.getElementById('weeklyBarChart'),
+    stationHealthChart: document.getElementById('stationHealthChart')
   };
 
   const SEARCH_TYPES = {
@@ -444,6 +453,20 @@
     if (elements.dashStationHint) {
       elements.dashStationHint.textContent = name;
     }
+
+    if (elements.dashHeroStationName) {
+      elements.dashHeroStationName.textContent = name;
+    }
+    if (elements.dashHeroRoleChip) {
+      elements.dashHeroRoleChip.textContent = String(context.roleTitle || context.role || 'User');
+    }
+    if (elements.dashHeroUpdatedChip) {
+      const now = new Date();
+      elements.dashHeroUpdatedChip.textContent = 'Updated ' + now.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+    }
+    if (elements.dashHeroStatusChip) {
+      elements.dashHeroStatusChip.textContent = Number(context.openIncidentCount || 0) > 0 ? 'Attention required' : 'System stable';
+    }
   }
 
   function setDelta(el, direction, label) {
@@ -459,7 +482,12 @@
     const openCount = Number(context.openIncidentCount || 0);
     const completedCount = Number(context.completedIncidentCount || 0);
     const totalCount = Number(context.totalIncidentCount || 0);
+    const stationCount = Array.isArray(context.stationStatuses) ? context.stationStatuses.length : 0;
+    const offlineCount = Array.isArray(context.stationStatuses)
+      ? context.stationStatuses.filter((s) => String(s.statusCode || '').toLowerCase() === 'offline').length
+      : 0;
     const { counts } = getTrendArrays();
+    const completedRate = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
 
     if (elements.openIncidentsCount) {
       elements.openIncidentsCount.textContent = String(openCount);
@@ -474,9 +502,19 @@
       elements.totalIncidentCount.textContent = String(totalCount);
     }
 
-    const offlineCount = Array.isArray(context.stationStatuses)
-      ? context.stationStatuses.filter((s) => String(s.statusCode || '').toLowerCase() === 'offline').length
-      : 0;
+    if (elements.heroOpenCount) {
+      elements.heroOpenCount.textContent = String(openCount);
+    }
+    if (elements.heroResolutionRate) {
+      elements.heroResolutionRate.textContent = completedRate + '%';
+    }
+    if (elements.heroStationCoverage) {
+      const coverage = stationCount > 0 ? Math.round(((stationCount - offlineCount) / stationCount) * 100) : 0;
+      elements.heroStationCoverage.textContent = coverage + '%';
+    }
+    if (elements.heroOfflineCount) {
+      elements.heroOfflineCount.textContent = String(offlineCount);
+    }
     const rawScore = 100 - openCount * 4 - offlineCount * 12;
     const score = clamp(rawScore, 18, 100);
 
@@ -519,7 +557,7 @@
       elements.dashOpsBigNumber.textContent = String(openCount);
     }
     if (elements.dashOpsCaption) {
-      elements.dashOpsCaption.textContent = 'Open incidents requiring attention';
+      elements.dashOpsCaption.textContent = openCount > 0 ? 'Open incidents requiring attention' : 'Monitoring is steady';
     }
     if (elements.dashOpsMiniList) {
       const stations = Array.isArray(context.stationStatuses) ? context.stationStatuses : [];
@@ -540,8 +578,7 @@
       elements.darkOpen.textContent = String(openCount);
     }
     if (elements.darkResolution) {
-      const pct = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
-      elements.darkResolution.textContent = pct + '%';
+      elements.darkResolution.textContent = completedRate + '%';
     }
   }
 
@@ -596,8 +633,9 @@
           statusCode === 'responding' ? 'dash-row-badge--responding' : statusCode === 'offline' ? 'dash-row-badge--offline' : 'dash-row-badge--standby';
         const sid = Number(station.stationId || 0);
         const href = REPORTS_URL;
+        const rowClass = station.isCurrentStation ? 'dash-row dash-row--current' : 'dash-row';
         return `
-        <div class="dash-row">
+        <div class="${rowClass}" data-station-status="${escapeHtml(statusCode)}">
           <span class="dash-row-id">S${sid || '—'}</span>
           <div class="dash-row-main">
             <span class="dash-row-name">${escapeHtml(station.stationName || 'Unknown')}</span>
@@ -774,6 +812,53 @@
     });
   }
 
+  function initStationHealthChart() {
+    if (!elements.stationHealthChart || typeof Chart === 'undefined') {
+      return;
+    }
+
+    const ctx = elements.stationHealthChart.getContext('2d');
+    const stations = Array.isArray(context.stationStatuses) ? context.stationStatuses : [];
+    const responding = stations.filter((s) => String(s.statusCode || '').toLowerCase() === 'responding').length;
+    const standby = stations.filter((s) => String(s.statusCode || '').toLowerCase() === 'standby').length;
+    const offline = stations.filter((s) => String(s.statusCode || '').toLowerCase() === 'offline').length;
+
+    if (charts.stationHealth) {
+      charts.stationHealth.destroy();
+    }
+
+    charts.stationHealth = new Chart(ctx, {
+      type: 'doughnut',
+      data: {
+        labels: ['Responding', 'Standby', 'Offline'],
+        datasets: [
+          {
+            data: [responding, standby, offline],
+            backgroundColor: ['#16a34a', '#c9a24d', '#64748b'],
+            borderColor: '#ffffff',
+            borderWidth: 2,
+            hoverOffset: 4
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: '68%',
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: '#111827',
+            titleFont: { size: 12 },
+            bodyFont: { size: 13 },
+            padding: 10,
+            cornerRadius: 8
+          }
+        }
+      }
+    });
+  }
+
   function initSparks() {
     const { counts } = getTrendArrays();
     const openCount = Number(context.openIncidentCount || 0);
@@ -914,6 +999,7 @@
       initSparks();
       initIncidentTrendChart();
       initWeeklyBarChart();
+      initStationHealthChart();
       resizeChartsIfNeeded();
     });
   }

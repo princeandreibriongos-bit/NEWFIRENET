@@ -10,6 +10,12 @@ return [
         'enabled' => true,
         'api_key' => 'AIzaSyB1T6zhOhNbr6njK1CnomxZVuDmZIPkzwo'
     ],
+    'news_api' => [
+        'enabled' => true,
+        'api_key' => '3387c6e010d64b89add96502b60bccaa',
+        'country' => 'ph',
+        'query' => 'fire'
+    ],
     'cloudinary' => [
         'enabled' => true,
         'cloud_name' => 'dq80tx04u',

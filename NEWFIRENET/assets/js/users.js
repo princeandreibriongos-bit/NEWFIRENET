@@ -79,6 +79,22 @@
   const publishNewsBtn = document.getElementById('publishNewsBtn');
   const newsFormMessage = document.getElementById('newsFormMessage');
 
+  // Announcements manager (optional - only for pages/users.html)
+  const openAnnouncementModalBtn = document.getElementById('openAnnouncementModalBtn');
+  const announcementModal = document.getElementById('announcementModal');
+  const closeAnnouncementModalBtn = document.getElementById('closeAnnouncementModalBtn');
+  const announcementForm = document.getElementById('announcementForm');
+  const announcementPhotoInput = document.getElementById('announcementPhotoInput');
+  const announcementTitleInput = document.getElementById('announcementTitleInput');
+  const announcementBodyInput = document.getElementById('announcementBodyInput');
+  const announcementTypeInput = document.getElementById('announcementTypeInput');
+  const announcementAudienceInput = document.getElementById('announcementAudienceInput');
+  const announcementExpiresAtInput = document.getElementById('announcementExpiresAtInput');
+  const announcementStatusSelect = document.getElementById('announcementStatusSelect');
+  const cancelAnnouncementBtn = document.getElementById('cancelAnnouncementBtn');
+  const publishAnnouncementBtn = document.getElementById('publishAnnouncementBtn');
+  const announcementFormMessage = document.getElementById('announcementFormMessage');
+
   if (
     !contextElement ||
     !usersTableBody || !usersWelcomeText || !openUserModalBtn || !refreshUsersBtn || !userModal ||
@@ -1072,9 +1088,44 @@
     setNewsMessage('', false);
   }
 
+  function setAnnouncementMessage(text, isError) {
+    if (!announcementFormMessage) {
+      return;
+    }
+    announcementFormMessage.textContent = text;
+    announcementFormMessage.style.color = isError ? '#a61d2a' : '#2e5b3f';
+  }
+
+  function openAnnouncementModal() {
+    if (!announcementModal) {
+      return;
+    }
+    announcementModal.hidden = false;
+    document.body.style.overflow = 'hidden';
+    setAnnouncementMessage('', false);
+  }
+
+  function closeAnnouncementModal() {
+    if (!announcementModal) {
+      return;
+    }
+    announcementModal.hidden = true;
+    document.body.style.overflow = '';
+    if (announcementForm) {
+      announcementForm.reset();
+    }
+    setAnnouncementMessage('', false);
+  }
+
   if (openNewsModalBtn) {
     openNewsModalBtn.addEventListener('click', function () {
       openNewsModal();
+    });
+  }
+
+  if (openAnnouncementModalBtn) {
+    openAnnouncementModalBtn.addEventListener('click', function () {
+      openAnnouncementModal();
     });
   }
 
@@ -1086,6 +1137,14 @@
     cancelNewsBtn.addEventListener('click', closeNewsModal);
   }
 
+  if (closeAnnouncementModalBtn) {
+    closeAnnouncementModalBtn.addEventListener('click', closeAnnouncementModal);
+  }
+
+  if (cancelAnnouncementBtn) {
+    cancelAnnouncementBtn.addEventListener('click', closeAnnouncementModal);
+  }
+
   if (newsModal) {
     newsModal.addEventListener('click', function (event) {
       if (!event || !event.target || !event.target.getAttribute) {
@@ -1093,6 +1152,17 @@
       }
       if (event.target.getAttribute('data-close-news-modal') === 'true') {
         closeNewsModal();
+      }
+    });
+  }
+
+  if (announcementModal) {
+    announcementModal.addEventListener('click', function (event) {
+      if (!event || !event.target || !event.target.getAttribute) {
+        return;
+      }
+      if (event.target.getAttribute('data-close-announcement-modal') === 'true') {
+        closeAnnouncementModal();
       }
     });
   }
@@ -1158,6 +1228,84 @@
       event.preventDefault();
       publishNews().catch(function (error) {
         setNewsMessage(error.message || 'Unable to publish news.', true);
+      });
+    });
+  }
+
+  async function publishAnnouncement() {
+    if (!announcementPhotoInput || !announcementTitleInput || !announcementBodyInput || !announcementTypeInput || !announcementAudienceInput || !announcementStatusSelect) {
+      throw new Error('Announcement form is incomplete.');
+    }
+
+    const title = String(announcementTitleInput.value || '').trim();
+    const body = String(announcementBodyInput.value || '').trim();
+    const type = String(announcementTypeInput.value || '').trim();
+    const audience = String(announcementAudienceInput.value || '').trim();
+    const status = String(announcementStatusSelect.value || 'approved');
+
+    const file = announcementPhotoInput.files && announcementPhotoInput.files[0] ? announcementPhotoInput.files[0] : null;
+    if (!file) {
+      throw new Error('Please upload an announcement photo.');
+    }
+
+    const expiresAtRaw = announcementExpiresAtInput ? String(announcementExpiresAtInput.value || '').trim() : '';
+    const expiresAt = expiresAtRaw;
+
+    if (title.length < 3) {
+      throw new Error('Announcement title must be at least 3 characters.');
+    }
+    if (body.length < 10) {
+      throw new Error('Announcement details must be at least 10 characters.');
+    }
+    if (!type || !audience) {
+      throw new Error('Please select announcement type and audience.');
+    }
+
+    const formData = new FormData();
+    formData.append('action', 'create_announcement');
+    formData.append('photo', file);
+    formData.append('title', title);
+    formData.append('body', body);
+    formData.append('announcementType', type);
+    formData.append('audience', audience);
+    formData.append('status', status);
+    if (expiresAt) {
+      formData.append('expiresAt', expiresAt);
+    }
+
+    const endpoint = '/firenet/NEWFIRENET/backend/controllers/news.php?action=create_announcement';
+
+    setAnnouncementMessage('Publishing announcement...', false);
+
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      body: formData,
+      credentials: 'same-origin'
+    });
+
+    let payload = null;
+    try {
+      payload = await response.json();
+    } catch (e) {
+      payload = null;
+    }
+
+    if (!response.ok || !payload || payload.ok !== true) {
+      throw new Error((payload && payload.message) ? payload.message : 'Unable to publish announcement.');
+    }
+
+    closeAnnouncementModal();
+    if (announcementForm) {
+      announcementForm.reset();
+    }
+    window.alert(payload.message || 'Announcement published successfully.');
+  }
+
+  if (announcementForm) {
+    announcementForm.addEventListener('submit', function (event) {
+      event.preventDefault();
+      publishAnnouncement().catch(function (error) {
+        setAnnouncementMessage(error.message || 'Unable to publish announcement.', true);
       });
     });
   }
