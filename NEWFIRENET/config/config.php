@@ -1,5 +1,5 @@
 <?php
-return [
+$config = [
     'app_name' => 'FireNet',
     'main_station' => 'Main Branch',
     'google_auth' => [
@@ -17,13 +17,21 @@ return [
         'query' => 'fire'
     ],
     'cloudinary' => [
-        'enabled' => true,
+        'enabled' => false,
         'cloud_name' => 'dq80tx04u',
         'api_key' => '944789179414581',
         'api_secret' => 'S1bEQOmU7K4rjCFhm49HbQeB-qM',
         'upload_preset' => 'YOUR_UNSIGNED_UPLOAD_PRESET',
         'folder' => 'firenet/incidents',
         'orgmail_folder' => 'firenet/orgmail'
+    ],
+    'r2' => [
+        'enabled' => false,
+        'account_id' => '',
+        'access_key_id' => '',
+        'secret_access_key' => '',
+        'bucket' => '',
+        'base_prefix' => 'firenet',
     ],
     'mail' => [
         'smtp_host' => 'smtp.gmail.com',
@@ -33,5 +41,14 @@ return [
         'smtp_encryption' => 'tls',
         'from_email' => 'yourgmail@gmail.com',
         'from_name' => 'FireNet Security'
-    ]
+    ],
 ];
+$localR2 = __DIR__ . '/r2.local.php';
+if (is_file($localR2)) {
+    $override = require $localR2;
+    if (is_array($override)) {
+        $config = array_replace_recursive($config, $override);
+    }
+}
+return $config;
+

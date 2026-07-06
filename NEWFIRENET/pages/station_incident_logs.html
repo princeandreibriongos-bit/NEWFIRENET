@@ -1,5 +1,6 @@
 <section class="logs-pro" aria-labelledby="stationLogsTitle">
   <div class="logs-page-bg" aria-hidden="true"></div>
+  <div id="stationLogsToast" class="logs-toast" hidden role="status" aria-live="polite"></div>
 
   <header class="logs-hero">
     <div class="logs-hero-copy">
@@ -15,6 +16,10 @@
       <article class="logs-stat logs-stat--scope">
         <span class="logs-stat-label">Scope</span>
         <strong class="logs-stat-value logs-stat-value--scope" id="stationLogsScope">—</strong>
+      </article>
+      <article class="logs-stat">
+        <span class="logs-stat-label">Cloud synced</span>
+        <strong class="logs-stat-value" id="stationLogsBackedUp">0</strong>
       </article>
     </div>
   </header>
@@ -71,12 +76,13 @@
             <th>Incident</th>
             <th>Closed by</th>
             <th>Alarm</th>
+            <th>Sync</th>
             <th><span class="sr-only">Open</span></th>
           </tr>
         </thead>
         <tbody id="stationLogsTableBody">
           <tr>
-            <td colspan="7" class="logs-empty">Loading logs…</td>
+            <td colspan="8" class="logs-empty">Loading logs…</td>
           </tr>
         </tbody>
       </table>
@@ -109,6 +115,11 @@
             <dd id="stationLogsModalFinishedAt">—</dd>
           </div>
         </dl>
+        <div class="logs-modal-actions" id="stationLogsModalActions">
+          <a id="stationLogsPdfDownload" class="logs-btn logs-btn--primary" href="#" target="_blank" rel="noreferrer">Download PDF</a>
+          <a id="stationLogsCloudDownload" class="logs-btn logs-btn--ghost" href="#" target="_blank" rel="noreferrer" hidden>Open cloud copy</a>
+          <p id="stationLogsCloudStatus" class="logs-cloud-status">Checking cloud sync…</p>
+        </div>
         <div class="logs-timeline-wrap">
           <h3>Timeline</h3>
           <ul id="stationLogsModalTimeline" class="logs-timeline"></ul>

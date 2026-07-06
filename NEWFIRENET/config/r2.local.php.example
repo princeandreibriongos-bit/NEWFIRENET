@@ -1,0 +1,19 @@
+<?php
+/**
+ * Copy this file to r2.local.php and fill in your Cloudflare R2 credentials.
+ * Do not commit r2.local.php to git.
+ */
+return [
+    'r2' => [
+        'enabled' => true,
+        // Cloudflare dashboard → right sidebar → Account ID
+        'account_id' => 'YOUR_CLOUDFLARE_ACCOUNT_ID',
+        // R2 → Manage R2 API tokens → Create API token (Object Read & Write)
+        'access_key_id' => 'YOUR_R2_ACCESS_KEY_ID',
+        'secret_access_key' => 'YOUR_R2_SECRET_ACCESS_KEY',
+        // Bucket name you created in R2
+        'bucket' => 'firenet-bucket',
+        // Root folder inside the bucket (optional)
+        'base_prefix' => 'firenet',
+    ],
+];

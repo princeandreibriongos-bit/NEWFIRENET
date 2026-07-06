@@ -220,6 +220,10 @@ body.has-reports-bg .app-main {
   font-weight: 700;
   cursor: pointer;
   transition: background 0.15s ease, transform 0.15s ease;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .logs-btn--primary {
@@ -231,6 +235,16 @@ body.has-reports-bg .app-main {
 .logs-btn--primary:hover {
   transform: translateY(-1px);
   filter: brightness(1.05);
+}
+
+.logs-btn--ghost {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--logs-text);
+}
+
+.logs-btn--ghost:hover {
+  background: rgba(255, 255, 255, 0.08);
+  transform: translateY(-1px);
 }
 
 .logs-pro:not(.is-central) .logs-field--station {
@@ -330,6 +344,89 @@ body.has-reports-bg .app-main {
   font-weight: 700;
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.logs-cloud-pill {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0.28rem 0.55rem;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.logs-cloud-pill.is-backed-up {
+  color: #86efac;
+  background: rgba(34, 197, 94, 0.14);
+  border: 1px solid rgba(34, 197, 94, 0.28);
+}
+
+.logs-cloud-pill.is-pending {
+  color: #fcd34d;
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.24);
+}
+
+.logs-cloud-pill.is-off {
+  color: rgba(210, 221, 242, 0.55);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.logs-toast {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: 1500;
+  max-width: min(360px, calc(100vw - 2rem));
+  padding: 0.85rem 1rem;
+  border-radius: 12px;
+  border: 1px solid rgba(94, 228, 176, 0.35);
+  background: rgba(8, 24, 18, 0.94);
+  color: #bbf7d0;
+  font-size: 0.92rem;
+  font-weight: 600;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+  opacity: 0;
+  transform: translateY(-8px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.logs-toast.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.logs-toast.is-error {
+  border-color: rgba(248, 113, 113, 0.35);
+  background: rgba(36, 12, 12, 0.94);
+  color: #fecaca;
+}
+
+.logs-modal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.55rem;
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--logs-border);
+}
+
+.logs-cloud-status {
+  margin: 0;
+  font-size: 0.86rem;
+  color: var(--logs-muted);
+}
+
+.logs-cloud-status.is-backed-up {
+  color: #86efac;
+}
+
+.logs-cloud-status.is-pending {
+  color: #fcd34d;
 }
 
 .logs-open-btn {

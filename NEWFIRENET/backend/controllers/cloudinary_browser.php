@@ -7,6 +7,7 @@
 
 require_once __DIR__ . '/../../includes/auth.php';
 require_once __DIR__ . '/../../includes/db.php';
+require_once __DIR__ . '/../../includes/r2_storage.php';
 
 firenet_require_login();
 firenet_start_session();
@@ -22,6 +23,70 @@ if ($currentUserId < 1 || $currentStationId < 1) {
     http_response_code(422);
     echo json_encode(['ok' => false, 'message' => 'Invalid browser context']);
     exit;
+}
+
+if (firenet_r2_enabled() && $action === 'list') {
+    try {
+        $pdo = firenet_get_pdo();
+        $client = FirenetR2Client::fromConfig();
+        $area = strtolower(trim((string) ($_GET['area'] ?? 'orgmail')));
+        if (!in_array($area, ['reports', 'orgmail'], true)) {
+            $area = 'orgmail';
+        }
+        $prefix = firenet_r2_list_prefix_for_station($pdo, $currentStationId, $area);
+        $files = firenet_r2_map_list_for_browser($client->listObjects($prefix));
+
+        $incidentStmt = $pdo->prepare('
+            SELECT
+                r.report_id,
+                COALESCE(NULLIF(r.title, ""), NULLIF(i.incident_location, ""), "Untitled Incident") AS incident_title,
+                r.created_at,
+                i.incident_status,
+                (SELECT COUNT(*) FROM report_attachments ra WHERE ra.report_id = r.report_id) AS attachment_count
+            FROM reports r
+            LEFT JOIN incident_reports i ON i.report_id = r.report_id
+            WHERE r.station_id = ?
+                AND EXISTS (SELECT 1 FROM report_type rt WHERE rt.report_type_id = r.report_type_id AND rt.type_name = "incident_report")
+            ORDER BY r.created_at DESC
+            LIMIT 500
+        ');
+        $incidentStmt->execute([$currentStationId]);
+        $incidents = $incidentStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+        foreach ($incidents as $incident) {
+            $reportId = (int) ($incident['report_id'] ?? 0);
+            $title = (string) ($incident['incident_title'] ?? 'Untitled Incident');
+            $status = (string) ($incident['incident_status'] ?? 'newly_reported');
+            $attachmentCount = (int) ($incident['attachment_count'] ?? 0);
+
+            $files[] = [
+                'file_id' => $reportId,
+                'public_id' => 'incident_report_' . $reportId,
+                'filename' => $title,
+                'url' => '/firenet/NEWFIRENET/backend/controllers/incident_report_view.php?report_id=' . $reportId,
+                'type' => 'incident',
+                'resource_type' => 'incident',
+                'bytes' => 0,
+                'created_at' => $incident['created_at'] ?? '',
+                'format' => 'incident',
+                'status' => $status,
+                'attachment_count' => $attachmentCount,
+            ];
+        }
+
+        echo json_encode([
+            'ok' => true,
+            'folder' => $prefix,
+            'files' => $files,
+            'count' => count($files),
+            'storage' => 'r2',
+        ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        exit;
+    } catch (Throwable $e) {
+        http_response_code(500);
+        echo json_encode(['ok' => false, 'message' => $e->getMessage()]);
+        exit;
+    }
 }
 
 try {

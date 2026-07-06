@@ -3,6 +3,7 @@
   const shell = document.querySelector('.logs-pro');
   const summary = document.getElementById('stationLogsSummary');
   const totalNode = document.getElementById('stationLogsTotal');
+  const backedUpNode = document.getElementById('stationLogsBackedUp');
   const scopeNode = document.getElementById('stationLogsScope');
   const kicker = document.getElementById('stationLogsKicker');
   const searchInput = document.getElementById('stationLogsSearch');
@@ -23,13 +24,18 @@
   const modalSubmittedBy = document.getElementById('stationLogsModalSubmittedBy');
   const modalFinishedAt = document.getElementById('stationLogsModalFinishedAt');
   const modalTimeline = document.getElementById('stationLogsModalTimeline');
+  const cloudDownloadLink = document.getElementById('stationLogsCloudDownload');
+  const pdfDownloadLink = document.getElementById('stationLogsPdfDownload');
+  const cloudStatusNode = document.getElementById('stationLogsCloudStatus');
+  const toastNode = document.getElementById('stationLogsToast');
   const apiUrl = '/firenet/NEWFIRENET/backend/controllers/reports.php?action=logs';
+  const pdfApiUrl = '/firenet/NEWFIRENET/backend/controllers/reports.php?action=download-pdf';
 
   if (
     !contextElement || !shell || !summary || !totalNode || !scopeNode || !kicker ||
     !searchInput || !caseFilterInput || !stationFilter || !sortField || !sortDir || !downloadButton ||
     !tableBody || !pageTitle || !modal || !closeModalButton || !modalTitle || !modalCase || !modalMeta ||
-    !modalLocation || !modalSubmittedBy || !modalFinishedAt || !modalTimeline
+    !modalLocation || !modalSubmittedBy || !modalFinishedAt || !modalTimeline || !cloudStatusNode || !pdfDownloadLink
   ) {
     return;
   }
@@ -50,7 +56,9 @@
     filtered: [],
     stations: Array.isArray(context.stations) ? context.stations : [],
     isCentralStation: Boolean(context.isCentralStation),
-    selectedStationId: ''
+    selectedStationId: '',
+    activeLog: null,
+    cloudStorageEnabled: true
   };
 
   let searchDebounceTimer = null;
@@ -226,9 +234,31 @@
     return match && match.name ? match.name : 'selected station';
   }
 
+  function showLogsToast(message, isError) {
+    if (!toastNode || !message) {
+      return;
+    }
+
+    toastNode.textContent = message;
+    toastNode.classList.toggle('is-error', Boolean(isError));
+    toastNode.classList.add('is-visible');
+    toastNode.hidden = false;
+    window.clearTimeout(showLogsToast._timer);
+    showLogsToast._timer = window.setTimeout(function () {
+      toastNode.hidden = true;
+      toastNode.classList.remove('is-visible');
+    }, 4800);
+  }
+
   function renderSummary(logs) {
     const total = logs.length;
     totalNode.textContent = String(total);
+    const backedUp = logs.filter(function (log) {
+      return log.cloudBackup && log.cloudBackup.backedUp;
+    }).length;
+    if (backedUpNode) {
+      backedUpNode.textContent = String(backedUp);
+    }
 
     if (state.isCentralStation) {
       const scopeLabel = getScopeLabel();
@@ -332,7 +362,19 @@
   }
 
   function colSpan() {
-    return 7;
+    return 8;
+  }
+
+  function cloudBackupLabel(log) {
+    if (!state.cloudStorageEnabled) {
+      return '<span class="logs-cloud-pill is-off" title="Cloud storage is not configured">Off</span>';
+    }
+
+    const backup = log && log.cloudBackup ? log.cloudBackup : null;
+    if (backup && backup.backedUp) {
+      return '<span class="logs-cloud-pill is-backed-up" title="Synced to cloud storage">Synced</span>';
+    }
+    return '<span class="logs-cloud-pill is-pending" title="Waiting for cloud sync">Pending</span>';
   }
 
   function renderRows(logs) {
@@ -359,9 +401,54 @@
         '<div class="logs-incident-loc" title="' + escapeHtml(log.incidentLocation || '') + '">' + escapeHtml(log.incidentLocation || '—') + '</div></td>' +
         '<td>' + escapeHtml(closedBy) + '</td>' +
         '<td><span class="logs-alarm-pill">' + escapeHtml(formatAlarmLabel(log.alarmLevel)) + '</span></td>' +
+        '<td>' + cloudBackupLabel(log) + '</td>' +
         '<td><span class="logs-open-btn" aria-hidden="true">›</span></td>' +
       '</tr>';
     }).join('');
+  }
+
+  function renderCloudActions(log) {
+    state.activeLog = log || null;
+    const backup = log && log.cloudBackup ? log.cloudBackup : null;
+    const isBackedUp = Boolean(backup && backup.backedUp);
+
+    if (pdfDownloadLink) {
+      if (log && log.id) {
+        pdfDownloadLink.href = pdfApiUrl + '&reportId=' + encodeURIComponent(String(log.id));
+        pdfDownloadLink.hidden = false;
+      } else {
+        pdfDownloadLink.hidden = true;
+        pdfDownloadLink.removeAttribute('href');
+      }
+    }
+
+    if (cloudDownloadLink) {
+      if (isBackedUp && backup.downloadUrl) {
+        cloudDownloadLink.href = backup.downloadUrl;
+        cloudDownloadLink.hidden = false;
+      } else {
+        cloudDownloadLink.hidden = true;
+        cloudDownloadLink.removeAttribute('href');
+      }
+    }
+
+    if (cloudStatusNode) {
+      if (!state.cloudStorageEnabled) {
+        cloudStatusNode.textContent = 'Cloud storage is not configured on this server.';
+        cloudStatusNode.classList.remove('is-backed-up', 'is-pending');
+        return;
+      }
+
+      if (isBackedUp) {
+        cloudStatusNode.textContent = 'Synced to cloud' + (backup.backedUpAt ? (' · ' + formatDateTime(backup.backedUpAt)) : '') + '.';
+        cloudStatusNode.classList.add('is-backed-up');
+        cloudStatusNode.classList.remove('is-pending');
+      } else {
+        cloudStatusNode.textContent = 'Cloud sync is in progress. This page will update automatically.';
+        cloudStatusNode.classList.add('is-pending');
+        cloudStatusNode.classList.remove('is-backed-up');
+      }
+    }
   }
 
   function openModal(log) {
@@ -379,6 +466,7 @@
     modalLocation.textContent = log.incidentLocation || '—';
     modalSubmittedBy.textContent = log.updatedBy || log.submittedBy || '—';
     modalFinishedAt.textContent = formatDateTime(log.incidentFinishedAt || log.updatedAt || log.submittedAt || '');
+    renderCloudActions(log);
 
     const entries = buildTimelineEntries(log);
     modalTimeline.innerHTML = entries.length ? entries.map(function (entry, index) {
@@ -434,12 +522,34 @@
 
       state.logs = Array.isArray(payload.logs) ? payload.logs : [];
       state.isCentralStation = Boolean(payload.isCentralStation ?? state.isCentralStation);
+      state.cloudStorageEnabled = payload.cloudStorageEnabled !== false;
       state.stations = Array.isArray(payload.stations) && payload.stations.length
         ? payload.stations
         : state.stations;
       configurePageChrome();
       renderStationFilterOptions();
       applyFilters();
+
+      const cloudSync = payload.cloudSync || {};
+      if (cloudSync.synced > 0) {
+        showLogsToast(
+          cloudSync.synced === 1
+            ? '1 report synced to cloud.'
+            : String(cloudSync.synced) + ' reports synced to cloud.'
+        );
+      } else if (cloudSync.failed > 0) {
+        showLogsToast('Some reports could not sync to cloud. Retrying on next refresh.', true);
+      }
+
+      const pendingSyncCount = state.logs.filter(function (log) {
+        return !(log.cloudBackup && log.cloudBackup.backedUp);
+      }).length;
+      if (state.cloudStorageEnabled && pendingSyncCount > 0) {
+        window.clearTimeout(loadLogs._retryTimer);
+        loadLogs._retryTimer = window.setTimeout(function () {
+          loadLogs();
+        }, 3500);
+      }
     } catch (error) {
       state.logs = [];
       state.filtered = [];

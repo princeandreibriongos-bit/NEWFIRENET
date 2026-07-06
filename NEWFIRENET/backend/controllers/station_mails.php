@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../../includes/auth.php';
 require_once __DIR__ . '/../../includes/db.php';
+require_once __DIR__ . '/../../includes/r2_storage.php';
 
 firenet_require_login();
 firenet_start_session();
@@ -278,6 +279,118 @@ function firenet_mail_orgmail_cloud_name(array $cloudinary): string
     return trim((string) ($cloudinary['cloud_name'] ?? ''));
 }
 
+function firenet_mail_central_station(PDO $pdo): ?array
+{
+    $stmt = $pdo->query("
+        SELECT station_id, station_name, station_code
+        FROM stations
+        WHERE LOWER(TRIM(station_code)) = 'mcfs'
+          AND status = 'active'
+        LIMIT 1
+    ");
+    $row = $stmt ? $stmt->fetch(PDO::FETCH_ASSOC) : false;
+    if (!$row) {
+        return null;
+    }
+
+    return [
+        'stationId' => (int) ($row['station_id'] ?? 0),
+        'stationName' => (string) ($row['station_name'] ?? ''),
+        'stationCode' => (string) ($row['station_code'] ?? ''),
+    ];
+}
+
+function firenet_mail_orgmail_storage_meta(PDO $pdo, int $stationId): array
+{
+    if (firenet_r2_enabled()) {
+        $stationCode = firenet_r2_station_code($pdo, $stationId);
+        $central = firenet_mail_central_station($pdo);
+
+        return [
+            'provider' => 'r2',
+            'uploadsEnabled' => true,
+            'storageLabel' => 'Cloudflare R2',
+            'cloudName' => '',
+            'stationCode' => $stationCode,
+            'stationFolder' => firenet_r2_orgmail_prefix($stationCode),
+            'isCentralStation' => firenet_r2_is_central_station($pdo, $stationId),
+            'centralStation' => $central,
+        ];
+    }
+
+    $app = firenet_mail_app_config();
+    $cloud = firenet_mail_cloudinary_section($app);
+    $cloudName = firenet_mail_orgmail_cloud_name($cloud);
+    $enabled = !empty($cloud['enabled']) && $cloudName !== '' && trim((string) ($cloud['api_key'] ?? '')) !== '' && trim((string) ($cloud['api_secret'] ?? '')) !== '';
+    $stationCode = $enabled ? firenet_mail_station_code($pdo, $stationId) : '';
+
+    return [
+        'provider' => 'cloudinary',
+        'uploadsEnabled' => $enabled,
+        'storageLabel' => 'Cloudinary',
+        'cloudName' => $cloudName,
+        'stationCode' => $stationCode,
+        'stationFolder' => firenet_mail_orgmail_station_folder($stationCode, $cloud),
+        'isCentralStation' => strtolower($stationCode) === 'mcfs',
+        'centralStation' => firenet_mail_central_station($pdo),
+    ];
+}
+
+function firenet_mail_orgmail_extract_r2_key(string $url): string
+{
+    $url = trim($url);
+    if ($url === '') {
+        return '';
+    }
+
+    if (preg_match('/[?&]key=([^&]+)/i', $url, $matches)) {
+        return rawurldecode($matches[1]);
+    }
+
+    if (preg_match('#^https?://#i', $url)) {
+        $path = (string) (parse_url($url, PHP_URL_PATH) ?: '');
+        return ltrim(str_replace('\\', '/', $path), '/');
+    }
+
+    return ltrim(str_replace('\\', '/', $url), '/');
+}
+
+function firenet_mail_orgmail_url_matches_station_r2(string $url, string $stationCode): bool
+{
+    $stationCode = strtoupper(preg_replace('/[^A-Z0-9_-]+/i', '', trim($stationCode)) ?: '');
+    if ($stationCode === '') {
+        return false;
+    }
+
+    $key = firenet_mail_orgmail_extract_r2_key($url);
+    if ($key === '') {
+        return false;
+    }
+
+    $prefix = firenet_r2_orgmail_prefix($stationCode);
+    return stripos($key, $prefix . '/') === 0 || strcasecmp($key, $prefix) === 0;
+}
+
+function firenet_mail_orgmail_upload_for_station(PDO $pdo, int $stationId, string $tmpPath, string $mime, string $originalName): string
+{
+    if (firenet_r2_enabled()) {
+        $stationCode = firenet_r2_station_code($pdo, $stationId);
+        $safeName = preg_replace('/[^A-Za-z0-9._-]+/', '_', basename($originalName)) ?: 'upload.bin';
+        $objectKey = firenet_r2_orgmail_prefix($stationCode) . '/' . gmdate('Ymd_His') . '_' . $safeName;
+        $client = FirenetR2Client::fromConfig();
+        $client->putObject($objectKey, $tmpPath, $mime !== '' ? $mime : 'application/octet-stream');
+
+        return firenet_r2_download_proxy_url($objectKey);
+    }
+
+    $stationCode = firenet_mail_station_code($pdo, $stationId);
+    if ($stationCode === '') {
+        firenet_mail_fail('Unable to determine your station code. Contact your administrator.', 422);
+    }
+
+    return firenet_mail_orgmail_upload_signed($tmpPath, $mime, $stationCode);
+}
+
 function firenet_mail_orgmail_url_matches_station(string $url, string $stationCode, string $expectedCloudName): bool
 {
     $url = trim($url);
@@ -314,10 +427,23 @@ function firenet_mail_orgmail_url_matches_station(string $url, string $stationCo
 
 function firenet_mail_orgmail_require_url_for_station(string $url, string $stationCode): void
 {
+    if (firenet_r2_enabled()) {
+        if (!firenet_mail_orgmail_url_matches_station_r2($url, $stationCode)) {
+            firenet_mail_fail(
+                'Operational attachments must use a file inside this station\'s cloud folder ('
+                . firenet_r2_orgmail_prefix($stationCode)
+                . ').',
+                422
+            );
+        }
+
+        return;
+    }
+
     $cfg = firenet_mail_cloudinary_section(firenet_mail_app_config());
     $cloudName = firenet_mail_orgmail_cloud_name($cfg);
     if ($cloudName === '') {
-        firenet_mail_fail('Cloudinary is not configured for organizational mail.', 503);
+        firenet_mail_fail('Cloud storage is not configured for organizational mail.', 503);
     }
 
     if (!firenet_mail_orgmail_url_matches_station($url, $stationCode, $cloudName)) {
@@ -327,10 +453,22 @@ function firenet_mail_orgmail_require_url_for_station(string $url, string $stati
 
 function firenet_mail_orgmail_require_url_for_origin_or_target(string $url, string $originStationCode, string $targetStationCode): void
 {
+    if (firenet_r2_enabled()) {
+        if (firenet_mail_orgmail_url_matches_station_r2($url, $originStationCode)) {
+            return;
+        }
+
+        if (firenet_mail_orgmail_url_matches_station_r2($url, $targetStationCode)) {
+            return;
+        }
+
+        firenet_mail_fail('The file URL must be hosted in either the origin or target station cloud folder.', 422);
+    }
+
     $cfg = firenet_mail_cloudinary_section(firenet_mail_app_config());
     $cloudName = firenet_mail_orgmail_cloud_name($cfg);
     if ($cloudName === '') {
-        firenet_mail_fail('Cloudinary is not configured for organizational mail.', 503);
+        firenet_mail_fail('Cloud storage is not configured for organizational mail.', 503);
     }
 
     if (firenet_mail_orgmail_url_matches_station($url, $originStationCode, $cloudName)) {
@@ -822,6 +960,42 @@ function firenet_mail_clean_text(?string $value): string
     return trim((string) $value);
 }
 
+function firenet_mail_sanitize_html_body(?string $value): string
+{
+    $html = trim((string) $value);
+    if ($html === '') {
+        return '';
+    }
+
+    $allowed = '<p><br><b><strong><i><em><u><ul><ol><li><a><div><span>';
+    $clean = strip_tags($html, $allowed);
+    if ($clean === '') {
+        return '';
+    }
+
+    return (string) preg_replace_callback(
+        '/<a\s+([^>]*href=["\'])([^"\']*)(["\'][^>]*)>/i',
+        static function (array $matches): string {
+            $href = trim($matches[2]);
+            if (preg_match('/^(https?:\/\/|mailto:)/i', $href)) {
+                return '<a ' . $matches[1] . htmlspecialchars($href, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . $matches[3] . '>';
+            }
+
+            return '<a>';
+        },
+        $clean
+    );
+}
+
+function firenet_mail_body_has_content(?string $body): bool
+{
+    $text = trim(strip_tags((string) $body));
+    $text = html_entity_decode($text, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    $text = str_replace("\xc2\xa0", ' ', $text);
+
+    return trim($text) !== '';
+}
+
 function firenet_mail_normalize_station_ids($value): array
 {
     if (is_string($value)) {
@@ -1001,21 +1175,9 @@ function firenet_mail_bootstrap(PDO $pdo, int $userId, int $stationId, string $r
         'stations' => firenet_mail_active_stations($pdo),
         'stationUsers' => firenet_mail_station_users($pdo, $stationId),
         'networkUsers' => firenet_mail_network_users($pdo),
-            'requestTracking' => $requestTracking,
-        'operationalOrgmail' => (static function (int $stationId) use ($pdo): array {
-            $app = firenet_mail_app_config();
-            $cloud = firenet_mail_cloudinary_section($app);
-            $cloudName = firenet_mail_orgmail_cloud_name($cloud);
-            $enabled = !empty($cloud['enabled']) && $cloudName !== '' && trim((string) ($cloud['api_key'] ?? '')) !== '' && trim((string) ($cloud['api_secret'] ?? '')) !== '';
-            $stationCode = $enabled ? firenet_mail_station_code($pdo, $stationId) : '';
-
-            return [
-                'uploadsEnabled' => $enabled,
-                'cloudName' => $cloudName,
-                'stationCode' => $stationCode,
-                'stationFolder' => firenet_mail_orgmail_station_folder($stationCode, $cloud),
-            ];
-        })($stationId),
+        'centralStation' => firenet_mail_central_station($pdo),
+        'requestTracking' => $requestTracking,
+        'operationalOrgmail' => firenet_mail_orgmail_storage_meta($pdo, $stationId),
         'folders' => [
             'inbox' => firenet_mail_count_folder($pdo, $userId, $stationId, 'inbox'),
             'starred' => firenet_mail_count_folder($pdo, $userId, $stationId, 'starred'),
@@ -1462,8 +1624,10 @@ function firenet_mail_save_remote_attachment(PDO $pdo, int $mailId, int $userId,
         return [];
     }
 
-    if (!preg_match('/^https?:\/\//i', $url)) {
-        firenet_mail_fail('Cloudinary file URL must be a valid https:// address.', 422);
+    if (preg_match('#^/firenet/NEWFIRENET/backend/controllers/r2_storage\.php#i', $url)) {
+        // Relative R2 proxy URLs are allowed for operational attachments.
+    } elseif (!preg_match('/^https?:\/\//i', $url)) {
+        firenet_mail_fail('Attachment file URL must be a valid https:// address or cloud storage link.', 422);
     }
 
     if ($orgmailStationCode !== null && trim($orgmailStationCode) !== '') {
@@ -1503,11 +1667,15 @@ function firenet_mail_recipient_stations(PDO $pdo, array $stationIds): array
 function firenet_mail_store_message(PDO $pdo, array $input, int $currentUserId, int $currentStationId, string $currentRole, array $currentUserProfile, bool $asDraft = false, bool $allowNonComlDirectReply = false): array
 {
     $subject = firenet_mail_clean_text((string) ($input['subject'] ?? ''));
-    $body = firenet_mail_clean_text((string) ($input['body'] ?? ''));
+    $body = firenet_mail_sanitize_html_body((string) ($input['body'] ?? ''));
     $mailType = strtolower(trim((string) ($input['mailType'] ?? 'message')));
     $importance = strtolower(trim((string) ($input['importance'] ?? 'normal')));
     $requestFiles = !empty($input['requestFiles']) ? 1 : 0;
     $cloudinaryUrl = trim((string) ($input['cloudinaryUrl'] ?? ''));
+    $sourceStationId = (int) ($input['sourceStationId'] ?? $currentStationId);
+    if ($sourceStationId < 1) {
+        $sourceStationId = $currentStationId;
+    }
     $threadId = (int) ($input['threadId'] ?? 0);
     $parentMailId = (int) ($input['parentMailId'] ?? 0);
     $isStationNotice = !empty($input['isStationNotice']) ? 1 : 0;
@@ -1547,16 +1715,16 @@ function firenet_mail_store_message(PDO $pdo, array $input, int $currentUserId, 
         $mailType = 'request';
         $requestFiles = 1;
 
-        if ($targetStations === []) {
-            firenet_mail_fail('Select one target station to request information from.', 422);
-        }
-        if (count($targetStations) > 1) {
-            firenet_mail_fail('Request mail can target only one station.', 422);
+        $centralStation = firenet_mail_central_station($pdo);
+        if (!$centralStation || (int) ($centralStation['stationId'] ?? 0) < 1) {
+            firenet_mail_fail('Central station (MCFS) is not configured. Contact your administrator.', 503);
         }
 
-        $requestTargetStationId = (int) $targetStations[0];
+        $requestTargetStationId = (int) $centralStation['stationId'];
+        $targetStations = [$requestTargetStationId];
+
         if (!firenet_mail_station_has_coml_user($pdo, $requestTargetStationId)) {
-            firenet_mail_fail('The selected target station does not have an active ComL user.', 422);
+            firenet_mail_fail('Makati Central Fire Station does not have an active ComL user to receive requests.', 422);
         }
 
         $originComlUserIds = firenet_mail_station_coml_user_ids($pdo, $currentStationId);
@@ -1620,12 +1788,8 @@ function firenet_mail_store_message(PDO $pdo, array $input, int $currentUserId, 
         }
     }
 
-    if (!$isComl && !$asDraft && $body === '' && empty($_FILES['attachments']['name']) && $cloudinaryUrl === '') {
+    if (!$isComl && !$asDraft && !firenet_mail_body_has_content($body) && empty($_FILES['attachments']['name']) && $cloudinaryUrl === '') {
         firenet_mail_fail('Write a message or attach a file before sending.', 422);
-    }
-
-    if ($mailType === 'request' && !empty($_FILES['attachments']['name'])) {
-        firenet_mail_fail('Operational files must be attached via Cloudinary links, not local uploads.', 422);
     }
 
     if ($isComl && !$asDraft && $targetStations === [] && $mailType !== 'request') {
@@ -1727,7 +1891,10 @@ function firenet_mail_store_message(PDO $pdo, array $input, int $currentUserId, 
         $attachments = [];
         $orgmailValidateStationCode = null;
         if ($mailType === 'request' && $requestFiles === 1) {
-            $orgmailValidateStationCode = firenet_mail_station_code($pdo, $currentStationId);
+            if ($sourceStationId !== $currentStationId && !firenet_r2_is_central_station($pdo, $currentStationId)) {
+                firenet_mail_fail('You can only attach files from your own station folder.', 422);
+            }
+            $orgmailValidateStationCode = firenet_mail_station_code($pdo, $sourceStationId);
         } elseif ($allowNonComlDirectReply && $cloudinaryUrl !== '') {
             $orgmailValidateStationCode = firenet_mail_station_code($pdo, $currentStationId);
         }
@@ -1846,13 +2013,14 @@ try {
             firenet_mail_fail('Select a file to upload to your station folder.', 422);
         }
 
-        $currentStationCode = firenet_mail_station_code($pdo, $currentStationId);
+        $currentStationCode = firenet_r2_station_code($pdo, $currentStationId);
         if ($currentStationCode === '') {
             firenet_mail_fail('Unable to determine your station code. Contact your administrator.', 422);
         }
 
         $mime = (string) ($_FILES['file']['type'] ?? 'application/octet-stream');
-        $secureUrl = firenet_mail_orgmail_upload_signed((string) $_FILES['file']['tmp_name'], $mime, $currentStationCode);
+        $originalName = (string) ($_FILES['file']['name'] ?? 'upload.bin');
+        $secureUrl = firenet_mail_orgmail_upload_for_station($pdo, $currentStationId, (string) $_FILES['file']['tmp_name'], $mime, $originalName);
         echo json_encode(['ok' => true, 'data' => ['secureUrl' => $secureUrl]], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
         exit;
     }

@@ -1872,8 +1872,7 @@
         }
 
         actionsHtml +=
-          '<button type="button" class="table-action-btn download" data-action="download" data-id="' + escapeHtml(itemId) + '"><span aria-hidden="true">\u2B07</span> Download PDF</button>' +
-          '<button type="button" class="table-action-btn upload" data-action="upload" data-id="' + escapeHtml(itemId) + '" title="Upload report to Cloudinary">Upload to Cloud</button>';
+          '<button type="button" class="table-action-btn download" data-action="download" data-id="' + escapeHtml(itemId) + '"><span aria-hidden="true">\u2B07</span> Download PDF</button>';
 
         const typeBadge = normalizeTypeBadge(item.type || '');
         const titleHtml =
@@ -2437,7 +2436,16 @@
       if (!reportId.value) {
         formMessage.textContent = 'Report submitted successfully.';
       } else if (updateMode === 'progression') {
-        formMessage.textContent = 'Incident progress updated successfully.';
+        let progressMessage = 'Incident progress updated successfully.';
+        const cloudSync = result.cloudSync || null;
+        if (cloudSync && cloudSync.enabled !== false && String(incidentStatus.value || '') === 'fire_out') {
+          if ((cloudSync.synced || 0) > 0) {
+            progressMessage += ' Synced to cloud.';
+          } else if ((cloudSync.failed || 0) > 0) {
+            progressMessage += ' Cloud sync will retry automatically.';
+          }
+        }
+        formMessage.textContent = progressMessage;
       } else {
         formMessage.textContent = 'Report edited successfully.';
       }
@@ -2446,10 +2454,11 @@
         saveSubmissionNotification(result.report);
       }
       await loadMyReports();
+      const closeDelay = updateMode === 'progression' && String(incidentStatus.value || '') === 'fire_out' ? 1400 : 250;
       setTimeout(function () {
         closeModal();
         resetFormForCreate();
-      }, 250);
+      }, closeDelay);
     } catch (error) {
       formMessage.textContent = 'Failed to submit report.';
     }
@@ -2465,7 +2474,7 @@
     const action = target.getAttribute('data-action');
     const id = target.getAttribute('data-id') || '';
     console.log('Click detected - action:', action, 'id:', id);
-    if (action !== 'edit' && action !== 'progress' && action !== 'download' && action !== 'upload') {
+    if (action !== 'edit' && action !== 'progress' && action !== 'download') {
       console.log('Action not recognized, ignoring');
       return;
     }
@@ -2505,50 +2514,17 @@
     }
 
     if (action === 'download') {
-      generateReportPdf(item);
-      return;
-    }
-
-    if (action === 'upload') {
-      const reportId = String(item.id || '');
-
-      if (!reportId) {
-        window.alert('Report ID not found');
+      if ((item.type || '') === 'incident_report') {
+        const reportId = String(item.id || '').trim();
+        if (!reportId) {
+          window.alert('Report ID not found.');
+          return;
+        }
+        window.open(reportsApiUrl + '?action=download-pdf&reportId=' + encodeURIComponent(reportId), '_blank', 'noopener,noreferrer');
         return;
       }
 
-      const uploadBtn = target;
-      uploadBtn.disabled = true;
-      uploadBtn.textContent = 'Uploading...';
-
-      const formData = new FormData();
-      formData.append('reportId', reportId);
-
-      fetch('/firenet/NEWFIRENET/backend/controllers/cloudinary-upload-server.php', {
-        method: 'POST',
-        credentials: 'same-origin',
-        body: formData
-      })
-        .then(response => response.json())
-        .then(result => {
-          uploadBtn.disabled = false;
-          uploadBtn.textContent = 'Upload to Cloud';
-
-          if (!result.ok) {
-            window.alert('Upload failed: ' + (result.message || 'Unknown error'));
-            return;
-          }
-
-          window.alert('Report uploaded to Cloudinary!\n\nURL:\n' + (result.data.url || 'Upload successful'));
-          console.log('Upload successful:', result.data);
-        })
-        .catch(error => {
-          uploadBtn.disabled = false;
-          uploadBtn.textContent = 'Upload to Cloud';
-          console.error('Upload error:', error);
-          window.alert('Upload failed: ' + error.message);
-        });
-
+      generateReportPdf(item);
       return;
     }
 

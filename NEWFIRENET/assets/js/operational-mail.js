@@ -19,13 +19,21 @@
   const timelineStepsContainer = document.getElementById('timelineSteps');
   const timelineNote = document.getElementById('timelineNote');
   const composeSubject = document.getElementById('composeSubject');
-  const composeStationSelect = document.getElementById('composeStationSelect');
+  const composeStationSelect = document.getElementById('composeSourceStationSelect');
+  const composeRoutedToLabel = document.getElementById('composeRoutedToLabel');
+  const composeSourceStationHint = document.getElementById('composeSourceStationHint');
   const composeCloudinaryUrl = document.getElementById('composeCloudinaryUrl');
   const composeOrgmailHint = document.getElementById('composeOrgmailHint');
   const composeOrgmailUploadRow = document.getElementById('composeOrgmailUploadRow');
   const composeOrgmailFile = document.getElementById('composeOrgmailFile');
   const composeOrgmailUploadBtn = document.getElementById('composeOrgmailUploadBtn');
+  const composeBodyEditor = document.getElementById('composeBodyEditor');
   const composeBody = document.getElementById('composeBody');
+  const composeCloudSection = document.getElementById('composeCloudSection');
+  const composeLocalAttachmentsField = document.getElementById('composeLocalAttachmentsField');
+  const composeAttachFilesBtn = document.getElementById('composeAttachFilesBtn');
+  const composeLocalAttachments = document.getElementById('composeLocalAttachments');
+  const composeAttachmentList = document.getElementById('composeAttachmentList');
   const composeMessage = document.getElementById('composeMessage');
   const sendBtn = document.getElementById('sendBtn');
   const saveDraftBtn = document.getElementById('saveDraftBtn');
@@ -52,7 +60,7 @@
   const filePickerRefreshBtn = document.getElementById('filePickerRefreshBtn');
   const filePickerSelectBtn = document.getElementById('filePickerSelectBtn');
 
-  if (!contextElement || !mailList || !threadPanel || !threadContent || !threadEmpty || !threadTitle || !threadActions || !requestTimeline || !timelineRequestTitle || !timelineStepsContainer || !timelineNote || !composeModal || !openComposeBtn || !closeComposeBtn || !refreshBtn || !searchInput || !stationFilterSelect || !sortSelect || !composeForm || !composeSubject || !composeStationSelect || !composeCloudinaryUrl || !composeBody || !composeMessage || !sendBtn || !saveDraftBtn || !inboxCount || !unreadCount || !sentCount || !draftCount || !mailFolderTitle || !mailActiveFilter) {
+  if (!contextElement || !mailList || !threadPanel || !threadContent || !threadEmpty || !threadTitle || !threadActions || !requestTimeline || !timelineRequestTitle || !timelineStepsContainer || !timelineNote || !composeModal || !openComposeBtn || !closeComposeBtn || !refreshBtn || !searchInput || !stationFilterSelect || !sortSelect || !composeForm || !composeSubject || !composeStationSelect || !composeBodyEditor || !composeMessage || !sendBtn || !saveDraftBtn || !inboxCount || !unreadCount || !sentCount || !draftCount || !mailFolderTitle || !mailActiveFilter) {
     return;
   }
 
@@ -71,7 +79,8 @@
   }
 
   const apiUrl = String((JSON.parse(contextElement.textContent || '{}') || {}).mailApiUrl || '/firenet/NEWFIRENET/backend/controllers/station_mails.php');
-  const cloudinaryBrowserUrl = '/firenet/NEWFIRENET/backend/controllers/cloudinary_browser.php';
+  const storageBrowserUrl = '/firenet/NEWFIRENET/backend/controllers/r2_storage.php';
+  const legacyStorageBrowserUrl = '/firenet/NEWFIRENET/backend/controllers/cloudinary_browser.php';
   const cloudinaryShareUrl = '/firenet/NEWFIRENET/backend/controllers/cloudinary_share.php';
   
   // Share link elements
@@ -93,6 +102,7 @@
     composeReplyMode: false,
     composeReplyThreadId: 0,
     composeReplyOriginStationId: 0,
+    localAttachments: [],
     // File picker state
     filePickerLoading: false,
     filePickerFiles: [],
@@ -109,6 +119,95 @@
       .replace(/'/g, '&#039;');
   }
 
+  function getComposeBodyHtml() {
+    return composeBodyEditor ? String(composeBodyEditor.innerHTML || '').trim() : '';
+  }
+
+  function isComposeBodyEmpty() {
+    const text = getComposeBodyHtml()
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<\/(p|div|li)>/gi, '\n')
+      .replace(/<[^>]+>/g, '')
+      .replace(/&nbsp;/gi, ' ')
+      .trim();
+    return text === '';
+  }
+
+  function setComposeBodyHtml(value) {
+    if (!composeBodyEditor) {
+      return;
+    }
+    const html = String(value || '');
+    if (/<[a-z][\s\S]*>/i.test(html)) {
+      composeBodyEditor.innerHTML = html;
+    } else if (html === '') {
+      composeBodyEditor.innerHTML = '';
+    } else {
+      composeBodyEditor.innerHTML = escapeHtml(html).replace(/\n/g, '<br>');
+    }
+    if (composeBody) {
+      composeBody.value = getComposeBodyHtml();
+    }
+  }
+
+  function clearComposeBody() {
+    setComposeBodyHtml('');
+  }
+
+  function formatMessageBody(body) {
+    const value = String(body || '');
+    if (/<[a-z][\s\S]*>/i.test(value)) {
+      return '<div class="mail-thread-message-body">' + value + '</div>';
+    }
+    if (value === '') {
+      return '';
+    }
+    return '<div class="mail-thread-message-body">' + escapeHtml(value).replace(/\n/g, '<br>') + '</div>';
+  }
+
+  function clearLocalAttachments() {
+    state.localAttachments = [];
+    if (composeLocalAttachments) {
+      composeLocalAttachments.value = '';
+    }
+    renderComposeAttachments();
+  }
+
+  function renderComposeAttachments() {
+    if (!composeAttachmentList) {
+      return;
+    }
+    if (!state.localAttachments.length) {
+      composeAttachmentList.hidden = true;
+      composeAttachmentList.innerHTML = '';
+      return;
+    }
+
+    composeAttachmentList.hidden = false;
+    composeAttachmentList.innerHTML = state.localAttachments.map(function (file, index) {
+      return '<li class="mail-compose-attachment-chip">' +
+        '<span>' + escapeHtml(file.name) + '</span>' +
+        '<button type="button" data-remove-attachment="' + String(index) + '" aria-label="Remove ' + escapeHtml(file.name) + '">×</button>' +
+      '</li>';
+    }).join('');
+  }
+
+  function addLocalAttachments(fileList) {
+    const files = Array.from(fileList || []);
+    files.forEach(function (file) {
+      if (!file || !file.name) {
+        return;
+      }
+      const duplicate = state.localAttachments.some(function (existing) {
+        return existing.name === file.name && existing.size === file.size && existing.lastModified === file.lastModified;
+      });
+      if (!duplicate) {
+        state.localAttachments.push(file);
+      }
+    });
+    renderComposeAttachments();
+  }
+
   function setMessage(text, isError) {
     composeMessage.textContent = text;
     composeMessage.style.color = isError ? '#b8333b' : '#1f5e2d';
@@ -121,15 +220,101 @@
     draftCount.textContent = String((meta.folders && meta.folders.drafts) || 0);
   }
 
+  function getOperationalOrgmailMeta() {
+    return state.bootstrap && state.bootstrap.operationalOrgmail ? state.bootstrap.operationalOrgmail : {};
+  }
+
+  function storageProviderLabel() {
+    const om = getOperationalOrgmailMeta();
+    return String(om.storageLabel || (om.provider === 'r2' ? 'Cloudflare R2' : 'cloud storage'));
+  }
+
+  function getCentralStation() {
+    const om = getOperationalOrgmailMeta();
+    return om.centralStation || state.bootstrap.centralStation || null;
+  }
+
+  function getCentralStationId() {
+    const central = getCentralStation();
+    return central && central.stationId ? String(central.stationId) : '';
+  }
+
+  function getCurrentStationId() {
+    const currentUser = state.bootstrap && state.bootstrap.currentUser ? state.bootstrap.currentUser : {};
+    return String(currentUser.stationId || '');
+  }
+
+  function getDefaultSourceStationId() {
+    return getCurrentStationId();
+  }
+
+  function setDefaultSourceStation() {
+    if (state.composeReplyMode || !composeStationSelect) {
+      return;
+    }
+
+    const defaultStationId = getDefaultSourceStationId();
+    if (defaultStationId !== '') {
+      composeStationSelect.value = defaultStationId;
+    }
+    updateSourceStationUi();
+  }
+
+  function updateRoutedToLabel() {
+    const central = getCentralStation();
+    if (composeRoutedToLabel) {
+      composeRoutedToLabel.textContent = central && central.stationName
+        ? central.stationName
+        : 'Makati Central Fire Station';
+    }
+  }
+
+  function getSelectedSourceStation() {
+    const stations = Array.isArray(state.bootstrap.stations) ? state.bootstrap.stations : [];
+    const selectedId = String(composeStationSelect ? composeStationSelect.value : '');
+    return stations.find(function (entry) {
+      return String(entry.stationId) === selectedId;
+    }) || null;
+  }
+
+  function updateSourceStationUi() {
+    const selected = getSelectedSourceStation();
+    const om = getOperationalOrgmailMeta();
+    const code = selected && selected.stationCode ? String(selected.stationCode) : String(om.stationCode || '');
+    const folderLabel = code !== '' ? ('firenet/orgmail/' + code) : String(om.stationFolder || 'your station folder');
+
+    if (composeSourceStationHint) {
+      composeSourceStationHint.textContent = selected && selected.stationName
+        ? 'Central ComL will retrieve files from ' + selected.stationName + ' (' + folderLabel + ').'
+        : 'Choose which station\'s files central ComL should pull from.';
+    }
+
+    if (composeOrgmailHint) {
+      if (state.composeReplyMode) {
+        composeOrgmailHint.textContent = 'Attach a file from ' + folderLabel + ' or upload to ' + storageProviderLabel() + ', then return it to the origin ComL.';
+      } else if (om.uploadsEnabled) {
+        composeOrgmailHint.textContent = 'Browse files in ' + folderLabel + ' or upload directly to ' + storageProviderLabel() + '.';
+      } else {
+        composeOrgmailHint.textContent = 'Paste a file URL from ' + folderLabel + '.';
+      }
+    }
+  }
+
   function renderStationOptions() {
     const stations = Array.isArray(state.bootstrap.stations) ? state.bootstrap.stations : [];
+    const defaultSourceId = getDefaultSourceStationId();
+
     stationFilterSelect.innerHTML = '<option value="">All stations</option>' + stations.map(function (entry) {
       return '<option value="' + escapeHtml(String(entry.stationId)) + '">' + escapeHtml(entry.stationName) + '</option>';
     }).join('');
 
-    composeStationSelect.innerHTML = '<option value="">Choose target station</option>' + stations.map(function (entry) {
-      return '<option value="' + escapeHtml(String(entry.stationId)) + '">' + escapeHtml(entry.stationName) + '</option>';
+    composeStationSelect.innerHTML = stations.map(function (entry) {
+      const selected = String(entry.stationId) === defaultSourceId ? ' selected' : '';
+      return '<option value="' + escapeHtml(String(entry.stationId)) + '"' + selected + '>' + escapeHtml(entry.stationName) + '</option>';
     }).join('');
+
+    setDefaultSourceStation();
+    updateRoutedToLabel();
   }
 
   function applyBootstrap(payload) {
@@ -138,14 +323,8 @@
     updateCounts(state.bootstrap);
     renderStationOptions();
     mailActiveFilter.textContent = 'Showing operational mail';
-    const om = state.bootstrap.operationalOrgmail || {};
-    if (composeOrgmailHint) {
-      composeOrgmailHint.textContent = om.uploadsEnabled
-        ? 'Use a URL under ' + String(om.stationFolder || 'your station folder') + ', or upload a file directly into that folder.'
-        : 'Paste a full https Cloudinary URL under ' + String(om.stationFolder || 'firenet/orgmail/station_<id>') + ' (enable Cloudinary in config to upload from here).';
-    }
     if (composeOrgmailUploadRow) {
-      composeOrgmailUploadRow.hidden = !om.uploadsEnabled;
+      composeOrgmailUploadRow.hidden = !getOperationalOrgmailMeta().uploadsEnabled;
     }
   }
 
@@ -293,7 +472,7 @@
       return '<article class="mail-thread-message">' +
         '<div class="mail-thread-message-head"><strong>' + escapeHtml(message.senderStationName || '') + '</strong><span>' + escapeHtml(formatDate(message.sentAt || message.createdAt)) + '</span></div>' +
         '<div class="mail-thread-message-meta"><span>' + escapeHtml(message.senderUsername || '') + '</span>' + requestTags.join(' ') + '</div>' +
-        '<p>' + escapeHtml(message.body || '') + '</p>' +
+        formatMessageBody(message.body) +
         (attachments ? '<div class="mail-attachments">' + attachments + '</div>' : '') +
       '</article>';
     }).join('');
@@ -652,9 +831,11 @@
 
     composeForm.reset();
     composeSubject.value = thread.subject ? ('Re: ' + thread.subject) : 'Re: Operational request';
-    composeBody.value = '\n\n--- Replying to request ---\n' + String(latest.body || '');
+    setComposeBodyHtml('\n\n--- Replying to request ---\n' + String(latest.body || ''));
     composeStationSelect.value = String(requestRoute.originStationId || '');
-    composeCloudinaryUrl.value = '';
+    if (composeCloudinaryUrl) {
+      composeCloudinaryUrl.value = '';
+    }
     setMessage('', false);
     updateComposeMode();
     openCompose();
@@ -797,7 +978,7 @@
   }
 
   function assignRequestToOriginUser(detail) {
-    const cloudUrl = window.prompt('Optional: paste the final Cloudinary URL if not already in the thread (must be under origin or target station folder). Leave blank to release without attaching a new link:', '');
+    const cloudUrl = window.prompt('Optional: paste the cloud storage file URL if not already in the thread (must be under origin or target station folder). Leave blank to release without attaching a new link:', '');
     if (cloudUrl === null) {
       return;
     }
@@ -898,12 +1079,12 @@
   }
 
   function returnToOrigin(detail) {
-    const cloudUrl = window.prompt('Paste the Cloudinary secure URL for the file (must be in your station folder). Required:');
+    const cloudUrl = window.prompt('Paste the cloud storage file URL (must be in your station folder). Required:');
     if (cloudUrl === null) {
       return;
     }
     if (!String(cloudUrl).trim()) {
-      setMessage('Cloudinary URL is required to return the file to origin ComL.', true);
+      setMessage('A cloud storage file URL is required to return the file to origin ComL.', true);
       return;
     }
 
@@ -961,10 +1142,20 @@
   }
 
   function openCompose() {
+    if (!state.composeReplyMode) {
+      setDefaultSourceStation();
+      updateRoutedToLabel();
+    }
     composeModal.hidden = false;
     syncMailModalScrollLock();
     setMessage('', false);
     updateComposeMode();
+    if (!state.composeReplyMode) {
+      updateSourceStationUi();
+    }
+    if (composeBodyEditor) {
+      composeBodyEditor.focus();
+    }
   }
 
   function closeCompose() {
@@ -972,9 +1163,12 @@
     composeModal.style.display = '';
     syncMailModalScrollLock();
     composeForm.reset();
+    clearComposeBody();
+    clearLocalAttachments();
     state.composeReplyMode = false;
     state.composeReplyThreadId = 0;
     state.composeReplyOriginStationId = 0;
+    setDefaultSourceStation();
     updateComposeMode();
   }
 
@@ -1039,8 +1233,15 @@
   function loadCloudinaryFiles() {
     showFilePickerLoading();
 
-    const url = new URL(cloudinaryBrowserUrl, window.location.origin);
-    url.searchParams.append('action', 'list');
+    const om = getOperationalOrgmailMeta();
+    const useR2 = om.provider === 'r2';
+    const sourceStationId = String(composeStationSelect ? composeStationSelect.value : getCurrentStationId());
+    const url = new URL(useR2 ? storageBrowserUrl : legacyStorageBrowserUrl, window.location.origin);
+    url.searchParams.set('action', 'list');
+    url.searchParams.set('area', 'orgmail');
+    if (useR2 && sourceStationId !== '') {
+      url.searchParams.set('stationId', sourceStationId);
+    }
 
     fetch(url.toString(), {
       method: 'GET',
@@ -1066,7 +1267,7 @@
       showFilePickerContent();
     })
     .catch(function(error) {
-      showFilePickerError((error && error.message) || 'Failed to load files from Cloudinary');
+      showFilePickerError((error && error.message) || 'Failed to load files from cloud storage');
     });
   }
 
@@ -1148,14 +1349,17 @@
       return;
     }
 
-    composeCloudinaryUrl.value = url;
+    if (composeCloudinaryUrl) {
+      composeCloudinaryUrl.value = url;
+    }
     closeFilePicker();
   }
 
   function updateComposeMode() {
     const modalKicker = composeModal.querySelector('.mail-kicker');
     const modalTitle = composeModal.querySelector('h2');
-    const stationLabel = composeStationSelect.closest('label');
+    const stationLabel = composeStationSelect ? composeStationSelect.closest('label') : null;
+    const routedToField = composeRoutedToLabel ? composeRoutedToLabel.closest('.form-field') : null;
     const isReplyMode = Boolean(state.composeReplyMode);
 
     if (modalKicker) {
@@ -1167,25 +1371,35 @@
     if (stationLabel) {
       stationLabel.hidden = isReplyMode;
     }
+    if (routedToField) {
+      routedToField.hidden = isReplyMode;
+    }
+    if (composeCloudSection) {
+      composeCloudSection.hidden = !isReplyMode;
+    }
+    if (composeLocalAttachmentsField) {
+      composeLocalAttachmentsField.hidden = isReplyMode;
+    }
+    if (composeBodyEditor) {
+      composeBodyEditor.dataset.placeholder = isReplyMode ? 'Add a note with the file you are returning…' : 'Write your request…';
+    }
     if (saveDraftBtn) {
       saveDraftBtn.hidden = isReplyMode;
     }
     if (sendBtn) {
       sendBtn.textContent = isReplyMode ? 'Return to target ComL' : 'Send request';
     }
-    if (composeOrgmailHint) {
-      if (isReplyMode) {
-        composeOrgmailHint.textContent = 'Paste or upload a Cloudinary file from your station folder, then return it to the target station ComL.';
-      } else if (state.bootstrap && state.bootstrap.operationalOrgmail && state.bootstrap.operationalOrgmail.uploadsEnabled) {
-        composeOrgmailHint.textContent = 'Use a URL under your station folder, or upload a file directly into that folder.';
-      } else {
-        composeOrgmailHint.textContent = 'Operational files must live under your station folder on Cloudinary.';
-      }
+    if (composeOrgmailHint && isReplyMode) {
+      updateSourceStationUi();
     }
   }
 
   function validateUrl(url) {
-    return /^https:\/\//i.test(String(url || '').trim());
+    const value = String(url || '').trim();
+    if (/^https:\/\//i.test(value)) {
+      return true;
+    }
+    return value.indexOf('/firenet/NEWFIRENET/backend/controllers/r2_storage.php') === 0;
   }
 
   function cloudinaryUrlInMyStationFolder(url) {
@@ -1198,9 +1412,10 @@
 
   async function submitRequest(isDraft) {
     const subject = String(composeSubject.value || '').trim();
-    const body = String(composeBody.value || '').trim();
-    const stationId = Number(composeStationSelect.value || 0);
-    const cloudinaryUrl = String(composeCloudinaryUrl.value || '').trim();
+    const body = getComposeBodyHtml();
+    const sourceStationId = Number(composeStationSelect.value || 0);
+    const centralStationId = Number(getCentralStationId() || 0);
+    const cloudinaryUrl = composeCloudinaryUrl ? String(composeCloudinaryUrl.value || '').trim() : '';
 
     if (state.composeReplyMode && isDraft) {
       throw new Error('Drafts are not available for request replies.');
@@ -1210,11 +1425,17 @@
       if (subject === '') {
         throw new Error(state.composeReplyMode ? 'Please add a reply subject.' : 'Please add a subject for this request.');
       }
-      if (!state.composeReplyMode && stationId < 1) {
-        throw new Error('Choose a target station.');
+      if (!state.composeReplyMode && centralStationId < 1) {
+        throw new Error('Central station routing is not configured.');
+      }
+      if (state.composeReplyMode && cloudinaryUrl === '') {
+        throw new Error('Attach the requested file from cloud storage before returning to ComL.');
       }
       if (cloudinaryUrl !== '' && !validateUrl(cloudinaryUrl)) {
-        throw new Error('Please provide a valid Cloudinary URL beginning with https://');
+        throw new Error('Please provide a valid cloud storage file URL.');
+      }
+      if (!state.composeReplyMode && isComposeBodyEmpty() && state.localAttachments.length === 0) {
+        throw new Error('Write your request or attach a reference file before sending.');
       }
     }
 
@@ -1229,7 +1450,11 @@
     formData.append('importance', 'normal');
     formData.append('requestFiles', '1');
     if (!state.composeReplyMode) {
-      formData.append('recipientStationIds[]', String(stationId));
+      formData.append('recipientStationIds[]', String(centralStationId));
+      formData.append('sourceStationId', String(sourceStationId > 0 ? sourceStationId : getCurrentStationId()));
+      state.localAttachments.forEach(function (file) {
+        formData.append('attachments[]', file);
+      });
     }
     if (cloudinaryUrl !== '') {
       formData.append('cloudinaryUrl', cloudinaryUrl);
@@ -1250,7 +1475,25 @@
     await fetchList();
   }
 
-  openComposeBtn.addEventListener('click', openCompose);
+  openComposeBtn.addEventListener('click', function () {
+    state.composeReplyMode = false;
+    state.composeReplyThreadId = 0;
+    state.composeReplyOriginStationId = 0;
+    composeForm.reset();
+    clearComposeBody();
+    clearLocalAttachments();
+    setDefaultSourceStation();
+    if (composeCloudinaryUrl) {
+      composeCloudinaryUrl.value = '';
+    }
+    setMessage('', false);
+    openCompose();
+  });
+  if (composeStationSelect) {
+    composeStationSelect.addEventListener('change', function () {
+      updateSourceStationUi();
+    });
+  }
   closeComposeBtn.addEventListener('click', closeCompose);
   composeModal.addEventListener('click', function (event) {
     if (event.target && event.target.closest('[data-close="true"]')) {
@@ -1309,6 +1552,51 @@
     state.sort = sortSelect.value || 'latest';
     renderList();
   });
+
+  composeModal.querySelectorAll('.mail-compose-tool').forEach(function (button) {
+    button.addEventListener('mousedown', function (event) {
+      event.preventDefault();
+    });
+    button.addEventListener('click', function () {
+      const command = button.getAttribute('data-cmd');
+      if (!command || !composeBodyEditor) {
+        return;
+      }
+      composeBodyEditor.focus();
+      document.execCommand(command, false, null);
+      if (composeBody) {
+        composeBody.value = getComposeBodyHtml();
+      }
+    });
+  });
+
+  if (composeAttachFilesBtn && composeLocalAttachments) {
+    composeAttachFilesBtn.addEventListener('click', function () {
+      composeLocalAttachments.click();
+    });
+    composeLocalAttachments.addEventListener('change', function () {
+      if (!composeLocalAttachments.files || !composeLocalAttachments.files.length) {
+        return;
+      }
+      addLocalAttachments(composeLocalAttachments.files);
+      composeLocalAttachments.value = '';
+    });
+  }
+
+  if (composeAttachmentList) {
+    composeAttachmentList.addEventListener('click', function (event) {
+      const removeButton = event.target.closest('[data-remove-attachment]');
+      if (!removeButton) {
+        return;
+      }
+      const index = Number(removeButton.getAttribute('data-remove-attachment') || -1);
+      if (index < 0 || index >= state.localAttachments.length) {
+        return;
+      }
+      state.localAttachments.splice(index, 1);
+      renderComposeAttachments();
+    });
+  }
 
   // ===== File Picker Event Listeners =====
   if (browseCloudinareFilesBtn) {
@@ -1396,9 +1684,10 @@
         return;
       }
       const fd = new FormData();
+      fd.append('action', 'orgmail-upload');
       fd.append('file', composeOrgmailFile.files[0]);
-      setMessage('Uploading…', false);
-      fetch('/firenet/NEWFIRENET/backend/controllers/demo-file-upload.php', { method: 'POST', body: fd, credentials: 'same-origin' })
+      setMessage('Uploading to cloud storage…', false);
+      fetch(apiUrl, { method: 'POST', body: fd, credentials: 'same-origin' })
         .then(function (r) {
           return r.json().then(function (p) {
             return { r: r, p: p };
@@ -1408,17 +1697,12 @@
           if (!out || !out.r || !out.p || !out.r.ok || out.p.ok !== true) {
             throw new Error((out && out.p && out.p.message) || 'Upload failed');
           }
-          const url = out.p && out.p.file && out.p.file.url ? String(out.p.file.url) : '';
+          const url = out.p && out.p.data && out.p.data.secureUrl ? String(out.p.data.secureUrl) : '';
           if (url) {
             composeCloudinaryUrl.value = url;
-            setMessage('Upload complete. URL filled in.', false);
-            if (!state.composeReplyMode) {
-              setTimeout(function() {
-                loadCloudinaryFiles();
-              }, 500);
-            }
+            setMessage('Upload complete. File attached.', false);
           } else {
-            throw new Error('No URL returned from upload');
+            throw new Error('No file URL returned from upload');
           }
         })
         .catch(function (e) {

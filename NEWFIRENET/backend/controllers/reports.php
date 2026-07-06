@@ -1,11 +1,10 @@
 <?php
 require_once __DIR__ . '/../../includes/auth.php';
 require_once __DIR__ . '/../../includes/db.php';
+require_once __DIR__ . '/../../includes/report_r2_backup.php';
 
 firenet_require_login();
 firenet_start_session();
-
-header('Content-Type: application/json; charset=utf-8');
 
 $userId = (int) ($_SESSION['user']['user_id'] ?? 0);
 $username = (string) ($_SESSION['user']['username'] ?? '');
@@ -16,6 +15,7 @@ $canCreateEquipmentReports = $positionCode === 'position2' || $positionCode === 
 $canUpdateIncidentReports = $positionCode === 'position1';
 if ($username === '' || $userId < 1) {
     http_response_code(401);
+    header('Content-Type: application/json; charset=utf-8');
     echo json_encode(['ok' => false, 'message' => 'Unauthorized']);
     exit;
 }
@@ -23,9 +23,25 @@ if ($username === '' || $userId < 1) {
 $sessionStationId = (int) ($_SESSION['user']['station_id'] ?? 0);
 if ($sessionStationId < 1) {
     http_response_code(422);
+    header('Content-Type: application/json; charset=utf-8');
     echo json_encode(['ok' => false, 'message' => 'Invalid user station']);
     exit;
 }
+
+if ($_SERVER['REQUEST_METHOD'] === 'GET' && trim((string) ($_GET['action'] ?? '')) === 'download-pdf') {
+    try {
+        $pdo = firenet_get_pdo();
+        $reportId = (int) ($_GET['reportId'] ?? 0);
+        firenet_stream_incident_report_pdf($pdo, $reportId, $userId, $sessionStationId);
+    } catch (Throwable $e) {
+        http_response_code(500);
+        header('Content-Type: text/plain; charset=utf-8');
+        echo $e->getMessage();
+    }
+    exit;
+}
+
+header('Content-Type: application/json; charset=utf-8');
 
 function firenet_haversine_km(float $lat1, float $lng1, float $lat2, float $lng2): float {
     $earthRadiusKm = 6371.0;
@@ -902,6 +918,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     if ($action === 'logs') {
         try {
             $pdo = firenet_get_pdo();
+            firenet_ensure_report_cloud_backups_table($pdo);
             $sort = strtolower(trim((string) ($_GET['sort'] ?? 'date')));
             $dir = strtolower(trim((string) ($_GET['dir'] ?? 'desc')));
             $search = trim((string) ($_GET['q'] ?? ''));
@@ -1049,6 +1066,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
 
             $fireOutCount = count($logs);
 
+            $cloudSync = firenet_auto_backup_pending_reports(
+                $pdo,
+                array_map(static fn (array $log): int => (int) ($log['id'] ?? 0), $logs),
+                $userId
+            );
+
+            $backupMap = [];
+            if ($logs !== []) {
+                $reportIds = array_values(array_unique(array_map(static fn (array $log): int => (int) ($log['id'] ?? 0), $logs)));
+                $reportIds = array_values(array_filter($reportIds, static fn (int $id): bool => $id > 0));
+                if ($reportIds !== []) {
+                    $placeholders = implode(',', array_fill(0, count($reportIds), '?'));
+                    $backupStmt = $pdo->prepare('
+                        SELECT report_id, r2_key, central_r2_key, file_name, file_size, backed_up_at
+                        FROM report_cloud_backups
+                        WHERE report_id IN (' . $placeholders . ')
+                    ');
+                    $backupStmt->execute($reportIds);
+                    foreach ($backupStmt->fetchAll(PDO::FETCH_ASSOC) as $backupRow) {
+                        $backupMap[(int) ($backupRow['report_id'] ?? 0)] = firenet_report_cloud_backup_payload($backupRow);
+                    }
+                }
+            }
+
+            foreach ($logs as $index => $log) {
+                $reportId = (int) ($log['id'] ?? 0);
+                $logs[$index]['cloudBackup'] = $backupMap[$reportId] ?? firenet_report_cloud_backup_payload(null);
+            }
+
+            $backedUpCount = count(array_filter($logs, static fn (array $log): bool => !empty($log['cloudBackup']['backedUp'])));
+
             $stations = [];
             if ($isCentralStation) {
                 $stationsStmt = $pdo->query('
@@ -1071,9 +1119,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                 'logs' => $logs,
                 'isCentralStation' => $isCentralStation,
                 'stations' => $stations,
+                'cloudStorageEnabled' => firenet_r2_enabled(),
+                'cloudSync' => $cloudSync,
                 'summary' => [
                     'total' => $fireOutCount,
                     'fireOut' => $fireOutCount,
+                    'backedUp' => $backedUpCount,
+                    'pendingBackup' => max(0, $fireOutCount - $backedUpCount),
                     'stationCount' => count(array_unique(array_map(static fn (array $log): int => (int) ($log['stationId'] ?? 0), $logs)))
                 ]
             ]);
@@ -1263,6 +1315,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
     echo json_encode(['ok' => false, 'message' => 'Method not allowed']);
+    exit;
+}
+
+$postAction = trim((string) ($_GET['action'] ?? ''));
+if ($postAction === 'backup-report') {
+    try {
+        $pdo = firenet_get_pdo();
+        $input = json_decode((string) file_get_contents('php://input'), true);
+        if (!is_array($input)) {
+            $input = $_POST;
+        }
+
+        $reportId = (int) ($input['reportId'] ?? 0);
+        $force = !empty($input['force']);
+
+        if ($reportId < 1) {
+            http_response_code(422);
+            echo json_encode(['ok' => false, 'message' => 'Invalid report ID.']);
+            exit;
+        }
+
+        if (!firenet_can_access_report_for_backup($pdo, $reportId, $sessionStationId)) {
+            http_response_code(403);
+            echo json_encode(['ok' => false, 'message' => 'You cannot back up this report.']);
+            exit;
+        }
+
+        $result = firenet_backup_incident_report_to_r2($pdo, $reportId, $userId, $force);
+        echo json_encode($result, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    } catch (Throwable $e) {
+        http_response_code(500);
+        echo json_encode(['ok' => false, 'message' => $e->getMessage()]);
+    }
     exit;
 }
 
@@ -1604,6 +1689,8 @@ try {
     $reportTypeId = (int) $reportTypeRow['report_type_id'];
     
     if ($action === 'update') {
+        $cloudSyncResult = null;
+
         if ($reportId < 1) {
             http_response_code(422);
             echo json_encode(['ok' => false, 'message' => 'Missing report ID']);
@@ -1894,11 +1981,18 @@ try {
                         $incidentStatus ?: null,
                         $userId
                     ]);
+
+                    if (strtolower((string) $incidentStatus) === 'fire_out' && strtolower((string) ($oldStatus ?? '')) !== 'fire_out') {
+                        $cloudSyncResult = firenet_sync_incident_case_to_r2($pdo, $reportId, $userId);
+                    }
                 }
             }
         }
         
-        echo json_encode(['ok' => true]);
+        echo json_encode([
+            'ok' => true,
+            'cloudSync' => $cloudSyncResult,
+        ]);
         exit;
     }
     
