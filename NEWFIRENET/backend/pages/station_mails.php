@@ -27,8 +27,12 @@ $stationMailsContext = [
     'mailApiUrl' => '/firenet/NEWFIRENET/backend/controllers/station_mails.php'
 ];
 
-$pageStyles = ['/firenet/NEWFIRENET/assets/css/station-mails.css'];
+$mailCssPath = __DIR__ . '/../../assets/css/mail-pro.css';
+$mailCssVersion = is_file($mailCssPath) ? (string) filemtime($mailCssPath) : (string) time();
+
+$pageStyles = ['/firenet/NEWFIRENET/assets/css/mail-pro.css?v=' . $mailCssVersion];
 $pageScripts = [];
+$bodyClass = 'has-reports-bg';
 
 require_once __DIR__ . '/../../includes/header.php';
 ?>

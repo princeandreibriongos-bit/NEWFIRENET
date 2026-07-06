@@ -1,20 +1,23 @@
 (function () {
   const contextElement = document.getElementById('stationIncidentLogsContext');
+  const shell = document.querySelector('.logs-pro');
   const summary = document.getElementById('stationLogsSummary');
   const totalNode = document.getElementById('stationLogsTotal');
-  const stationNode = document.getElementById('stationLogsStation');
-  const underControlNode = document.getElementById('stationLogsUnderControl');
-  const fireOutNode = document.getElementById('stationLogsFireOut');
+  const scopeNode = document.getElementById('stationLogsScope');
+  const kicker = document.getElementById('stationLogsKicker');
   const searchInput = document.getElementById('stationLogsSearch');
+  const caseFilterInput = document.getElementById('stationLogsCaseFilter');
   const stationFilter = document.getElementById('stationLogsStationFilter');
+  const stationField = document.getElementById('stationLogsStationField');
   const sortField = document.getElementById('stationLogsSortField');
   const sortDir = document.getElementById('stationLogsSortDir');
-  const applyButton = document.getElementById('stationLogsApplySort');
   const downloadButton = document.getElementById('stationLogsDownloadCsv');
   const tableBody = document.getElementById('stationLogsTableBody');
+  const pageTitle = document.getElementById('stationLogsTitle');
   const modal = document.getElementById('stationLogsModal');
   const closeModalButton = document.getElementById('closeStationLogsModal');
   const modalTitle = document.getElementById('stationLogsModalTitle');
+  const modalCase = document.getElementById('stationLogsModalCase');
   const modalMeta = document.getElementById('stationLogsModalMeta');
   const modalLocation = document.getElementById('stationLogsModalLocation');
   const modalSubmittedBy = document.getElementById('stationLogsModalSubmittedBy');
@@ -23,10 +26,10 @@
   const apiUrl = '/firenet/NEWFIRENET/backend/controllers/reports.php?action=logs';
 
   if (
-    !contextElement || !summary || !totalNode || !stationNode || !underControlNode || !fireOutNode ||
-    !searchInput || !stationFilter || !sortField || !sortDir || !applyButton || !downloadButton ||
-    !tableBody || !modal || !closeModalButton || !modalTitle || !modalMeta || !modalLocation ||
-    !modalSubmittedBy || !modalFinishedAt || !modalTimeline
+    !contextElement || !shell || !summary || !totalNode || !scopeNode || !kicker ||
+    !searchInput || !caseFilterInput || !stationFilter || !sortField || !sortDir || !downloadButton ||
+    !tableBody || !pageTitle || !modal || !closeModalButton || !modalTitle || !modalCase || !modalMeta ||
+    !modalLocation || !modalSubmittedBy || !modalFinishedAt || !modalTimeline
   ) {
     return;
   }
@@ -44,8 +47,42 @@
 
   const state = {
     logs: [],
-    filtered: []
+    filtered: [],
+    stations: Array.isArray(context.stations) ? context.stations : [],
+    isCentralStation: Boolean(context.isCentralStation),
+    selectedStationId: ''
   };
+
+  let searchDebounceTimer = null;
+  let caseDebounceTimer = null;
+
+  function mountLogsModalToBody() {
+    if (modal.parentElement !== document.body) {
+      document.body.appendChild(modal);
+    }
+  }
+
+  function syncLogsModalScrollLock(isOpen) {
+    document.body.classList.toggle('logs-modal-open', isOpen);
+  }
+
+  function configurePageChrome() {
+    shell.classList.toggle('is-central', state.isCentralStation);
+    if (stationField) {
+      stationField.hidden = !state.isCentralStation;
+    }
+
+    if (state.isCentralStation) {
+      pageTitle.textContent = 'District Incident Logs';
+      kicker.textContent = 'Makati Central archive';
+      scopeNode.textContent = 'All stations';
+      return;
+    }
+
+    pageTitle.textContent = 'Station Incident Logs';
+    kicker.textContent = 'Fire out archive';
+    scopeNode.textContent = context.stationName || 'Your station';
+  }
 
   function escapeHtml(value) {
     return String(value)
@@ -58,7 +95,7 @@
 
   function formatDateTime(value) {
     if (!value) {
-      return '-';
+      return '—';
     }
 
     const date = new Date(value);
@@ -66,13 +103,19 @@
       return String(value);
     }
 
-    return date.toLocaleString();
+    return date.toLocaleString(undefined, {
+      month: 'numeric',
+      day: 'numeric',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit'
+    });
   }
 
   function formatAlarmLabel(level) {
     const numeric = Number(level || 0);
     if (!Number.isFinite(numeric) || numeric < 1) {
-      return 'Alarm -';
+      return '—';
     }
     return 'Alarm ' + String(numeric);
   }
@@ -87,8 +130,8 @@
       const alarmLabel = formatAlarmLabel(update.alarmLevel);
       entries.push({
         at: update.recordedAt || '',
-        title: alarmLabel + ' | ' + (status || 'status update'),
-        meta: 'Recorded at ' + formatDateTime(update.recordedAt || '')
+        title: alarmLabel + ' · ' + (status || 'update'),
+        meta: formatDateTime(update.recordedAt || '')
       });
     });
 
@@ -110,8 +153,8 @@
 
       entries.push({
         at: change.changedAt || '',
-        title: (before.join(' / ') || 'Previous') + ' -> ' + (after.join(' / ') || 'Updated'),
-        meta: formatDateTime(change.changedAt || '') + (change.notes ? ' | ' + String(change.notes) : '')
+        title: (before.join(' / ') || 'Previous') + ' → ' + (after.join(' / ') || 'Updated'),
+        meta: formatDateTime(change.changedAt || '') + (change.notes ? ' · ' + String(change.notes) : '')
       });
     });
 
@@ -122,8 +165,8 @@
     if (entries.length === 0 && log.incidentFinishedAt) {
       entries.push({
         at: log.incidentFinishedAt,
-        title: 'Incident completed',
-        meta: 'Completed at ' + formatDateTime(log.incidentFinishedAt)
+        title: 'Fire out recorded',
+        meta: formatDateTime(log.incidentFinishedAt)
       });
     }
 
@@ -134,7 +177,33 @@
     return String(value || '').toLowerCase().trim();
   }
 
-  function renderStationFilterOptions(logs) {
+  function getSelectedStationId() {
+    if (!state.isCentralStation) {
+      return String(context.stationId || '');
+    }
+    return String(state.selectedStationId || '');
+  }
+
+  function renderStationFilterOptions() {
+    const selectedId = getSelectedStationId();
+
+    if (state.isCentralStation) {
+      const options = ['<option value="">All stations</option>'];
+      state.stations.forEach(function (station) {
+        const stationId = String(station.id || '');
+        const stationName = String(station.name || ('Station ' + stationId));
+        options.push('<option value="' + escapeHtml(stationId) + '">' + escapeHtml(stationName) + '</option>');
+      });
+      stationFilter.innerHTML = options.join('');
+      stationFilter.disabled = false;
+      stationFilter.value = selectedId;
+      if (stationFilter.value !== selectedId && selectedId !== '') {
+        state.selectedStationId = '';
+        stationFilter.value = '';
+      }
+      return;
+    }
+
     const currentStationId = String(context.stationId || '');
     const currentStationName = String(context.stationName || ('Station ' + currentStationId));
     stationFilter.innerHTML = '<option value="' + escapeHtml(currentStationId) + '">' + escapeHtml(currentStationName) + '</option>';
@@ -142,15 +211,44 @@
     stationFilter.disabled = true;
   }
 
+  function getScopeLabel() {
+    if (!state.isCentralStation) {
+      return context.stationName || 'your station';
+    }
+
+    if (!stationFilter.value) {
+      return 'all stations';
+    }
+
+    const match = state.stations.find(function (station) {
+      return String(station.id || '') === getSelectedStationId();
+    });
+    return match && match.name ? match.name : 'selected station';
+  }
+
   function renderSummary(logs) {
     const total = logs.length;
     totalNode.textContent = String(total);
-    fireOutNode.textContent = String(total);
-    underControlNode.textContent = '0';
-    stationNode.textContent = context.stationName || 'All Stations';
-    summary.textContent = total === 0
-      ? 'No completed incident logs for your station match your filters.'
-      : 'Showing ' + String(total) + ' completed incident log(s) for ' + String(context.stationName || 'your station') + '.';
+
+    if (state.isCentralStation) {
+      const scopeLabel = getScopeLabel();
+      scopeNode.textContent = scopeLabel === 'all stations' ? 'All stations' : scopeLabel;
+    }
+
+    const caseLabel = caseFilterInput.value.trim().replace(/[^\d]/g, '');
+    if (total === 0) {
+      summary.textContent = state.isCentralStation
+        ? 'No fire out cases match your filters across the district.'
+        : 'No fire out cases for your station match your filters.';
+      return;
+    }
+
+    let message = total === 1 ? '1 fire out case' : total + ' fire out cases';
+    message += ' · ' + getScopeLabel();
+    if (caseLabel) {
+      message += ' · case #' + caseLabel;
+    }
+    summary.textContent = message;
   }
 
   function sortLogs(logs) {
@@ -168,14 +266,11 @@
         aValue = String(a.stationName || '').toLowerCase();
         bValue = String(b.stationName || '').toLowerCase();
       } else if (field === 'submitted_by') {
-        aValue = String(a.submittedBy || '').toLowerCase();
-        bValue = String(b.submittedBy || '').toLowerCase();
+        aValue = String(a.updatedBy || a.submittedBy || '').toLowerCase();
+        bValue = String(b.updatedBy || b.submittedBy || '').toLowerCase();
       } else if (field === 'alarm') {
         aValue = Number(a.alarmLevel || 0);
         bValue = Number(b.alarmLevel || 0);
-      } else if (field === 'status') {
-        aValue = String(a.incidentStatus || '').toLowerCase();
-        bValue = String(b.incidentStatus || '').toLowerCase();
       } else {
         aValue = new Date(a.incidentFinishedAt || a.updatedAt || a.submittedAt || 0).getTime();
         bValue = new Date(b.incidentFinishedAt || b.updatedAt || b.submittedAt || 0).getTime();
@@ -193,11 +288,23 @@
 
   function applyFilters() {
     const search = normalizeSearchValue(searchInput.value);
-    const stationId = String(stationFilter.value || '');
+    const stationId = getSelectedStationId();
+    const caseId = String(caseFilterInput.value || '').replace(/[^\d]/g, '');
 
     const filtered = state.logs.filter(function (log) {
-      if (stationId !== '' && String(log.stationId || '') !== stationId) {
+      if (!state.isCentralStation && String(log.stationId || '') !== String(context.stationId || '')) {
         return false;
+      }
+
+      if (state.isCentralStation && stationId !== '' && String(log.stationId || '') !== stationId) {
+        return false;
+      }
+
+      if (caseId !== '') {
+        const logCaseId = String(log.incidentCaseId || log.id || '');
+        if (logCaseId !== caseId) {
+          return false;
+        }
       }
 
       if (search === '') {
@@ -208,12 +315,13 @@
         log.title,
         log.stationName,
         log.submittedBy,
+        log.updatedBy,
         log.incidentLocation,
         log.callerName,
         log.remarks,
-        log.incidentStatus,
-        log.stage,
-        log.alarmLevel
+        log.alarmLevel,
+        log.incidentCaseId,
+        log.id
       ].join(' ').toLowerCase();
       return haystack.indexOf(search) !== -1;
     });
@@ -223,29 +331,35 @@
     renderSummary(state.filtered);
   }
 
+  function colSpan() {
+    return 7;
+  }
+
   function renderRows(logs) {
     if (!logs.length) {
-      tableBody.innerHTML = '<tr><td colspan="9" class="muted-text">No completed incident logs match your filters.</td></tr>';
+      tableBody.innerHTML = '<tr><td colspan="' + String(colSpan()) + '" class="logs-empty">No fire out cases match your filters.</td></tr>';
       return;
     }
 
     tableBody.innerHTML = logs.map(function (log) {
       const finishedAt = formatDateTime(log.incidentFinishedAt || log.updatedAt || log.submittedAt || '');
-      const details = [log.title || 'Untitled Incident', log.incidentLocation || '-', formatAlarmLabel(log.alarmLevel), String(log.incidentStatus || '').replace(/_/g, ' ') || 'fire out'];
+      const closedBy = log.updatedBy || log.submittedBy || '—';
+      const caseId = String(log.incidentCaseId || log.id || '');
+      const stationCell = '<td class="logs-col-station">' + escapeHtml(log.stationName || '—') + '</td>';
+
       return '<tr class="logs-row" tabindex="0" data-log-id="' + escapeHtml(String(log.id || '')) + '">' +
         '<td>' + escapeHtml(finishedAt) + '</td>' +
-        '<td><strong>#' + escapeHtml(String(log.incidentCaseId || log.id || '')) + '</strong>' +
+        '<td><span class="logs-case-id">#' + escapeHtml(caseId) + '</span>' +
         (log.incidentCaseId && String(log.incidentCaseId) !== String(log.id)
-          ? '<div class="logs-row-subtitle">Station copy ' + escapeHtml(String(log.id || '')) + '</div>'
+          ? '<div class="logs-case-sub">Copy ' + escapeHtml(String(log.id || '')) + '</div>'
           : '') +
         '</td>' +
-        '<td>' + escapeHtml(log.stationName || '-') + '</td>' +
-        '<td>' + escapeHtml(details[0]) + '<div class="logs-row-subtitle">' + escapeHtml(details[1]) + '</div></td>' +
-        '<td>' + escapeHtml(log.submittedBy || '-') + '</td>' +
-        '<td>' + escapeHtml(String(log.stage || 'after_incident').replace(/_/g, ' ')) + '</td>' +
-        '<td><span class="logs-status-pill logs-status-pill--completed">Fire Out</span></td>' +
-        '<td>' + escapeHtml(formatAlarmLabel(log.alarmLevel)) + '</td>' +
-        '<td><span class="logs-row-link">View timeline</span></td>' +
+        stationCell +
+        '<td><div class="logs-incident-title">' + escapeHtml(log.title || 'Untitled incident') + '</div>' +
+        '<div class="logs-incident-loc" title="' + escapeHtml(log.incidentLocation || '') + '">' + escapeHtml(log.incidentLocation || '—') + '</div></td>' +
+        '<td>' + escapeHtml(closedBy) + '</td>' +
+        '<td><span class="logs-alarm-pill">' + escapeHtml(formatAlarmLabel(log.alarmLevel)) + '</span></td>' +
+        '<td><span class="logs-open-btn" aria-hidden="true">›</span></td>' +
       '</tr>';
     }).join('');
   }
@@ -255,40 +369,55 @@
       return;
     }
 
-    modalTitle.textContent = log.title || 'Incident Report';
-    modalMeta.textContent = [log.stationName || 'Station', formatAlarmLabel(log.alarmLevel), String(log.incidentStatus || '').replace(/_/g, ' ') || 'fire out'].join(' • ');
-    modalLocation.textContent = log.incidentLocation || '-';
-    modalSubmittedBy.textContent = (log.updatedBy || log.submittedBy || '-');
+    const caseId = String(log.incidentCaseId || log.id || '—');
+    modalCase.textContent = '#' + caseId;
+    modalTitle.textContent = log.title || 'Incident';
+    modalMeta.textContent = [
+      log.stationName || 'Station',
+      formatAlarmLabel(log.alarmLevel)
+    ].join(' · ');
+    modalLocation.textContent = log.incidentLocation || '—';
+    modalSubmittedBy.textContent = log.updatedBy || log.submittedBy || '—';
     modalFinishedAt.textContent = formatDateTime(log.incidentFinishedAt || log.updatedAt || log.submittedAt || '');
 
     const entries = buildTimelineEntries(log);
     modalTimeline.innerHTML = entries.length ? entries.map(function (entry, index) {
-      return '<li class="station-logs-timeline-item">' +
-        '<span class="station-logs-timeline-dot" aria-hidden="true"></span>' +
-        '<div class="station-logs-timeline-content">' +
+      return '<li class="logs-timeline-item">' +
+        '<span class="logs-timeline-dot" aria-hidden="true"></span>' +
+        '<div class="logs-timeline-content">' +
           '<strong>' + escapeHtml(entry.title || ('Event ' + String(index + 1))) + '</strong>' +
           '<span>' + escapeHtml(entry.meta || '') + '</span>' +
         '</div>' +
       '</li>';
-    }).join('') : '<li class="station-logs-timeline-item"><strong>No timeline entries recorded</strong><span>Use the incident report page to view more detail.</span></li>';
+    }).join('') : '<li class="logs-timeline-item"><strong>No timeline entries</strong><span>Progress updates were not recorded for this case.</span></li>';
 
     modal.hidden = false;
+    modal.classList.add('is-open');
+    syncLogsModalScrollLock(true);
+    closeModalButton.focus();
   }
 
   function closeModal() {
     modal.hidden = true;
+    modal.classList.remove('is-open');
+    syncLogsModalScrollLock(false);
   }
 
   async function loadLogs() {
-    tableBody.innerHTML = '<tr><td colspan="9" class="muted-text">Loading logs...</td></tr>';
+    tableBody.innerHTML = '<tr><td colspan="' + String(colSpan()) + '" class="logs-empty">Loading logs…</td></tr>';
     const url = new URL(apiUrl, window.location.origin);
     url.searchParams.set('sort', sortField.value || 'date');
     url.searchParams.set('dir', sortDir.value || 'desc');
     if (searchInput.value.trim() !== '') {
       url.searchParams.set('q', searchInput.value.trim());
     }
-    if (stationFilter.value) {
-      url.searchParams.set('stationId', stationFilter.value);
+    const stationId = getSelectedStationId();
+    if (stationId !== '') {
+      url.searchParams.set('stationId', stationId);
+    }
+    const caseId = String(caseFilterInput.value || '').replace(/[^\d]/g, '');
+    if (caseId !== '') {
+      url.searchParams.set('caseId', caseId);
     }
 
     try {
@@ -304,7 +433,12 @@
       }
 
       state.logs = Array.isArray(payload.logs) ? payload.logs : [];
-      renderStationFilterOptions(state.logs);
+      state.isCentralStation = Boolean(payload.isCentralStation ?? state.isCentralStation);
+      state.stations = Array.isArray(payload.stations) && payload.stations.length
+        ? payload.stations
+        : state.stations;
+      configurePageChrome();
+      renderStationFilterOptions();
       applyFilters();
     } catch (error) {
       state.logs = [];
@@ -315,6 +449,20 @@
     }
   }
 
+  function scheduleSearchReload() {
+    window.clearTimeout(searchDebounceTimer);
+    searchDebounceTimer = window.setTimeout(function () {
+      loadLogs();
+    }, 320);
+  }
+
+  function scheduleCaseReload() {
+    window.clearTimeout(caseDebounceTimer);
+    caseDebounceTimer = window.setTimeout(function () {
+      loadLogs();
+    }, 320);
+  }
+
   function downloadCsv() {
     const rows = state.filtered.length ? state.filtered : state.logs;
     if (!rows.length) {
@@ -322,19 +470,16 @@
       return;
     }
 
-    const headers = ['Finished At', 'Incident Case ID', 'Station Report ID', 'Station ID', 'Station', 'Updated By', 'Title', 'Submitted By', 'Status', 'Alarm', 'Location'];
+    const headers = ['Finished At', 'Case ID', 'Report ID', 'Station', 'Closed By', 'Title', 'Alarm', 'Location'];
     const csvRows = [headers.join(',')];
     rows.forEach(function (log) {
       const row = [
         formatDateTime(log.incidentFinishedAt || log.updatedAt || log.submittedAt || ''),
         String(log.incidentCaseId || log.id || ''),
         String(log.id || ''),
-        String(log.stationId || ''),
         String(log.stationName || ''),
-        String(log.updatedBy || ''),
+        String(log.updatedBy || log.submittedBy || ''),
         String(log.title || ''),
-        String(log.submittedBy || ''),
-        String(log.incidentStatus || ''),
         String(log.alarmLevel || ''),
         String(log.incidentLocation || '')
       ].map(function (value) {
@@ -345,7 +490,7 @@
 
     const blob = new Blob([csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
-    const fileName = 'completed-incident-logs-' + new Date().toISOString().slice(0, 10) + '.csv';
+    const fileName = 'fire-out-logs-' + new Date().toISOString().slice(0, 10) + '.csv';
     link.href = URL.createObjectURL(blob);
     link.download = fileName;
     document.body.appendChild(link);
@@ -384,10 +529,6 @@
     row.click();
   });
 
-  applyButton.addEventListener('click', function () {
-    loadLogs();
-  });
-
   downloadButton.addEventListener('click', downloadCsv);
   closeModalButton.addEventListener('click', closeModal);
   modal.addEventListener('click', function (event) {
@@ -397,23 +538,27 @@
   });
   searchInput.addEventListener('input', function () {
     applyFilters();
+    scheduleSearchReload();
   });
   stationFilter.addEventListener('change', function () {
-    applyFilters();
+    state.selectedStationId = String(stationFilter.value || '');
+    loadLogs();
   });
-  sortField.addEventListener('change', function () {
+  caseFilterInput.addEventListener('input', function () {
     applyFilters();
+    scheduleCaseReload();
   });
-  sortDir.addEventListener('change', function () {
-    applyFilters();
-  });
+  sortField.addEventListener('change', applyFilters);
+  sortDir.addEventListener('change', applyFilters);
   document.addEventListener('keydown', function (event) {
-    if (event.key === 'Escape' && !modal.hidden) {
+    if (event.key === 'Escape' && modal.classList.contains('is-open')) {
       closeModal();
     }
   });
 
-  stationNode.textContent = context.stationName || 'All Stations';
-  summary.textContent = 'Loading completed incident logs...';
+  mountLogsModalToBody();
+  configurePageChrome();
+  renderStationFilterOptions();
+  summary.textContent = 'Loading fire out archive…';
   loadLogs();
 })();

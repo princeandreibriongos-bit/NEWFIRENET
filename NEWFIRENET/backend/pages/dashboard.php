@@ -4,7 +4,10 @@ require_once __DIR__ . '/../../includes/db.php';
 firenet_require_login();
 $user = (string) ($_SESSION['user']['username'] ?? 'Unknown User');
 $role = strtolower((string) ($_SESSION['user']['role'] ?? 'user'));
+$positionCode = strtolower((string) ($_SESSION['user']['position_code'] ?? ''));
 $stationId = (int) ($_SESSION['user']['station_id'] ?? 1);
+$canCreateIncidentReports = $positionCode !== 'position2';
+$reportIncidentUrl = '/firenet/NEWFIRENET/backend/pages/reports.php?quick=intake';
 
 $roleTitle = 'User';
 $roleSummary = 'You can view dashboard updates and station information.';
@@ -186,6 +189,8 @@ $dashboardContext = [
     'roleSummary' => $roleSummary,
     'stationId' => $stationId,
     'stationName' => $stationName,
+    'canCreateIncidentReports' => $canCreateIncidentReports,
+    'reportIncidentUrl' => $reportIncidentUrl,
     'openIncidentCount' => $openIncidentCount,
     'openIncidentSummary' => $openIncidentSummary,
     'ongoingIncidentTitle' => $ongoingIncidentTitle,
@@ -199,11 +204,13 @@ $dashboardContext = [
     'stationStatuses' => $stationStatuses
 ];
 
-$pageStyles = ['/firenet/NEWFIRENET/assets/css/dashboard.css'];
+$pageStyles = ['/firenet/NEWFIRENET/assets/css/dashboard.css?v=' . (is_file(__DIR__ . '/../../assets/css/dashboard.css') ? filemtime(__DIR__ . '/../../assets/css/dashboard.css') : time())];
 $pageScripts = [
     '/firenet/NEWFIRENET/assets/vendor/chart.umd.js',
     '/firenet/NEWFIRENET/assets/js/dashboard.js',
 ];
+
+$bodyClass = 'has-dashboard-bg';
 
 require_once __DIR__ . '/../../includes/header.php';
 ?>

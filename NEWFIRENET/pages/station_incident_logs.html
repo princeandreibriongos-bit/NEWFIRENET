@@ -1,125 +1,117 @@
-<section class="station-logs-shell">
-  <h2>Station Incident Logs</h2>
-  <p class="muted-text" id="stationLogsSummary">Loading station logs...</p>
+<section class="logs-pro" aria-labelledby="stationLogsTitle">
+  <div class="logs-page-bg" aria-hidden="true"></div>
 
-  <section class="station-logs-kpis" aria-label="Incident log overview">
-    <article class="station-logs-kpi">
-      <span class="station-logs-kpi-label">Total Logs</span>
-      <strong class="station-logs-kpi-value" id="stationLogsTotal">0</strong>
-    </article>
-    <article class="station-logs-kpi station-logs-kpi--station">
-      <span class="station-logs-kpi-label">Station</span>
-      <strong class="station-logs-kpi-value station-logs-kpi-value--station" id="stationLogsStation">Station</strong>
-    </article>
-    <article class="station-logs-kpi station-logs-kpi--active">
-      <span class="station-logs-kpi-label">Under Control</span>
-      <strong class="station-logs-kpi-value" id="stationLogsUnderControl">0</strong>
-    </article>
-    <article class="station-logs-kpi station-logs-kpi--resolved">
-      <span class="station-logs-kpi-label">Fire Out</span>
-      <strong class="station-logs-kpi-value" id="stationLogsFireOut">0</strong>
-    </article>
-  </section>
+  <header class="logs-hero">
+    <div class="logs-hero-copy">
+      <p class="logs-hero-kicker" id="stationLogsKicker">Fire out archive</p>
+      <h1 id="stationLogsTitle">Incident Logs</h1>
+      <p class="logs-hero-desc" id="stationLogsSummary">Loading logs…</p>
+    </div>
+    <div class="logs-hero-stats" aria-label="Log summary">
+      <article class="logs-stat">
+        <span class="logs-stat-label">Fire out cases</span>
+        <strong class="logs-stat-value" id="stationLogsTotal">0</strong>
+      </article>
+      <article class="logs-stat logs-stat--scope">
+        <span class="logs-stat-label">Scope</span>
+        <strong class="logs-stat-value logs-stat-value--scope" id="stationLogsScope">—</strong>
+      </article>
+    </div>
+  </header>
 
-  <section class="portal-card station-logs-controls" aria-label="Filter and sort controls">
-    <div class="station-logs-filter-grid">
-      <label>
-        Search
-        <input id="stationLogsSearch" type="search" placeholder="Search incident, station, or user">
+  <section class="logs-toolbar" aria-label="Search and filters">
+    <div class="logs-toolbar-filters">
+      <label class="logs-field logs-field--search">
+        <span class="logs-field-label">Search</span>
+        <input id="stationLogsSearch" type="search" placeholder="Location, title, user, case…" autocomplete="off">
       </label>
-
-      <label>
-        Station
+      <label class="logs-field logs-field--case">
+        <span class="logs-field-label">Case #</span>
+        <input id="stationLogsCaseFilter" type="search" inputmode="numeric" placeholder="42" autocomplete="off">
+      </label>
+      <label class="logs-field logs-field--station" id="stationLogsStationField">
+        <span class="logs-field-label">Station</span>
         <select id="stationLogsStationFilter">
-          <option value="">All Stations</option>
+          <option value="">All stations</option>
         </select>
       </label>
-
-      <label>
-        Sort By
+      <label class="logs-field logs-field--sort">
+        <span class="logs-field-label">Sort</span>
         <select id="stationLogsSortField">
-          <option value="date">Date</option>
-          <option value="name">Incident Name</option>
+          <option value="date">Date closed</option>
+          <option value="name">Incident</option>
           <option value="station">Station</option>
-          <option value="submitted_by">Submitted By</option>
-          <option value="alarm">Alarm Level</option>
-          <option value="status">Status</option>
+          <option value="submitted_by">Closed by</option>
+          <option value="alarm">Alarm</option>
         </select>
       </label>
-
-      <label>
-        Order
+      <label class="logs-field logs-field--order">
+        <span class="logs-field-label">Order</span>
         <select id="stationLogsSortDir">
-          <option value="desc">Descending</option>
-          <option value="asc">Ascending</option>
+          <option value="desc">Newest first</option>
+          <option value="asc">Oldest first</option>
         </select>
       </label>
     </div>
-
-    <div class="station-logs-actions">
-      <button type="button" id="stationLogsApplySort" class="secondary-btn">Apply Filters</button>
-      <button type="button" id="stationLogsDownloadCsv" class="primary-btn">Download CSV</button>
+    <div class="logs-toolbar-actions">
+      <button type="button" id="stationLogsDownloadCsv" class="logs-btn logs-btn--primary">
+        <span aria-hidden="true">↓</span> Export CSV
+      </button>
     </div>
   </section>
 
-  <section class="portal-card station-logs-table-card">
-    <div class="logs-panel-head">
-      <h3>Completed Incident Logs</h3>
-      <span class="logs-panel-subtitle">Only fire out incidents are shown. Click any row to open the timeline.</span>
-    </div>
-    <div class="logs-table-wrap">
-      <table class="logs-table logs-table--interactive" id="stationLogsTable">
+  <section class="logs-table-panel">
+    <div class="logs-table-scroll">
+      <table class="logs-table" id="stationLogsTable">
         <thead>
-        <tr>
-          <th>Date/Time</th>
-          <th>Case ID</th>
-          <th>Station</th>
-          <th>Incident Details</th>
-          <th>Submitted By</th>
-          <th>Stage</th>
-          <th>Status</th>
-          <th>Alarm</th>
-          <th>Attachments</th>
-        </tr>
-      </thead>
-      <tbody id="stationLogsTableBody">
-        <tr>
-          <td colspan="9" class="muted-text">Loading logs...</td>
-        </tr>
-      </tbody>
+          <tr>
+            <th>Closed</th>
+            <th>Case</th>
+            <th class="logs-col-station">Station</th>
+            <th>Incident</th>
+            <th>Closed by</th>
+            <th>Alarm</th>
+            <th><span class="sr-only">Open</span></th>
+          </tr>
+        </thead>
+        <tbody id="stationLogsTableBody">
+          <tr>
+            <td colspan="7" class="logs-empty">Loading logs…</td>
+          </tr>
+        </tbody>
       </table>
     </div>
   </section>
 
-  <div id="stationLogsModal" class="station-logs-modal" hidden>
-    <div class="station-logs-modal-backdrop" data-close-logs-modal="true"></div>
-    <section class="station-logs-modal-card" role="dialog" aria-modal="true" aria-labelledby="stationLogsModalTitle">
-      <div class="station-logs-modal-head">
+  <div id="stationLogsModal" class="logs-modal" hidden>
+    <div class="logs-modal-backdrop" data-close-logs-modal="true"></div>
+    <section class="logs-modal-card" role="dialog" aria-modal="true" aria-labelledby="stationLogsModalTitle">
+      <header class="logs-modal-head">
         <div>
-          <p class="station-logs-modal-kicker">Incident Timeline</p>
-          <h3 id="stationLogsModalTitle">Incident Report</h3>
-          <p id="stationLogsModalMeta" class="muted-text"></p>
+          <p class="logs-modal-kicker">Case <span id="stationLogsModalCase">—</span> · Fire out</p>
+          <h2 id="stationLogsModalTitle">Incident</h2>
+          <p id="stationLogsModalMeta" class="logs-modal-meta"></p>
         </div>
-        <button type="button" id="closeStationLogsModal" class="modal-close-btn" aria-label="Close">x</button>
-      </div>
-      <div class="station-logs-modal-body">
-        <div class="station-logs-detail-grid">
-          <div class="station-logs-detail-card">
-            <span class="station-logs-detail-label">Location</span>
-            <strong id="stationLogsModalLocation">-</strong>
+        <button type="button" id="closeStationLogsModal" class="logs-modal-close" aria-label="Close timeline">×</button>
+      </header>
+      <div class="logs-modal-body">
+        <dl class="logs-modal-facts">
+          <div>
+            <dt>Location</dt>
+            <dd id="stationLogsModalLocation">—</dd>
           </div>
-          <div class="station-logs-detail-card">
-            <span class="station-logs-detail-label">Submitted By</span>
-            <strong id="stationLogsModalSubmittedBy">-</strong>
+          <div>
+            <dt>Closed by</dt>
+            <dd id="stationLogsModalSubmittedBy">—</dd>
           </div>
-          <div class="station-logs-detail-card">
-            <span class="station-logs-detail-label">Finished At</span>
-            <strong id="stationLogsModalFinishedAt">-</strong>
+          <div>
+            <dt>Finished at</dt>
+            <dd id="stationLogsModalFinishedAt">—</dd>
           </div>
-        </div>
-        <div class="station-logs-timeline-panel">
-          <h4>Incident Timeline</h4>
-          <ul id="stationLogsModalTimeline" class="station-logs-timeline"></ul>
+        </dl>
+        <div class="logs-timeline-wrap">
+          <h3>Timeline</h3>
+          <ul id="stationLogsModalTimeline" class="logs-timeline"></ul>
         </div>
       </div>
     </section>

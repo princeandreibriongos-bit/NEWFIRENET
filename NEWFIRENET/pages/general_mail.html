@@ -1,159 +1,149 @@
-<section class="mail-app">
-  <header class="mail-hero">
-    <div>
-      <p class="mail-kicker">General Mail</p>
-      <h1>Station Communication</h1>
-      <p class="muted-text">Send quick updates, coordinate with colleagues, and keep operational requests separate.</p>
+<section class="mail-pro">
+  <div class="mail-page-bg" aria-hidden="true"></div>
+
+  <div class="mail-app">
+    <header class="mail-hero">
+      <div>
+        <a href="/firenet/NEWFIRENET/backend/pages/station_mails.php" class="mail-back-link"><i class="bi bi-arrow-left" aria-hidden="true"></i> All mail</a>
+        <p class="mail-kicker">General mail</p>
+        <h1>Station communication</h1>
+        <p class="muted-text">Send updates, coordinate with colleagues, and manage your inbox.</p>
+      </div>
+      <div class="mail-hero-actions">
+        <button type="button" class="primary-btn" id="openComposeBtn">New message</button>
+        <button type="button" class="secondary-btn" id="showShortcutsBtn" title="Keyboard shortcuts">Shortcuts</button>
+        <button type="button" class="secondary-btn" id="refreshBtn">Refresh</button>
+      </div>
+    </header>
+
+    <section class="mail-stats-grid" aria-label="Mailbox summary">
+      <article class="mail-stat-card">
+        <strong id="inboxCount">0</strong>
+        <span>Inbox</span>
+      </article>
+      <article class="mail-stat-card">
+        <strong id="unreadCount">0</strong>
+        <span>Unread</span>
+      </article>
+      <article class="mail-stat-card">
+        <strong id="sentCount">0</strong>
+        <span>Sent</span>
+      </article>
+      <article class="mail-stat-card">
+        <strong id="draftCount">0</strong>
+        <span>Drafts</span>
+      </article>
+    </section>
+
+    <div class="mail-panel-grid">
+      <aside class="mail-side">
+        <div class="mail-card">
+          <h2>Folders</h2>
+          <div class="mail-folder-list">
+            <button type="button" class="mail-folder-btn active" data-folder="inbox">Inbox</button>
+            <button type="button" class="mail-folder-btn" data-folder="sent">Sent</button>
+            <button type="button" class="mail-folder-btn" data-folder="drafts">Drafts</button>
+          </div>
+        </div>
+
+        <div class="mail-card">
+          <h2>Filters</h2>
+          <label class="form-field">
+            Search
+            <input type="search" id="searchInput" placeholder="Subject, sender, body…">
+          </label>
+          <div class="form-field">
+            <span>Quick filters</span>
+            <div id="quickFilters" class="quick-filters">
+              <button type="button" data-filter="unread">Unread</button>
+              <button type="button" data-filter="attachments">Attachments</button>
+              <button type="button" data-filter="high">High priority</button>
+              <button type="button" data-filter="station">My station</button>
+              <button type="button" data-filter="clear">Clear</button>
+            </div>
+          </div>
+          <label class="form-field">
+            Station
+            <select id="stationFilterSelect"></select>
+          </label>
+          <label class="form-field">
+            Sort
+            <select id="sortSelect">
+              <option value="latest">Latest first</option>
+              <option value="oldest">Oldest first</option>
+              <option value="unread">Unread first</option>
+            </select>
+          </label>
+          <label class="form-toggle">
+            <input type="checkbox" id="unreadOnlyToggle">
+            <span>Unread only</span>
+          </label>
+        </div>
+      </aside>
+
+      <main class="mail-main">
+        <section class="mail-list-panel mail-card">
+          <div class="mail-panel-header">
+            <div>
+              <p class="mail-kicker">Messages</p>
+              <h2 id="mailFolderTitle">Inbox</h2>
+            </div>
+            <div class="mail-panel-actions">
+              <div class="bulk-actions">
+                <button type="button" class="secondary-btn" id="selectAllBtn">Select all</button>
+                <button type="button" class="secondary-btn" id="markReadBtn">Read</button>
+                <button type="button" class="secondary-btn" id="markUnreadBtn">Unread</button>
+                <button type="button" class="secondary-btn" id="starBtn">Star</button>
+                <button type="button" class="secondary-btn" id="archiveBtn">Archive</button>
+                <button type="button" class="secondary-btn" id="trashBtn">Trash</button>
+              </div>
+              <p class="mail-filter-note" id="mailActiveFilter">Showing general mail</p>
+            </div>
+          </div>
+          <div id="mailList" class="mail-list"></div>
+        </section>
+
+        <section class="mail-detail-panel mail-card" id="threadPanel">
+          <div class="mail-panel-header">
+            <div>
+              <p class="mail-kicker">Conversation</p>
+              <h2 id="threadTitle">Select a message</h2>
+            </div>
+            <div class="mail-panel-actions" id="threadActions" hidden>
+              <div class="bulk-actions">
+                <button type="button" class="secondary-btn" id="threadReplyBtn">Reply</button>
+                <button type="button" class="secondary-btn" id="threadMarkReadBtn">Read</button>
+                <button type="button" class="secondary-btn" id="threadMarkUnreadBtn">Unread</button>
+                <button type="button" class="secondary-btn" id="threadStarBtn">Star</button>
+                <button type="button" class="secondary-btn" id="threadArchiveBtn">Archive</button>
+                <button type="button" class="secondary-btn" id="threadDeleteBtn">Delete</button>
+              </div>
+            </div>
+          </div>
+          <div class="mail-thread-empty" id="threadEmpty">Open a message to view the full conversation.</div>
+          <div class="mail-thread-content" id="threadContent" hidden></div>
+          <div class="mail-inline-reply" id="inlineReply" hidden>
+            <form id="inlineReplyForm" class="mail-form" novalidate>
+              <input type="hidden" id="inlineReplyThreadId" value="">
+              <input type="hidden" id="inlineReplyParentMailId" value="">
+              <label class="form-field">
+                Reply
+                <textarea id="inlineReplyBody" rows="4" placeholder="Write your reply"></textarea>
+              </label>
+              <label class="form-field">
+                Attach files
+                <input type="file" id="inlineReplyAttachments" multiple>
+              </label>
+              <div class="mail-form-actions">
+                <button type="button" class="secondary-btn" id="inlineReplyCancel">Cancel</button>
+                <button type="submit" class="primary-btn" id="inlineReplySend">Send reply</button>
+              </div>
+              <p class="form-note" id="inlineReplyMessage"></p>
+            </form>
+          </div>
+        </section>
+      </main>
     </div>
-    <div class="mail-hero-actions">
-      <button type="button" class="primary-btn" id="openComposeBtn">New message</button>
-      <button type="button" class="secondary-btn" id="refreshBtn">Refresh</button>
-    </div>
-  </header>
-
-  <section class="mail-stats-grid">
-    <article class="mail-stat-card">
-      <strong id="inboxCount">0</strong>
-      <span>Inbox</span>
-    </article>
-    <article class="mail-stat-card">
-      <strong id="unreadCount">0</strong>
-      <span>Unread</span>
-    </article>
-    <article class="mail-stat-card">
-      <strong id="sentCount">0</strong>
-      <span>Sent</span>
-    </article>
-    <article class="mail-stat-card">
-      <strong id="draftCount">0</strong>
-      <span>Drafts</span>
-    </article>
-  </section>
-
-  <div class="mail-panel-grid">
-    <aside class="mail-side">
-      <div class="mail-card">
-        <h2>Folders</h2>
-        <div class="mail-folder-list">
-          <button type="button" class="mail-folder-btn active" data-folder="inbox">Inbox</button>
-          <button type="button" class="mail-folder-btn" data-folder="sent">Sent</button>
-          <button type="button" class="mail-folder-btn" data-folder="drafts">Drafts</button>
-        </div>
-      </div>
-
-      <div class="mail-card">
-        <h2>Filters</h2>
-        <label class="form-field">
-          Search
-          <input type="search" id="searchInput" placeholder="Search subject, sender, body">
-        </label>
-        <div class="form-field">
-          <div id="quickFilters" class="quick-filters">
-            <button type="button" class="secondary-btn" data-filter="unread">Unread</button>
-            <button type="button" class="secondary-btn" data-filter="attachments">Has attachments</button>
-            <button type="button" class="secondary-btn" data-filter="high">High importance</button>
-            <button type="button" class="secondary-btn" data-filter="station">From my station</button>
-            <button type="button" class="secondary-btn" data-filter="clear">Clear filters</button>
-          </div>
-        </div>
-        <label class="form-field">
-          Filter by Station
-          <select id="stationFilterSelect"></select>
-        </label>
-        <label class="form-field">
-          Sort by
-          <select id="sortSelect">
-            <option value="latest">Latest first</option>
-            <option value="oldest">Oldest first</option>
-            <option value="unread">Unread first</option>
-          </select>
-        </label>
-        <label class="form-toggle">
-          <input type="checkbox" id="unreadOnlyToggle">
-          <span>Unread only</span>
-        </label>
-      </div>
-
-      <div class="mail-card">
-        <h2>About General Mail</h2>
-        <p class="muted-text">A clean channel for operational communication, announcements, and status updates between stations.</p>
-        <ul class="simple-list">
-          <li>Send to one or more stations</li>
-          <li>Choose specific users for direct delivery</li>
-          <li>Attach local files to support messages</li>
-          <li>Track read receipts and responses</li>
-        </ul>
-      </div>
-
-      <div class="mail-card">
-        <h3>Keyboard Shortcuts</h3>
-        <button type="button" class="primary-btn" id="showShortcutsBtn" style="width: 100%;">View Shortcuts</button>
-        <p class="muted-text" style="font-size: 12px; margin-top: 8px;">Press <kbd style="background: #f0f0f0; padding: 2px 4px; border-radius: 2px;">?</kbd> anytime</p>
-      </div>
-    </aside>
-
-    <main class="mail-main">
-      <section class="mail-list-panel mail-card">
-        <div class="mail-panel-header">
-          <div>
-            <p class="mail-kicker">Inbox</p>
-            <h2 id="mailFolderTitle">Inbox</h2>
-          </div>
-          <div class="mail-panel-actions">
-            <div class="bulk-actions">
-              <button type="button" class="secondary-btn" id="selectAllBtn">Select all</button>
-              <button type="button" class="secondary-btn" id="markReadBtn">Mark read</button>
-              <button type="button" class="secondary-btn" id="markUnreadBtn">Mark unread</button>
-              <button type="button" class="secondary-btn" id="starBtn">Star</button>
-              <button type="button" class="secondary-btn" id="archiveBtn">Archive</button>
-              <button type="button" class="secondary-btn" id="trashBtn">Move to trash</button>
-            </div>
-            <p class="mail-filter-note" id="mailActiveFilter">Showing general mail</p>
-          </div>
-        </div>
-        <div id="mailList" class="mail-list"></div>
-      </section>
-
-      <section class="mail-detail-panel mail-card" id="threadPanel">
-        <div class="mail-panel-header">
-          <div>
-            <p class="mail-kicker">Conversation</p>
-            <h2 id="threadTitle">Select a message</h2>
-          </div>
-          <div class="mail-panel-actions" id="threadActions" hidden>
-            <div class="bulk-actions">
-              <button type="button" class="secondary-btn" id="threadReplyBtn">Reply</button>
-              <button type="button" class="secondary-btn" id="threadMarkReadBtn">Mark read</button>
-              <button type="button" class="secondary-btn" id="threadMarkUnreadBtn">Mark unread</button>
-              <button type="button" class="secondary-btn" id="threadStarBtn">Star</button>
-              <button type="button" class="secondary-btn" id="threadArchiveBtn">Archive</button>
-              <button type="button" class="secondary-btn" id="threadDeleteBtn" style="color: #b8333b;">Delete</button>
-            </div>
-          </div>
-        </div>
-        <div class="mail-thread-empty" id="threadEmpty">Open a message to view the full conversation.</div>
-        <div class="mail-thread-content" id="threadContent" hidden></div>
-        <div class="mail-inline-reply" id="inlineReply" hidden>
-          <form id="inlineReplyForm" class="mail-form" novalidate>
-            <input type="hidden" id="inlineReplyThreadId" value="">
-            <input type="hidden" id="inlineReplyParentMailId" value="">
-            <label class="form-field">
-              Reply
-              <textarea id="inlineReplyBody" rows="4" placeholder="Write your reply"></textarea>
-            </label>
-            <label class="form-field">
-              Attach files
-              <input type="file" id="inlineReplyAttachments" multiple>
-            </label>
-            <div class="mail-form-actions">
-              <button type="button" class="secondary-btn" id="inlineReplyCancel">Cancel</button>
-              <button type="submit" class="primary-btn" id="inlineReplySend">Send reply</button>
-            </div>
-            <p class="form-note" id="inlineReplyMessage"></p>
-          </form>
-        </div>
-      </section>
-    </main>
   </div>
 </section>
 
@@ -163,7 +153,7 @@
     <header class="mail-modal-header">
       <div>
         <p class="mail-kicker">Compose</p>
-        <h2>New General Message</h2>
+        <h2>New general message</h2>
       </div>
       <button type="button" class="icon-button" id="closeComposeBtn" aria-label="Close">×</button>
     </header>

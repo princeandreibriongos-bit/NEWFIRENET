@@ -9,8 +9,8 @@
   const selectedDetailsNode = document.getElementById('calendarSelectedDetails');
   const monthCountNode = document.getElementById('calendarMonthCount');
   const upcomingCountNode = document.getElementById('calendarUpcomingCount');
-  const notifyCountNode = document.getElementById('calendarNotifyCount');
   const selectedCountNode = document.getElementById('calendarSelectedCount');
+  const adminNoteNode = document.getElementById('calendarAdminNote');
   const todayBtn = document.getElementById('calendarTodayBtn');
   const prevBtn = document.getElementById('calendarPrevBtn');
   const nextBtn = document.getElementById('calendarNextBtn');
@@ -61,6 +61,30 @@
 
   if (!canManageCalendar && addEventBtn) {
     addEventBtn.hidden = true;
+  } else if (addEventBtn) {
+    addEventBtn.hidden = false;
+  }
+
+  function mountCalendarModalToBody() {
+    if (modal && modal.parentElement !== document.body) {
+      document.body.appendChild(modal);
+    }
+  }
+
+  function syncCalendarModalScrollLock(isOpen) {
+    document.body.classList.toggle('cal-modal-open', isOpen);
+  }
+
+  function configureCalendarChrome() {
+    if (adminNoteNode) {
+      if (canManageCalendar) {
+        adminNoteNode.hidden = false;
+        adminNoteNode.textContent = 'Admin access — add station events and optional reminder alerts for the team.';
+      } else {
+        adminNoteNode.hidden = false;
+        adminNoteNode.textContent = 'View-only calendar. Ask your station admin to schedule or update events.';
+      }
+    }
   }
 
   function escapeHtml(value) {
@@ -336,21 +360,19 @@
     });
 
     const upcoming = upcomingEvents();
-    const notifyCount = visibleEvents.filter(function (event) {
-      return Boolean(event.notifyUsers);
-    }).length;
 
     if (summaryNode) {
-      summaryNode.textContent = (context.stationName || 'Station') + ' calendar for ' + currentMonth.toLocaleString([], { month: 'long', year: 'numeric' }) + '. ' + monthEvents.length + ' event(s) shown.';
+      const monthLabel = currentMonth.toLocaleString([], { month: 'long', year: 'numeric' });
+      const stationLabel = context.stationName || 'your station';
+      summaryNode.textContent = monthEvents.length === 0
+        ? stationLabel + ' · ' + monthLabel + ' · no events this month'
+        : stationLabel + ' · ' + monthLabel + ' · ' + monthEvents.length + ' event' + (monthEvents.length === 1 ? '' : 's');
     }
     if (monthCountNode) {
       monthCountNode.textContent = String(monthEvents.length);
     }
     if (upcomingCountNode) {
       upcomingCountNode.textContent = String(upcoming.length);
-    }
-    if (notifyCountNode) {
-      notifyCountNode.textContent = String(notifyCount);
     }
     if (filterSummaryNode) {
       const active = [];
@@ -365,15 +387,15 @@
       }
 
       filterSummaryNode.textContent = active.length > 0
-        ? 'Showing ' + visibleEvents.length + ' of ' + events.length + ' event(s) with ' + active.join(', ') + ' filter(s).'
-        : 'Showing all ' + events.length + ' event(s).';
+        ? visibleEvents.length + ' of ' + events.length + ' events match your filters'
+        : events.length + ' event' + (events.length === 1 ? '' : 's') + ' at this station';
     }
   }
 
   function renderAgenda() {
     const items = upcomingEvents();
     if (!Array.isArray(items) || items.length === 0) {
-      agendaNode.innerHTML = '<p class="muted-text">No upcoming events right now.</p>';
+      agendaNode.innerHTML = '<p class="cal-empty">No upcoming events.</p>';
       return;
     }
 
@@ -404,7 +426,7 @@
     }
 
     if (eventsForSelectedDay.length === 0) {
-      selectedDetailsNode.innerHTML = '<p class="muted-text">No events are scheduled for this day.</p>';
+      selectedDetailsNode.innerHTML = '<p class="cal-empty">No events scheduled for this day.</p>';
       selectedEventId = null;
       return;
     }
@@ -426,7 +448,7 @@
           '<span class="calendar-day-event-notes">Notes: ' + notesText + '</span>' +
         '</span>' +
       '</button>';
-    }).join('') + '</div>' + (canManageCalendar && selectedEventId ? '<div class="calendar-detail-actions"><button type="button" class="secondary-btn" id="calendarEditSelectedBtn">Edit Event</button><button type="button" class="secondary-btn calendar-danger-btn" id="calendarDeleteSelectedBtn">Delete Event</button></div>' : '');
+    }).join('') + '</div>' + (canManageCalendar && selectedEventId ? '<div class="calendar-detail-actions"><button type="button" class="cal-btn cal-btn--ghost" id="calendarEditSelectedBtn">Edit event</button><button type="button" class="cal-btn cal-btn--danger" id="calendarDeleteSelectedBtn">Delete</button></div>' : '');
 
     const editSelectedBtn = document.getElementById('calendarEditSelectedBtn');
     const deleteSelectedBtn = document.getElementById('calendarDeleteSelectedBtn');
@@ -542,6 +564,8 @@
     }
 
     modal.hidden = false;
+    modal.classList.add('is-open');
+    syncCalendarModalScrollLock(true);
   }
 
   function openEditModal(eventId) {
@@ -593,6 +617,8 @@
     }
 
     modal.hidden = false;
+    modal.classList.add('is-open');
+    syncCalendarModalScrollLock(true);
   }
 
   async function deleteEvent(eventId) {
@@ -633,6 +659,8 @@
       return;
     }
     modal.hidden = true;
+    modal.classList.remove('is-open');
+    syncCalendarModalScrollLock(false);
     if (modalDeleteBtn) {
       modalDeleteBtn.hidden = true;
       modalDeleteBtn.onclick = null;
@@ -664,9 +692,9 @@
       if (summaryNode) {
         summaryNode.textContent = 'Unable to load calendar data right now.';
       }
-      agendaNode.innerHTML = '<p class="muted-text">Unable to load upcoming events.</p>';
+      agendaNode.innerHTML = '<p class="cal-empty">Unable to load upcoming events.</p>';
       gridNode.innerHTML = '<div class="calendar-empty-state">Unable to load calendar.</div>';
-      selectedDetailsNode.innerHTML = '<p class="muted-text">Unable to load selected day details.</p>';
+      selectedDetailsNode.innerHTML = '<p class="cal-empty">Unable to load day details.</p>';
     }
   }
 
@@ -863,6 +891,11 @@
   }
 
   document.addEventListener('keydown', function (event) {
+    if (event.key === 'Escape' && modal && modal.classList.contains('is-open')) {
+      closeModal();
+      return;
+    }
+
     if (!canManageCalendar) {
       return;
     }
@@ -873,6 +906,7 @@
     }
   });
 
-  refreshCalendarView();
+  mountCalendarModalToBody();
+  configureCalendarChrome();
   loadEvents();
 })();

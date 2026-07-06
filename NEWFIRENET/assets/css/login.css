@@ -13,7 +13,7 @@ body {
     position: fixed;
     inset: 0;
     background-image:
-        url('/firenet/NEWFIRENET/uploads/photos/bg.jpg.png'),
+        var(--firenet-bg-photo, url('/firenet/NEWFIRENET/uploads/photos/bg.jpg.png')),
         linear-gradient(160deg, rgba(32, 59, 91, 0.88) 0%, rgba(20, 39, 63, 0.88) 100%);
     background-size: cover;
     background-position: center;

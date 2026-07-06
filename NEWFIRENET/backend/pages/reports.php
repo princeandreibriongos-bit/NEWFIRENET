@@ -122,6 +122,8 @@ if ($googleMapsApiKey !== '') {
 $pageScripts[] = 'https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js';
 $pageScripts[] = '/firenet/NEWFIRENET/assets/js/reports.js?v=' . $reportsJsVersion;
 
+$bodyClass = 'has-reports-bg';
+
 require_once __DIR__ . '/../../includes/header.php';
 ?>
 <script id="reportsContext" type="application/json"><?php echo json_encode($reportsContext, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE); ?></script>

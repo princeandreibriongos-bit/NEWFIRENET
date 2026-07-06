@@ -15,6 +15,10 @@
     context = {};
   }
 
+  function getReportIncidentUrl() {
+    return String(context.reportIncidentUrl || (REPORTS_URL + '?quick=intake'));
+  }
+
   let charts = {};
 
   const elements = {
@@ -143,6 +147,20 @@
     const stations = Array.isArray(context.stationStatuses) ? context.stationStatuses : [];
     const latestIncident = String(context.ongoingIncidentTitle || '').replace(/^No active incidents\.?$/i, '').trim();
     const latestMeta = String(context.ongoingIncidentMeta || '').trim();
+
+    if (context.canCreateIncidentReports) {
+      items.push(buildSearchItem({
+        id: 'report-incident-quick',
+        type: 'report',
+        title: 'Report incident',
+        subtitle: 'Start call intake immediately — opens the incident form.',
+        url: getReportIncidentUrl(),
+        keywords: ['report', 'incident', 'fire', 'alarm', 'dispatch', 'intake', 'emergency', 'quick report'],
+        weight: 110,
+        urgent: true,
+        hint: 'Fastest way to file an incident'
+      }));
+    }
 
     items.push(buildSearchItem({
       id: 'reports-overview',
@@ -917,6 +935,24 @@
     });
   }
 
+  function setupQuickIncidentReporting() {
+    const canReport = Boolean(context.canCreateIncidentReports);
+    const url = getReportIncidentUrl();
+    const targets = [
+      document.getElementById('dashReportIncidentBtn'),
+      document.getElementById('dashReportIncidentFab'),
+      document.getElementById('dashLiveReportBtn')
+    ];
+
+    targets.forEach(function (target) {
+      if (!target) {
+        return;
+      }
+      target.href = url;
+      target.hidden = !canReport;
+    });
+  }
+
   function initializeDashboard() {
     const refreshed = document.getElementById('dashRefreshedAt');
     if (refreshed) {
@@ -927,6 +963,7 @@
 
     renderHeader();
     renderMetrics();
+    setupQuickIncidentReporting();
     renderBriefing();
     renderStationStatuses();
     renderOngoingIncident();

@@ -40,6 +40,7 @@
   const incidentTimelineCard = document.getElementById('incidentTimelineCard');
   const incidentTimelineList = document.getElementById('incidentTimelineList');
   const welcome = document.getElementById('reportsWelcome');
+  const reportsMetaChips = document.getElementById('reportsMetaChips');
   const formMessage = document.getElementById('formMessage');
   const tableBody = document.getElementById('reportsTableBody');
   const reportTitle = document.getElementById('reportTitle');
@@ -162,6 +163,36 @@
     return;
   }
 
+  function mountReportModalsToBody() {
+    [reportTypeModal, reportModal].forEach(function (modal) {
+      if (modal && modal.parentElement !== document.body) {
+        document.body.appendChild(modal);
+      }
+    });
+  }
+
+  function syncReportModalScrollLock() {
+    const isOpen = !reportModal.hidden || !reportTypeModal.hidden;
+    document.body.classList.toggle('report-modal-open', isOpen);
+  }
+
+  function resetReportModalScroll(modal) {
+    if (!modal) {
+      return;
+    }
+    window.scrollTo(0, 0);
+    const dialog = modal.querySelector('.report-modal-dialog, .report-type-dialog');
+    const scroll = modal.querySelector('.rm-form-scroll');
+    if (scroll) {
+      scroll.scrollTop = 0;
+    }
+    if (dialog) {
+      dialog.scrollTop = 0;
+    }
+  }
+
+  mountReportModalsToBody();
+
   let context = null;
   try {
     context = JSON.parse(contextElement.textContent || '{}');
@@ -187,7 +218,7 @@
   const canUpdateIncidentReports = Boolean(context.canUpdateIncidentReports);
   const canViewAllReports = Boolean(context.canViewAllReports);
   const canCreate = canCreateIncidentReports || canCreateEquipmentReports;
-  reportsScope = canViewAllReports && String(context.defaultReportsScope || 'mine') === 'all' ? 'all' : 'mine';
+  reportsScope = 'mine';
   const incidentTypeOption = reportType.querySelector('option[value="incident_report"]');
   const equipmentTypeOption = reportType.querySelector('option[value="equipment_report"]');
 
@@ -214,43 +245,43 @@
   }
 
   function renderReportsScopeToggle() {
-    if (!canViewAllReports) {
+    if (reportsScopeCard) {
       reportsScopeCard.hidden = true;
+    }
+  }
+
+  function renderSessionMeta() {
+    const stationLabel = String(context.stationName || ('Station ' + String(context.stationId || 1)));
+    welcome.textContent = 'File and track incident and equipment reports you create or update. Completed incidents move to Incident Logs.';
+
+    if (!reportsMetaChips) {
       return;
     }
 
-    reportsScopeCard.hidden = false;
-    const showingAll = reportsScope === 'all';
-    reportsScopeMine.classList.toggle('is-active', !showingAll);
-    reportsScopeAll.classList.toggle('is-active', showingAll);
-    reportsScopeMine.setAttribute('aria-selected', showingAll ? 'false' : 'true');
-    reportsScopeAll.setAttribute('aria-selected', showingAll ? 'true' : 'false');
-    reportsScopeDescription.textContent = showingAll
-      ? 'Showing all reports for your station.'
-      : 'Showing incident reports for your station and your equipment reports.';
-  }
+    const chips = [
+      { label: 'Signed in', value: context.user || 'Unknown User' },
+      { label: 'Role', value: context.role || 'user' }
+    ];
 
-  function setReportsScope(nextScope) {
-    if (!canViewAllReports) {
-      reportsScope = 'mine';
-      renderReportsScopeToggle();
-      return loadMyReports();
+    if (context.positionName) {
+      chips.push({ label: 'Position', value: context.positionName });
     }
 
-    reportsScope = nextScope === 'all' ? 'all' : 'mine';
-    renderReportsScopeToggle();
-    return loadMyReports();
+    chips.push({ label: 'Station', value: stationLabel });
+
+    reportsMetaChips.innerHTML = chips
+      .map(function (chip) {
+        return (
+          '<li class="reports-meta-chip">' +
+          '<span class="reports-meta-chip-label">' + escapeHtml(chip.label) + '</span>' +
+          '<span class="reports-meta-chip-value">' + escapeHtml(chip.value) + '</span>' +
+          '</li>'
+        );
+      })
+      .join('');
   }
 
-  welcome.textContent =
-    'Signed in as ' +
-    (context.user || 'Unknown User') +
-    ' | role: ' +
-    (context.role || 'user') +
-    (context.positionName ? ' | position: ' + context.positionName : '') +
-    ' | station: ' +
-    String(context.stationId || 1) +
-    '. This page displays only your report transactions.';
+  renderSessionMeta();
 
   if (!canCreate) {
     openReportModal.hidden = true;
@@ -1772,11 +1803,22 @@
     return title;
   }
 
+  function normalizeTypeBadge(type) {
+    const value = String(type || '').toLowerCase();
+    if (value === 'incident_report') {
+      return { className: 'reports-type-badge reports-type-badge--incident', label: 'Incident' };
+    }
+    if (value === 'equipment_report') {
+      return { className: 'reports-type-badge reports-type-badge--equipment', label: 'Equipment' };
+    }
+    return { className: 'reports-type-badge', label: normalizeType(type) };
+  }
+
   function renderRows(reports) {
     reportsById.clear();
 
     if (!Array.isArray(reports) || reports.length === 0) {
-      tableBody.innerHTML = '<tr><td colspan="4" class="muted-text">No reports found for your account yet.</td></tr>';
+      tableBody.innerHTML = '<tr><td colspan="4" class="reports-empty-cell">No reports found for your account yet.</td></tr>';
       return;
     }
 
@@ -1833,17 +1875,20 @@
           '<button type="button" class="table-action-btn download" data-action="download" data-id="' + escapeHtml(itemId) + '"><span aria-hidden="true">\u2B07</span> Download PDF</button>' +
           '<button type="button" class="table-action-btn upload" data-action="upload" data-id="' + escapeHtml(itemId) + '" title="Upload report to Cloudinary">Upload to Cloud</button>';
 
-        return (
-          '<tr>' +
-          '<td>' + escapeHtml(normalizeType(item.type || '')) + '</td>' +
-          '<td>' + escapeHtml(formatReportTitle(item)) +
+        const typeBadge = normalizeTypeBadge(item.type || '');
+        const titleHtml =
+          '<div class="reports-row-title">' + escapeHtml(formatReportTitle(item)) + '</div>' +
           ((item.type || '') === 'incident_report' && item.stationName
-            ? '<div class="logs-row-subtitle">' + escapeHtml(item.stationName) + ' report' +
+            ? '<div class="reports-row-sub">' + escapeHtml(item.stationName) + ' report' +
               (item.updatedBy ? ' · Updated by ' + escapeHtml(item.updatedBy) : '') +
               '</div>'
-            : '') +
-          '</td>' +
-          '<td>' + escapeHtml(timestampLabel) + '</td>' +
+            : '');
+
+        return (
+          '<tr>' +
+          '<td><span class="' + escapeHtml(typeBadge.className) + '">' + escapeHtml(typeBadge.label) + '</span></td>' +
+          '<td>' + titleHtml + '</td>' +
+          '<td><span class="reports-time">' + escapeHtml(timestampLabel) + '</span></td>' +
           '<td><div class="table-action-group">' +
           actionsHtml +
           '</div></td>' +
@@ -1863,22 +1908,23 @@
       : 0;
 
     if (activeCount === 0) {
-      reportsOngoingHint.textContent = 'No ongoing incidents right now. Update actions are hidden until a new incident becomes active.';
+      reportsOngoingHint.textContent = 'No ongoing incidents — progression updates appear when an incident is active.';
+      reportsOngoingHint.classList.remove('is-active');
       return;
     }
 
-    reportsOngoingHint.textContent = activeCount + ' ongoing incident(s). Update actions are available only for active incidents.';
+    reportsOngoingHint.textContent = activeCount + ' ongoing incident' + (activeCount === 1 ? '' : 's') + ' — update actions are available for active cases.';
+    reportsOngoingHint.classList.add('is-active');
   }
 
   async function loadMyReports() {
-    tableBody.innerHTML = '<tr><td colspan="4" class="muted-text">Loading your reports...</td></tr>';
+    tableBody.innerHTML = '<tr><td colspan="4" class="reports-empty-cell">Loading your reports…</td></tr>';
     try {
       const url = new URL(reportsApiUrl, window.location.origin);
-      url.searchParams.set('scope', reportsScope);
       const response = await fetch(url.toString(), { method: 'GET', credentials: 'same-origin' });
       const payload = await response.json();
       if (!response.ok || !payload || payload.ok !== true) {
-        tableBody.innerHTML = '<tr><td colspan="4" class="muted-text">Unable to load your reports right now.</td></tr>';
+        tableBody.innerHTML = '<tr><td colspan="4" class="reports-empty-cell">Unable to load your reports right now.</td></tr>';
         return [];
       }
 
@@ -1887,7 +1933,7 @@
       updateOngoingIncidentHint(reports);
       return reports;
     } catch (error) {
-      tableBody.innerHTML = '<tr><td colspan="4" class="muted-text">Unable to load your reports right now.</td></tr>';
+      tableBody.innerHTML = '<tr><td colspan="4" class="reports-empty-cell">Unable to load your reports right now.</td></tr>';
       updateOngoingIncidentHint([]);
       return [];
     }
@@ -1918,16 +1964,6 @@
   reportType.addEventListener('change', toggleIncidentStage);
   reportType.addEventListener('change', syncReportTypeDefaults);
   incidentStage.addEventListener('change', toggleIncidentStage);
-  if (reportsScopeMine) {
-    reportsScopeMine.addEventListener('click', function () {
-      setReportsScope('mine');
-    });
-  }
-  if (reportsScopeAll) {
-    reportsScopeAll.addEventListener('click', function () {
-      setReportsScope('all');
-    });
-  }
   reportStepTabDetails.addEventListener('click', function () {
     setReportStep('details');
   });
@@ -1997,10 +2033,13 @@
     chooseIncidentReport.hidden = !canCreateIncidentReports;
     chooseEquipmentReport.hidden = !canCreateEquipmentReports;
     reportTypeModal.hidden = false;
+    resetReportModalScroll(reportTypeModal);
+    syncReportModalScrollLock();
   }
 
   function closeTypeChooserModal() {
     reportTypeModal.hidden = true;
+    syncReportModalScrollLock();
   }
 
   function openCreateModalForType(type) {
@@ -2015,6 +2054,8 @@
     formMessage.textContent = '';
     closeTypeChooserModal();
     reportModal.hidden = false;
+    resetReportModalScroll(reportModal);
+    syncReportModalScrollLock();
     if (mode === 'progress') {
       reportModalTitle.textContent = 'Update Incident Progress';
       reportSubmitBtn.textContent = 'Save Progress Update';
@@ -2056,6 +2097,7 @@
   function closeModal() {
     reportModal.hidden = true;
     resetIncidentFinishedAutoTracking();
+    syncReportModalScrollLock();
   }
 
   // Force hidden state on page load to avoid any browser restore quirks.
@@ -2569,7 +2611,7 @@
       return;
     }
 
-    if (context.quickMode === 'intake' && canCreate) {
+    if (context.quickMode === 'intake' && canCreateIncidentReports) {
       openQuickIntake();
     }
 

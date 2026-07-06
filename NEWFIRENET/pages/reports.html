@@ -1,182 +1,252 @@
-<section class="reports-shell">
-  <h2>My Reports</h2>
-  <p class="muted-text" id="reportsWelcome"></p>
+<section class="reports-pro">
+  <div class="reports-page-bg" aria-hidden="true"></div>
 
-  <div class="reports-toolbar">
-    <button type="button" id="openReportModal" class="plus-btn" aria-label="Create report" title="Create report">+</button>
+  <header class="reports-hero">
+    <div class="reports-hero-copy">
+      <p class="reports-kicker">FireNet · Station workspace</p>
+      <h1 class="reports-title">My Reports</h1>
+      <p class="reports-subtitle" id="reportsWelcome"></p>
+      <ul class="reports-meta-chips" id="reportsMetaChips" aria-label="Your session"></ul>
+    </div>
+    <div class="reports-hero-cta">
+      <button type="button" id="openReportModal" class="reports-create-btn" aria-label="Create report" title="Create report">
+        <span class="reports-create-icon" aria-hidden="true">+</span>
+        <span class="reports-create-label">New report</span>
+      </button>
+    </div>
+  </header>
+
+  <div class="reports-quick-tips" aria-label="How reports work">
+    <article class="reports-tip">
+      <span class="reports-tip-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M12 2 4 5v6.09c0 5.05 3.41 9.76 8 10.91 4.59-1.15 8-5.86 8-10.91V5l-8-3zm0 11.99h7c-.53 4.12-3.28 7.79-7 8.94V14H5V6.3l7-2.62v10.31z"/></svg>
+      </span>
+      <div class="reports-tip-body">
+        <strong>Your station</strong>
+        <p>Only reports you created or last updated appear here. Completed incidents are archived under Incident Logs.</p>
+      </div>
+    </article>
+    <article class="reports-tip">
+      <span class="reports-tip-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5s-3 1.34-3 3 1.34 3 3 3zm-8 0c1.66 0 3-1.34 3-3S9.66 5 8 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
+      </span>
+      <div class="reports-tip-body">
+        <strong>Shared case IDs</strong>
+        <p>When multiple stations respond, each gets its own report linked by the same case ID (e.g. #42).</p>
+      </div>
+    </article>
+    <article class="reports-tip">
+      <span class="reports-tip-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M19 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2zm-7 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm6 12H6v-1.4c0-2 4-3.1 6-3.1s6 1.1 6 3.1V18z"/></svg>
+      </span>
+      <div class="reports-tip-body">
+        <strong>Incident stages</strong>
+        <p>Track Call Intake, During Incident, and After Incident in one continuous timeline.</p>
+      </div>
+    </article>
+    <article class="reports-tip">
+      <span class="reports-tip-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M22.7 19-9.1-9.1c.9-2.3.4-5-1.5-6.9-2-2-5-2.4-7.4-1.3L9 6 6 9 1.6 4.7C.4 7.1.9 10.1 2.9 12.1c1.9 1.9 4.6 2.4 6.9 1.5l9.1 9.1c.4.4 1 .4 1.4 0l2.3-2.3c.5-.4.5-1.1.1-1.4z"/></svg>
+      </span>
+      <div class="reports-tip-body">
+        <strong>Equipment only</strong>
+        <p>Position 2 accounts can submit equipment reports without filing incident reports.</p>
+      </div>
+    </article>
   </div>
 
-  <section class="portal-card reports-info-card">
-    <h3>My Report History</h3>
-    <ul class="simple-list">
-      <li>This page shows incident reports for your station and your own equipment reports.</li>
-      <li>When multiple stations respond to one incident, each station gets its own report linked by the same case ID (e.g. #42).</li>
-      <li>Incident reports include Call Intake, During Incident, and After Incident stages.</li>
-      <li>Position 2 accounts can file equipment reports only.</li>
-    </ul>
-  </section>
-
-  <section class="portal-card reports-scope-card" id="reportsScopeCard" hidden>
-    <div class="reports-scope-head">
-      <div>
-        <h3>Report Scope</h3>
-        <p class="muted-text" id="reportsScopeDescription">Showing only your own report transactions.</p>
-      </div>
-      <div class="reports-scope-switch" role="tablist" aria-label="Report scope">
-        <button type="button" id="reportsScopeMine" class="reports-scope-btn is-active" role="tab" aria-selected="true">My Reports</button>
-        <button type="button" id="reportsScopeAll" class="reports-scope-btn" role="tab" aria-selected="false">All Reports</button>
-      </div>
+  <div class="reports-scope-bar" id="reportsScopeCard" hidden>
+    <div class="reports-scope-copy">
+      <span class="reports-scope-label">View</span>
+      <p class="reports-scope-desc" id="reportsScopeDescription">Showing incident reports for your station and your equipment reports.</p>
     </div>
-  </section>
+    <div class="reports-scope-switch" role="tablist" aria-label="Report scope">
+      <button type="button" id="reportsScopeMine" class="reports-scope-btn is-active" role="tab" aria-selected="true">My reports</button>
+      <button type="button" id="reportsScopeAll" class="reports-scope-btn" role="tab" aria-selected="false">All station reports</button>
+    </div>
+  </div>
 
-  <p id="reportsUploadMessage" class="upload-success-message" hidden></p>
+  <p id="reportsUploadMessage" class="reports-toast" hidden></p>
 
-  <section class="portal-card">
-    <h3>Transaction History</h3>
-    <p class="muted-text ongoing-incidents-hint" id="reportsOngoingHint">Loading incident activity...</p>
-    <table class="portal-table" id="reportsTable">
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Title</th>
-          <th>Timestamp</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody id="reportsTableBody">
-        <tr>
-          <td colspan="4" class="muted-text">Loading your reports...</td>
-        </tr>
-      </tbody>
-    </table>
+  <section class="reports-history-panel" aria-labelledby="reportsHistoryTitle">
+    <header class="reports-history-head">
+      <div class="reports-history-intro">
+        <h2 class="reports-panel-title" id="reportsHistoryTitle">Transaction history</h2>
+        <p class="reports-status-line" id="reportsOngoingHint">Loading incident activity…</p>
+      </div>
+    </header>
+    <div class="reports-table-shell">
+      <table class="reports-table" id="reportsTable">
+        <thead>
+          <tr>
+            <th scope="col">Type</th>
+            <th scope="col">Report</th>
+            <th scope="col">When</th>
+            <th scope="col">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="reportsTableBody">
+          <tr>
+            <td colspan="4" class="reports-empty-cell">Loading your reports…</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
   </section>
 </section>
 
-<div id="reportTypeModal" class="report-modal" hidden>
+<div id="reportTypeModal" class="report-modal report-modal--picker" hidden>
   <div class="report-modal-backdrop" data-close-type-modal="true"></div>
   <div class="report-type-dialog" role="dialog" aria-modal="true" aria-labelledby="reportTypeModalTitle">
-    <div class="report-modal-header">
-      <h3 id="reportTypeModalTitle">Create New Report</h3>
-      <button type="button" class="modal-close-btn" id="closeReportTypeModal" aria-label="Close">x</button>
-    </div>
-    <p class="muted-text report-type-lead">Select which report you want to create.</p>
+    <header class="rm-header">
+      <div class="rm-header-copy">
+        <p class="rm-kicker">FireNet · New submission</p>
+        <h3 class="rm-title" id="reportTypeModalTitle">What are you filing?</h3>
+        <p class="rm-lead report-type-lead">Choose the report type that matches your situation.</p>
+      </div>
+      <button type="button" class="rm-close modal-close-btn" id="closeReportTypeModal" aria-label="Close">×</button>
+    </header>
     <div class="report-type-options">
-      <button type="button" id="chooseIncidentReport" class="report-type-option">
-        <strong>Incident Report</strong>
-        <span>For emergency incidents, alarm levels, and dispatched responders.</span>
+      <button type="button" id="chooseIncidentReport" class="report-type-option report-type-option--incident">
+        <span class="report-type-option-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M12 2 4 5v6.09c0 5.05 3.41 9.76 8 10.91 4.59-1.15 8-5.86 8-10.91V5l-8-3zm0 11.99h7c-.53 4.12-3.28 7.79-7 8.94V14H5V6.3l7-2.62v10.31z"/></svg>
+        </span>
+        <span class="report-type-option-body">
+          <strong>Incident report</strong>
+          <span>Emergency response, alarm levels, location, and dispatched stations.</span>
+        </span>
       </button>
-      <button type="button" id="chooseEquipmentReport" class="report-type-option">
-        <strong>Equipment Report</strong>
-        <span>For station equipment issues, maintenance, and operational concerns.</span>
+      <button type="button" id="chooseEquipmentReport" class="report-type-option report-type-option--equipment">
+        <span class="report-type-option-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M22.7 19-9.1-9.1c.9-2.3.4-5-1.5-6.9-2-2-5-2.4-7.4-1.3L9 6 6 9 1.6 4.7C.4 7.1.9 10.1 2.9 12.1c1.9 1.9 4.6 2.4 6.9 1.5l9.1 9.1c.4.4 1 .4 1.4 0l2.3-2.3c.5-.4.5-1.1.1-1.4z"/></svg>
+        </span>
+        <span class="report-type-option-body">
+          <strong>Equipment report</strong>
+          <span>Vehicle, pump, or gear issues — maintenance and operational concerns.</span>
+        </span>
       </button>
     </div>
   </div>
 </div>
 
-<div id="reportModal" class="report-modal" hidden>
+<div id="reportModal" class="report-modal report-modal--form" hidden>
   <div class="report-modal-backdrop" data-close-modal="true"></div>
   <div class="report-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="reportModalTitle">
-    <div class="report-modal-header">
-      <div class="report-modal-title-wrap">
-        <h3 id="reportModalTitle">Submit &amp; Contact</h3>
+    <header class="rm-header report-modal-header">
+      <div class="report-modal-title-wrap rm-header-copy">
+        <p class="rm-kicker">FireNet · Report form</p>
+        <h3 class="rm-title" id="reportModalTitle">Incident Report</h3>
         <div id="alarmPriorityBadge" class="alarm-priority-badge" hidden>
-          <span class="alarm-priority-label">Fire Alarm Priority</span>
+          <span class="alarm-priority-label">Fire alarm priority</span>
           <strong id="alarmPriorityLevel">Level 1</strong>
           <span id="alarmPriorityMeta" class="alarm-priority-meta">2 stations will auto-respond</span>
         </div>
       </div>
-      <button type="button" class="modal-close-btn" id="closeReportModal" aria-label="Close">x</button>
-    </div>
+      <button type="button" class="rm-close modal-close-btn" id="closeReportModal" aria-label="Close">×</button>
+    </header>
 
     <div class="report-modal-layout">
-      <form id="reportForm" class="reports-form" novalidate>
+      <form id="reportForm" class="reports-form rm-form" novalidate>
         <input id="reportId" type="hidden">
-        <div class="report-form-tabs" role="tablist" aria-label="Report steps">
-          <button type="button" id="reportStepTabDetails" class="report-step-tab is-active" role="tab" aria-selected="true" data-step="details">Details</button>
-          <button type="button" id="reportStepTabTimeline" class="report-step-tab" role="tab" aria-selected="false" data-step="timeline">Incident Timeline</button>
+
+        <div class="rm-form-toolbar">
+          <div class="report-form-tabs" role="tablist" aria-label="Report steps">
+            <button type="button" id="reportStepTabDetails" class="report-step-tab is-active" role="tab" aria-selected="true" data-step="details">Details</button>
+            <button type="button" id="reportStepTabTimeline" class="report-step-tab" role="tab" aria-selected="false" data-step="timeline">Incident timeline</button>
+          </div>
         </div>
 
-        <div id="reportStepDetails" class="report-form-step is-active" data-step="details">
-          <div class="report-details-split">
-            <div class="report-details-main">
-              <div class="form-grid">
-                <label id="reportTypeField">
-                  Submission Type
-                  <select id="reportType" required>
-                    <option value="incident_report">Incident Report</option>
-                    <option value="equipment_report">Equipment Report</option>
-                  </select>
-                </label>
+        <div class="rm-form-scroll">
+          <div id="reportStepDetails" class="report-form-step is-active" data-step="details">
+            <div class="report-details-split">
+              <div class="report-details-main">
+                <section class="rm-form-section" aria-label="Classification">
+                  <h4 class="rm-section-title">Classification</h4>
+                  <div class="form-grid">
+                    <label id="reportTypeField" class="rm-field">
+                      <span class="rm-field-label">Submission type</span>
+                      <select id="reportType" required>
+                        <option value="incident_report">Incident Report</option>
+                        <option value="equipment_report">Equipment Report</option>
+                      </select>
+                    </label>
 
-                <label id="incidentStageField">
-                  Incident Stage
-                  <select id="incidentStage">
-                    <option value="call_intake">Call Intake</option>
-                    <option value="during_incident">During Incident</option>
-                    <option value="after_incident">After Incident</option>
-                  </select>
-                </label>
+                    <label id="incidentStageField" class="rm-field">
+                      <span class="rm-field-label">Incident stage</span>
+                      <select id="incidentStage">
+                        <option value="call_intake">Call Intake</option>
+                        <option value="during_incident">During Incident</option>
+                        <option value="after_incident">After Incident</option>
+                      </select>
+                    </label>
 
-                <label id="alarmLevelField">
-                  Fire Alarm Level
-                  <select id="alarmLevel">
-                    <option value="1">1 - Lowest</option>
-                    <option value="2">2</option>
-                    <option value="3">3</option>
-                    <option value="4">4</option>
-                    <option value="5">5 - Highest</option>
-                  </select>
-                </label>
+                    <label id="alarmLevelField" class="rm-field">
+                      <span class="rm-field-label">Fire alarm level</span>
+                      <select id="alarmLevel">
+                        <option value="1">1 — Lowest</option>
+                        <option value="2">2</option>
+                        <option value="3">3</option>
+                        <option value="4">4</option>
+                        <option value="5">5 — Highest</option>
+                      </select>
+                    </label>
 
-                <label id="incidentStatusField">
-                  Incident Status
-                  <select id="incidentStatus">
-                    <option value="under_control">Under Control</option>
-                    <option value="fire_out">Fire Out</option>
-                  </select>
-                </label>
+                    <label id="incidentStatusField" class="rm-field">
+                      <span class="rm-field-label">Incident status</span>
+                      <select id="incidentStatus">
+                        <option value="under_control">Under Control</option>
+                        <option value="fire_out">Fire Out</option>
+                      </select>
+                    </label>
+                  </div>
+                </section>
 
-                <label>
-                  Title
-                  <input id="reportTitle" type="text" maxlength="255" placeholder="Enter report title" required>
-                </label>
+                <section class="rm-form-section" aria-label="Incident details">
+                  <h4 class="rm-section-title">Details</h4>
+                  <div class="form-grid">
+                    <label class="rm-field full-width">
+                      <span class="rm-field-label">Title</span>
+                      <input id="reportTitle" type="text" maxlength="255" placeholder="Short summary of the incident or issue" required>
+                    </label>
 
-                <label id="callerNameField">
-                  Caller Name
-                  <input id="callerName" type="text" maxlength="120" placeholder="For incident-related details">
-                </label>
+                    <label id="callerNameField" class="rm-field">
+                      <span class="rm-field-label">Caller name</span>
+                      <input id="callerName" type="text" maxlength="120" placeholder="Who reported the incident">
+                    </label>
 
-                <label id="barangayField">
-                  Barangay
-                  <input id="barangay" type="text" maxlength="120" placeholder="Enter barangay" required autocomplete="off">
-                </label>
+                    <label id="barangayField" class="rm-field">
+                      <span class="rm-field-label">Barangay</span>
+                      <input id="barangay" type="text" maxlength="120" placeholder="Barangay name" required autocomplete="off">
+                    </label>
 
-                <label id="streetField">
-                  Street
-                  <input id="streetName" type="text" maxlength="255" placeholder="Enter street" required autocomplete="off">
-                </label>
+                    <label id="streetField" class="rm-field">
+                      <span class="rm-field-label">Street</span>
+                      <input id="streetName" type="text" maxlength="255" placeholder="Street or block" required autocomplete="off">
+                    </label>
 
-                <label id="landmarkField" class="full-width">
-                  Landmark / Additional Address
-                  <input id="landmark" type="text" maxlength="255" placeholder="Optional landmark or building">
-                </label>
+                    <label id="landmarkField" class="rm-field full-width">
+                      <span class="rm-field-label">Landmark / building</span>
+                      <input id="landmark" type="text" maxlength="255" placeholder="Optional landmark or building name">
+                    </label>
 
-                <label id="altAddressField" class="full-width">
-                  Alternative Address Input
-                  <input id="altAddressInput" type="text" maxlength="255" placeholder="Cross street, nearby place, subdivision, or known alias">
-                </label>
+                    <label id="altAddressField" class="rm-field full-width">
+                      <span class="rm-field-label">Alternative address</span>
+                      <input id="altAddressInput" type="text" maxlength="255" placeholder="Cross street, subdivision, or known alias">
+                    </label>
+                  </div>
+                </section>
 
                 <div id="equipmentFields" class="full-width" hidden>
-                  <div class="equipment-form-card">
-                    <h4>Equipment Report Details</h4>
+                  <section class="rm-form-section equipment-form-card" aria-label="Equipment details">
+                    <h4 class="rm-section-title">Equipment details</h4>
                     <div class="equipment-form-grid">
-                      <label>
-                        Equipment Name
-                        <input id="equipmentName" type="text" maxlength="120" placeholder="e.g., Fire Truck 3">
+                      <label class="rm-field">
+                        <span class="rm-field-label">Equipment name</span>
+                        <input id="equipmentName" type="text" maxlength="120" placeholder="e.g. Fire Truck 3">
                       </label>
 
-                      <label>
-                        Equipment Category
+                      <label class="rm-field">
+                        <span class="rm-field-label">Category</span>
                         <select id="equipmentCategory">
                           <option value="vehicle">Vehicle</option>
                           <option value="pump">Pump</option>
@@ -187,8 +257,8 @@
                         </select>
                       </label>
 
-                      <label>
-                        Issue Type
+                      <label class="rm-field">
+                        <span class="rm-field-label">Issue type</span>
                         <select id="equipmentIssueType">
                           <option value="mechanical">Mechanical</option>
                           <option value="electrical">Electrical</option>
@@ -199,8 +269,8 @@
                         </select>
                       </label>
 
-                      <label>
-                        Urgency
+                      <label class="rm-field">
+                        <span class="rm-field-label">Urgency</span>
                         <select id="equipmentUrgency">
                           <option value="low">Low</option>
                           <option value="medium">Medium</option>
@@ -209,13 +279,13 @@
                         </select>
                       </label>
 
-                      <label>
-                        Last Service Date
+                      <label class="rm-field">
+                        <span class="rm-field-label">Last service date</span>
                         <input id="equipmentLastService" type="date">
                       </label>
 
-                      <label>
-                        Operational Status
+                      <label class="rm-field">
+                        <span class="rm-field-label">Operational status</span>
                         <select id="equipmentOperationalStatus">
                           <option value="operational">Operational</option>
                           <option value="limited">Limited Use</option>
@@ -223,76 +293,84 @@
                         </select>
                       </label>
 
-                      <label class="full-width">
-                        Initial Action Taken
-                        <textarea id="equipmentActionTaken" rows="3" placeholder="Immediate action taken by the station"></textarea>
+                      <label class="rm-field full-width">
+                        <span class="rm-field-label">Initial action taken</span>
+                        <textarea id="equipmentActionTaken" rows="3" placeholder="What the station did immediately"></textarea>
                       </label>
 
-                      <label class="full-width">
-                        Recommended Follow-up
-                        <textarea id="equipmentRecommendation" rows="3" placeholder="Repair, replacement, procurement, or external support needed"></textarea>
+                      <label class="rm-field full-width">
+                        <span class="rm-field-label">Recommended follow-up</span>
+                        <textarea id="equipmentRecommendation" rows="3" placeholder="Repair, replacement, or external support needed"></textarea>
                       </label>
                     </div>
+                  </section>
+                </div>
+
+                <section class="rm-form-section" aria-label="Narrative">
+                  <h4 class="rm-section-title">Narrative</h4>
+                  <label class="rm-field full-width">
+                    <span class="rm-field-label">Description / remarks</span>
+                    <textarea id="reportRemarks" rows="4" placeholder="Full account of what happened, actions taken, and current status" required></textarea>
+                  </label>
+                </section>
+              </div>
+
+              <aside id="incidentMapField" class="incident-map-field report-details-map rm-map-panel">
+                <header class="rm-map-head">
+                  <h4 class="rm-section-title">Location &amp; dispatch</h4>
+                  <p class="rm-map-hint" id="incidentMapStatus">Enter address details, then locate on the map.</p>
+                </header>
+                <div class="incident-map-toolbar">
+                  <button type="button" id="locateIncidentBtn" class="rm-btn rm-btn--ghost">Locate address</button>
+                  <button type="button" id="manualPinToggle" class="rm-btn rm-btn--ghost" aria-pressed="false">Pin on map: Off</button>
+                </div>
+                <div id="incidentMap" class="incident-map-canvas" aria-label="Incident location map"></div>
+                <p id="incidentAssignmentPreview" class="incident-assignment-preview">Responsible station will appear after location lookup.</p>
+
+                <div class="map-meta-grid rm-map-meta">
+                  <label class="rm-field full-width">
+                    <span class="rm-field-label">Auto-assigned responders</span>
+                    <input id="incidentResponderStation" type="text" placeholder="Filled after alarm level + location" readonly>
+                  </label>
+
+                  <label class="rm-field">
+                    <span class="rm-field-label">Latitude</span>
+                    <input id="incidentLatitude" type="text" placeholder="From map" readonly>
+                  </label>
+
+                  <label class="rm-field">
+                    <span class="rm-field-label">Longitude</span>
+                    <input id="incidentLongitude" type="text" placeholder="From map" readonly>
+                  </label>
+
+                  <label class="rm-field full-width">
+                    <span class="rm-field-label">Incident started at</span>
+                    <input id="incidentStartedAt" type="datetime-local" readonly>
+                  </label>
+
+                  <div id="incidentFinishedField" hidden>
+                    <input id="incidentFinishedAt" type="hidden" value="">
                   </div>
                 </div>
-
-                <label class="full-width">
-                  Description / Remarks
-                  <textarea id="reportRemarks" rows="5" placeholder="Write full details here" required></textarea>
-                </label>
-              </div>
+              </aside>
             </div>
+          </div>
 
-            <aside id="incidentMapField" class="incident-map-field report-details-map">
-              <div class="incident-map-toolbar">
-                <button type="button" id="locateIncidentBtn" class="secondary-btn">Locate Address</button>
-                <button type="button" id="manualPinToggle" class="secondary-btn" aria-pressed="false">Pin on Map: Off</button>
-                <span id="incidentMapStatus" class="muted-text">Type address details to place the incident pin.</span>
-              </div>
-              <div id="incidentMap" class="incident-map-canvas" aria-label="Incident location map"></div>
-              <p id="incidentAssignmentPreview" class="incident-assignment-preview muted-text">Responsible station will appear after location lookup.</p>
-
-              <div class="map-meta-grid">
-                <label class="full-width">
-                  Auto Assigned Responding Stations
-                  <input id="incidentResponderStation" type="text" placeholder="Auto-filled stations based on alarm level" readonly>
-                </label>
-
-                <label>
-                  Latitude
-                  <input id="incidentLatitude" type="text" placeholder="Auto-filled from map" readonly>
-                </label>
-
-                <label>
-                  Longitude
-                  <input id="incidentLongitude" type="text" placeholder="Auto-filled from map" readonly>
-                </label>
-
-                <label>
-                  Incident Started At
-                  <input id="incidentStartedAt" type="datetime-local" readonly>
-                </label>
-
-                <div id="incidentFinishedField" hidden>
-                  <input id="incidentFinishedAt" type="hidden" value="">
-                </div>
-              </div>
-            </aside>
+          <div id="reportStepTimeline" class="report-form-step" data-step="timeline" hidden>
+            <section class="incident-timeline-card" id="incidentTimelineCard" hidden>
+              <h4 class="rm-section-title">Incident timeline</h4>
+              <ul class="incident-timeline-list" id="incidentTimelineList"></ul>
+            </section>
           </div>
         </div>
 
-        <div id="reportStepTimeline" class="report-form-step" data-step="timeline" hidden>
-          <section class="incident-timeline-card" id="incidentTimelineCard" hidden>
-            <h4>Incident Timeline</h4>
-            <ul class="incident-timeline-list" id="incidentTimelineList"></ul>
-          </section>
-        </div>
-
-        <div class="form-actions form-step-actions">
-          <button type="button" class="secondary-btn" id="reportStepPrev" hidden>Back</button>
-          <button type="submit" class="primary-btn" id="reportSubmitBtn" hidden>Submit &amp; Contact</button>
-        </div>
-        <p id="formMessage" class="muted-text"></p>
+        <footer class="rm-form-footer form-actions form-step-actions">
+          <p id="formMessage" class="rm-form-message"></p>
+          <div class="rm-form-footer-actions">
+            <button type="button" class="rm-btn rm-btn--ghost" id="reportStepPrev" hidden>Back</button>
+            <button type="submit" class="rm-btn rm-btn--primary primary-btn" id="reportSubmitBtn" hidden>Submit incident report</button>
+          </div>
+        </footer>
       </form>
     </div>
   </div>

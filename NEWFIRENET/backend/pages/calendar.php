@@ -30,8 +30,15 @@ $calendarContext = [
 	'calendarApiUrl' => '/firenet/NEWFIRENET/backend/controllers/calendar.php'
 ];
 
-$pageStyles = ['/firenet/NEWFIRENET/assets/css/calendar.css'];
-$pageScripts = ['/firenet/NEWFIRENET/assets/js/calendar.js'];
+$calendarCssPath = __DIR__ . '/../../assets/css/calendar.css';
+$calendarJsPath = __DIR__ . '/../../assets/js/calendar.js';
+$calendarCssVersion = is_file($calendarCssPath) ? (string) filemtime($calendarCssPath) : (string) time();
+$calendarJsVersion = is_file($calendarJsPath) ? (string) filemtime($calendarJsPath) : (string) time();
+
+$pageStyles = ['/firenet/NEWFIRENET/assets/css/calendar.css?v=' . $calendarCssVersion];
+$pageScripts = ['/firenet/NEWFIRENET/assets/js/calendar.js?v=' . $calendarJsVersion];
+
+$bodyClass = 'has-reports-bg';
 
 require_once __DIR__ . '/../../includes/header.php';
 ?>

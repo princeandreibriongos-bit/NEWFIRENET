@@ -1,68 +1,83 @@
-<div class="modern-dashboard dash-pro">
-  <div class="dashboard-content">
-    <header class="dash-topbar">
-      <div class="dash-topbar-text">
-        <h1 class="dash-page-title">Dashboard</h1>
-        <p class="dash-page-sub">Operations overview — <span id="dashStationHint"></span></p>
-        <p class="dash-meta-line"><span class="dash-meta-pill" id="dashRefreshedAt" title="Browser load time">Updated — …</span><span class="dash-meta-pill dash-meta-pill--subtle" title="Tip">Press <kbd>Esc</kbd> to close menus</span></p>
-      </div>
-      <div class="dash-search-wrap">
-        <label class="visually-hidden" for="dashSearchField">Search</label>
-        <input id="dashSearchField" class="dash-search" type="search" placeholder="Search reports, incidents, events…" autocomplete="off" aria-describedby="dashSearchHelp">
-        <div id="dashSearchPanel" class="dash-search-panel" hidden>
-          <div class="dash-search-panel-head">
-            <div>
-              <p class="dash-search-panel-label">Search results</p>
-              <p class="dash-search-panel-sub" id="dashSearchHelp">Type to find reports, incidents, events, stations, or useful actions.</p>
-            </div>
-            <button type="button" class="dash-search-clear" id="dashSearchClearBtn">Clear</button>
+<div class="dash-pro">
+  <div class="dash-page-bg" aria-hidden="true"></div>
+
+  <div class="dash-body">
+    <header class="dash-hero" aria-label="Operations overview">
+      <div class="dash-hero-top">
+        <div class="dash-hero-copy">
+          <p class="dash-kicker">FireNet · Command center</p>
+          <h1 class="dash-title">Operations overview</h1>
+          <p class="dash-subtitle">Live readiness, incident volume, and station health for <span id="dashStationHint">your station</span>.</p>
+          <ul class="dash-meta-chips" aria-label="Session summary">
+            <li class="dash-meta-chip"><span class="dash-meta-chip-label">Station</span><span class="dash-meta-chip-value" id="dashHeroStationName">—</span></li>
+            <li class="dash-meta-chip"><span class="dash-meta-chip-label">Role</span><span class="dash-meta-chip-value" id="dashHeroRoleChip">—</span></li>
+            <li class="dash-meta-chip"><span class="dash-meta-chip-value" id="dashHeroStatusChip">Stable</span></li>
+            <li class="dash-meta-chip dash-meta-chip--subtle"><span class="dash-meta-chip-value" id="dashHeroUpdatedChip">Updated —</span></li>
+          </ul>
+          <p class="dash-refresh-line"><span class="dash-refresh-pill" id="dashRefreshedAt" title="Browser load time">Updated — …</span></p>
+          <div class="dash-hero-actions">
+            <a id="dashReportIncidentBtn" class="dash-action dash-action--report" href="/firenet/NEWFIRENET/backend/pages/reports.php?quick=intake" hidden>
+              <span class="dash-action-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" focusable="false"><path d="M12 3a5 5 0 0 0-5 5v2.2c0 .8-.2 1.6-.6 2.3L5 15.2V17h14v-1.8l-1.4-1.7c-.4-.7-.6-1.5-.6-2.3V8a5 5 0 0 0-5-5zm0 18a2.2 2.2 0 0 0 2.1-1.5H9.9A2.2 2.2 0 0 0 12 21z" fill="currentColor"></path></svg>
+              </span>
+              Report incident
+            </a>
+            <a class="dash-action dash-action--ghost" href="/firenet/NEWFIRENET/backend/pages/reports.php">All reports</a>
+            <a class="dash-action dash-action--ghost" href="/firenet/NEWFIRENET/backend/pages/analytics.php">Analytics</a>
           </div>
-          <ul class="dash-search-results" id="dashSearchResults"></ul>
         </div>
+
+        <div class="dash-search-wrap">
+          <label class="visually-hidden" for="dashSearchField">Search</label>
+          <input id="dashSearchField" class="dash-search" type="search" placeholder="Search reports, incidents, stations…" autocomplete="off" aria-describedby="dashSearchHelp">
+          <div id="dashSearchPanel" class="dash-search-panel" hidden>
+            <div class="dash-search-panel-head">
+              <div>
+                <p class="dash-search-panel-label">Quick find</p>
+                <p class="dash-search-panel-sub" id="dashSearchHelp">Jump to reports, incidents, logs, analytics, or settings.</p>
+              </div>
+              <button type="button" class="dash-search-clear" id="dashSearchClearBtn">Clear</button>
+            </div>
+            <ul class="dash-search-results" id="dashSearchResults"></ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="dash-stat-strip" aria-label="Headline metrics">
+        <article class="dash-stat-tile">
+          <span class="dash-stat-label">Active incidents</span>
+          <strong class="dash-stat-value" id="heroOpenCount">0</strong>
+        </article>
+        <article class="dash-stat-tile">
+          <span class="dash-stat-label">Resolved rate</span>
+          <strong class="dash-stat-value" id="heroResolutionRate">0%</strong>
+        </article>
+        <article class="dash-stat-tile">
+          <span class="dash-stat-label">Station coverage</span>
+          <strong class="dash-stat-value" id="heroStationCoverage">0%</strong>
+        </article>
+        <article class="dash-stat-tile dash-stat-tile--alert">
+          <span class="dash-stat-label">Offline stations</span>
+          <strong class="dash-stat-value" id="heroOfflineCount">0</strong>
+        </article>
       </div>
     </header>
 
-    <section class="dash-hero" aria-label="Command summary">
-      <div class="dash-hero-copy">
-        <p class="dash-hero-kicker">FireNet Command Center</p>
-        <h2 class="dash-hero-title">A cleaner, faster view of station readiness.</h2>
-        <p class="dash-hero-body">Live incident volume, response pace, and station health are arranged in one editorial-style control surface so you can read the system at a glance.</p>
-
-        <div class="dash-hero-chips" aria-label="Session summary">
-          <span class="dash-hero-chip" id="dashHeroStationName">Station</span>
-          <span class="dash-hero-chip" id="dashHeroRoleChip">Role</span>
-          <span class="dash-hero-chip" id="dashHeroStatusChip">Stable</span>
-          <span class="dash-hero-chip" id="dashHeroUpdatedChip">Updated</span>
-        </div>
-
-        <div class="dash-hero-actions">
-          <a class="dash-hero-action" href="/firenet/NEWFIRENET/backend/pages/reports.php">Open reports</a>
-          <a class="dash-hero-action dash-hero-action--ghost" href="/firenet/NEWFIRENET/backend/pages/analytics.php">View analytics</a>
+    <section class="dash-live-bar" aria-label="Live incident status">
+      <div class="dash-live-indicator">
+        <span class="dash-activity-dot" aria-hidden="true"></span>
+        <div class="dash-live-text">
+          <p class="dash-live-title" id="ongoingIncidentTitle">No active incidents</p>
+          <p class="dash-live-meta" id="ongoingIncidentMeta">System ready</p>
         </div>
       </div>
-
-      <div class="dash-hero-panel" aria-label="Quick metrics">
-        <div class="dash-hero-metric">
-          <span class="dash-hero-metric-label">Active incidents</span>
-          <strong class="dash-hero-metric-value" id="heroOpenCount">0</strong>
-        </div>
-        <div class="dash-hero-metric">
-          <span class="dash-hero-metric-label">Resolved rate</span>
-          <strong class="dash-hero-metric-value" id="heroResolutionRate">0%</strong>
-        </div>
-        <div class="dash-hero-metric">
-          <span class="dash-hero-metric-label">Station coverage</span>
-          <strong class="dash-hero-metric-value" id="heroStationCoverage">0%</strong>
-        </div>
-        <div class="dash-hero-metric dash-hero-metric--accent">
-          <span class="dash-hero-metric-label">Offline stations</span>
-          <strong class="dash-hero-metric-value" id="heroOfflineCount">0</strong>
-        </div>
-      </div>
+      <a id="dashLiveReportBtn" class="dash-live-report" href="/firenet/NEWFIRENET/backend/pages/reports.php?quick=intake" hidden>
+        <span class="dash-live-report-icon" aria-hidden="true">+</span>
+        Report incident
+      </a>
     </section>
 
-    <!-- KPI row with sparklines (mock style) -->
-    <section class="dash-kpi-row" aria-label="Key metrics">
+    <section class="dash-kpi-row" aria-label="Key performance indicators">
       <article class="dash-kpi-card dash-kpi-card--incidents">
         <div class="dash-kpi-head">
           <span class="dash-kpi-label">Active incidents</span>
@@ -87,11 +102,11 @@
       </article>
       <article class="dash-kpi-card dash-kpi-card--readiness">
         <div class="dash-kpi-head">
-          <span class="dash-kpi-label">Readiness</span>
+          <span class="dash-kpi-label">Readiness index</span>
           <span class="dash-kpi-delta dash-kpi-delta--up" id="kpiDeltaReadiness" aria-hidden="true">▲</span>
         </div>
         <p class="dash-kpi-value" id="readinessScore">100%</p>
-        <p class="dash-kpi-hint">Based on incidents &amp; station status</p>
+        <p class="dash-kpi-hint">Incidents &amp; station status combined</p>
         <div class="dash-kpi-spark">
           <canvas id="sparkReadiness" aria-hidden="true"></canvas>
         </div>
@@ -101,102 +116,96 @@
       </article>
     </section>
 
-    <section class="dash-main-grid">
-      <article class="dash-card dash-card--chart dash-card--wide">
-        <div class="dash-card-head">
+    <section class="dash-analytics-grid">
+      <article class="dash-panel dash-panel--chart">
+        <header class="dash-panel-head">
           <div>
-            <h2 class="dash-card-title">Incident volume</h2>
-            <p class="dash-card-desc">Last 7 days at your station</p>
+            <h2 class="dash-panel-title">Incident volume</h2>
+            <p class="dash-panel-desc">Last 7 days at your station</p>
           </div>
-          <span class="dash-pill" title="Data from your station">Last 7 days</span>
-        </div>
+          <span class="dash-tag">7-day trend</span>
+        </header>
         <div class="dash-chart-box dash-chart-box--tall">
           <canvas id="incidentTrendChart"></canvas>
         </div>
       </article>
 
-      <aside class="dash-side-stack">
-        <article class="dash-card dash-ops-widget">
+      <aside class="dash-aside-stack">
+        <article class="dash-panel dash-ops-widget">
           <p class="dash-ops-label">Operations pulse</p>
           <p class="dash-ops-big" id="dashOpsBigNumber">0</p>
-          <p class="dash-ops-caption" id="dashOpsCaption">Open incidents network-wide view</p>
-          <ul class="dash-ops-list" id="dashOpsMiniList" aria-label="Status lines"></ul>
+          <p class="dash-ops-caption" id="dashOpsCaption">Monitoring network activity</p>
+          <ul class="dash-ops-list" id="dashOpsMiniList" aria-label="Fleet status breakdown"></ul>
         </article>
-        <article class="dash-card dash-health-card">
-          <div class="dash-card-head dash-card-head--compact">
+
+        <article class="dash-panel dash-health-card">
+          <header class="dash-panel-head dash-panel-head--compact">
             <div>
-              <h2 class="dash-card-title">Station health</h2>
-              <p class="dash-card-desc">Responding vs standby vs offline</p>
+              <h2 class="dash-panel-title">Station health</h2>
+              <p class="dash-panel-desc">Responding · standby · offline</p>
             </div>
-            <span class="dash-pill">Live</span>
-          </div>
+            <span class="dash-tag dash-tag--live">Live</span>
+          </header>
           <div class="dash-chart-box dash-chart-box--mini">
             <canvas id="stationHealthChart"></canvas>
           </div>
         </article>
-        <article class="dash-card dash-feed-card">
-          <div class="dash-card-head dash-card-head--compact">
-            <h2 class="dash-card-title">Briefing</h2>
-          </div>
+
+        <article class="dash-panel dash-briefing-card">
+          <header class="dash-panel-head dash-panel-head--compact">
+            <h2 class="dash-panel-title">Briefing</h2>
+          </header>
           <ul class="dash-feed" id="dashNewsFeed"></ul>
         </article>
       </aside>
     </section>
 
     <section class="dash-bottom-grid">
-      <article class="dash-card dash-table-card">
-        <div class="dash-card-head dash-card-head--compact">
+      <article class="dash-panel dash-roster-panel">
+        <header class="dash-panel-head dash-panel-head--compact">
           <div>
-            <h2 class="dash-card-title">Station roster</h2>
-            <p class="dash-card-desc" id="stationStatusSummary">Loading…</p>
+            <h2 class="dash-panel-title">Station roster</h2>
+            <p class="dash-panel-desc" id="stationStatusSummary">Loading…</p>
           </div>
-        </div>
-        <div class="dash-table" id="stationStatusList">
+        </header>
+        <div class="dash-roster" id="stationStatusList">
           <p class="dash-loading">Loading station data…</p>
         </div>
       </article>
 
-      <article class="dash-card">
-        <div class="dash-card-head dash-card-head--compact">
+      <article class="dash-panel">
+        <header class="dash-panel-head dash-panel-head--compact">
           <div>
-            <h2 class="dash-card-title">Weekly incidents</h2>
-            <p class="dash-card-desc">Count per day</p>
+            <h2 class="dash-panel-title">Weekly incidents</h2>
+            <p class="dash-panel-desc">Count per day</p>
           </div>
-        </div>
+        </header>
         <div class="dash-chart-box dash-chart-box--short">
           <canvas id="weeklyBarChart"></canvas>
         </div>
       </article>
 
-      <div class="dash-dark-stack" aria-label="Summary">
-        <article class="dash-dark-card">
-          <p class="dash-dark-label">Readiness index</p>
-          <p class="dash-dark-value" id="darkReadiness">100%</p>
+      <div class="dash-summary-stack" aria-label="Summary indices">
+        <article class="dash-summary-tile">
+          <p class="dash-summary-label">Readiness</p>
+          <p class="dash-summary-value" id="darkReadiness">100%</p>
         </article>
-        <article class="dash-dark-card">
-          <p class="dash-dark-label">Active queue</p>
-          <p class="dash-dark-value" id="darkOpen">0</p>
+        <article class="dash-summary-tile">
+          <p class="dash-summary-label">Active queue</p>
+          <p class="dash-summary-value" id="darkOpen">0</p>
         </article>
-        <article class="dash-dark-card dash-dark-card--accent">
-          <p class="dash-dark-label">Resolution rate</p>
-          <p class="dash-dark-value" id="darkResolution">0%</p>
+        <article class="dash-summary-tile dash-summary-tile--accent">
+          <p class="dash-summary-label">Resolution rate</p>
+          <p class="dash-summary-value" id="darkResolution">0%</p>
         </article>
       </div>
     </section>
-
-    <section class="dash-activity-row">
-      <article class="dash-card dash-activity-card">
-        <div class="dash-card-head dash-card-head--compact">
-          <h2 class="dash-card-title">Live incident</h2>
-        </div>
-        <div class="dash-activity-highlight">
-          <div class="dash-activity-dot" aria-hidden="true"></div>
-          <div>
-            <p class="dash-activity-title" id="ongoingIncidentTitle">No active incidents</p>
-            <p class="dash-activity-meta" id="ongoingIncidentMeta">System ready</p>
-          </div>
-        </div>
-      </article>
-    </section>
   </div>
+
+  <a id="dashReportIncidentFab" class="dash-fab" href="/firenet/NEWFIRENET/backend/pages/reports.php?quick=intake" title="Report incident" aria-label="Report incident" hidden>
+    <span class="dash-fab-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" focusable="false"><path d="M12 3a5 5 0 0 0-5 5v2.2c0 .8-.2 1.6-.6 2.3L5 15.2V17h14v-1.8l-1.4-1.7c-.4-.7-.6-1.5-.6-2.3V8a5 5 0 0 0-5-5zm0 18a2.2 2.2 0 0 0 2.1-1.5H9.9A2.2 2.2 0 0 0 12 21z" fill="currentColor"></path></svg>
+    </span>
+    <span class="dash-fab-label">Report</span>
+  </a>
 </div>

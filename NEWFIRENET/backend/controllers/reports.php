@@ -351,6 +351,31 @@ function firenet_sync_responder_station_reports(
     }
 }
 
+function firenet_is_central_station(PDO $pdo, int $stationId): bool {
+    if ($stationId < 1) {
+        return false;
+    }
+
+    static $cache = [];
+    if (array_key_exists($stationId, $cache)) {
+        return $cache[$stationId];
+    }
+
+    $stmt = $pdo->prepare('SELECT station_code FROM stations WHERE station_id = ? LIMIT 1');
+    $stmt->execute([$stationId]);
+    $code = strtolower(trim((string) $stmt->fetchColumn()));
+    $cache[$stationId] = $code === 'mcfs';
+    return $cache[$stationId];
+}
+
+function firenet_incident_completed_sql(string $stageAlias = 's', string $incidentAlias = 'i'): string {
+    return '('
+        . $stageAlias . ".stage_code = 'after_incident'"
+        . ' OR ' . $incidentAlias . ".incident_status = 'fire_out'"
+        . ' OR ' . $incidentAlias . '.incident_finished_at IS NOT NULL'
+        . ')';
+}
+
 function firenet_report_belongs_to_station(PDO $pdo, int $reportId, int $stationId): bool {
     $stmt = $pdo->prepare('SELECT report_id FROM reports WHERE report_id = ? AND station_id = ? LIMIT 1');
     $stmt->execute([$reportId, $stationId]);
@@ -881,27 +906,45 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             $dir = strtolower(trim((string) ($_GET['dir'] ?? 'desc')));
             $search = trim((string) ($_GET['q'] ?? ''));
             $stationFilter = (int) ($_GET['stationId'] ?? 0);
+            $caseFilter = (int) ($_GET['caseId'] ?? $_GET['incidentCaseId'] ?? 0);
+            $isCentralStation = firenet_is_central_station($pdo, $sessionStationId);
 
             $sortMap = [
                 'date' => 'COALESCE(i.incident_finished_at, i.updated_at, r.updated_at, r.created_at)',
                 'name' => 'COALESCE(NULLIF(r.title, ""), NULLIF(i.incident_location, ""), "Untitled Incident")',
-                'station' => 'COALESCE(ds.station_name, s_report.station_name, "")',
+                'station' => 'COALESCE(s_report.station_name, "")',
                 'alarm' => 'i.alarm_level',
                 'status' => 'i.incident_status'
             ];
             $sortColumn = $sortMap[$sort] ?? $sortMap['date'];
             $sortDirection = $dir === 'asc' ? 'ASC' : 'DESC';
 
-            $where = ["(s.stage_code = 'after_incident' OR i.incident_status = 'fire_out' OR i.incident_finished_at IS NOT NULL)"];
+            $where = [
+                "rt.type_name = 'incident_report'",
+                "i.incident_status = 'fire_out'",
+            ];
             $params = [];
 
-            $where[] = 'COALESCE(i.station_id, r.station_id) = ?';
-            $params[] = $stationFilter > 0 ? $stationFilter : $sessionStationId;
+            if ($isCentralStation) {
+                if ($stationFilter > 0) {
+                    $where[] = 'COALESCE(i.station_id, r.station_id) = ?';
+                    $params[] = $stationFilter;
+                }
+            } else {
+                $where[] = 'COALESCE(i.station_id, r.station_id) = ?';
+                $params[] = $sessionStationId;
+            }
+
+            if ($caseFilter > 0) {
+                $where[] = '(i.incident_case_id = ? OR (i.incident_case_id IS NULL AND r.report_id = ?))';
+                $params[] = $caseFilter;
+                $params[] = $caseFilter;
+            }
 
             if ($search !== '') {
-                $where[] = '(r.title LIKE ? OR i.incident_location LIKE ? OR u.username LIKE ? OR COALESCE(ds.station_name, s_report.station_name, "") LIKE ?)';
+                $where[] = '(r.title LIKE ? OR i.incident_location LIKE ? OR u.username LIKE ? OR COALESCE(s_report.station_name, "") LIKE ? OR CAST(COALESCE(i.incident_case_id, r.report_id) AS CHAR) LIKE ?)';
                 $like = '%' . $search . '%';
-                $params = array_merge($params, [$like, $like, $like, $like]);
+                $params = array_merge($params, [$like, $like, $like, $like, $like]);
             }
 
             firenet_ensure_incident_report_columns($pdo);
@@ -1004,12 +1047,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                 ];
             }
 
+            $fireOutCount = count($logs);
+
+            $stations = [];
+            if ($isCentralStation) {
+                $stationsStmt = $pdo->query('
+                    SELECT station_id, station_name, station_code
+                    FROM stations
+                    WHERE status = "active"
+                    ORDER BY station_name ASC
+                ');
+                $stations = array_map(static function (array $station): array {
+                    return [
+                        'id' => (int) ($station['station_id'] ?? 0),
+                        'name' => (string) ($station['station_name'] ?? ''),
+                        'code' => (string) ($station['station_code'] ?? ''),
+                    ];
+                }, $stationsStmt->fetchAll(PDO::FETCH_ASSOC) ?: []);
+            }
+
             echo json_encode([
                 'ok' => true,
                 'logs' => $logs,
+                'isCentralStation' => $isCentralStation,
+                'stations' => $stations,
                 'summary' => [
-                    'total' => count($logs),
-                    'fireOut' => count($logs),
+                    'total' => $fireOutCount,
+                    'fireOut' => $fireOutCount,
                     'stationCount' => count(array_unique(array_map(static fn (array $log): int => (int) ($log['stationId'] ?? 0), $logs)))
                 ]
             ]);
@@ -1020,18 +1084,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         exit;
     }
 
-    $scope = strtolower(trim((string) ($_GET['scope'] ?? 'mine')));
-    if (!in_array($scope, ['mine', 'all'], true)) {
-        $scope = 'mine';
-    }
-    if ($scope === 'all' && !$canViewAllReports) {
-        $scope = 'mine';
-    }
-
     try {
         $pdo = firenet_get_pdo();
         firenet_ensure_equipment_reports_table($pdo);
         firenet_ensure_incident_report_columns($pdo);
+        $completedIncidentSql = firenet_incident_completed_sql();
         $sql = '
             SELECT DISTINCT r.report_id, r.report_type_id, r.station_id AS report_station_id, rt.type_name,
                     r.title,
@@ -1058,18 +1115,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             LEFT JOIN stations s_report ON s_report.station_id = r.station_id
             LEFT JOIN users u ON u.user_id = r.created_by
             LEFT JOIN users u_updated ON u_updated.user_id = i.updated_by_user_id
+            WHERE (r.created_by = ? OR COALESCE(i.updated_by_user_id, 0) = ?)
+              AND (rt.type_name <> \'incident_report\' OR NOT ' . $completedIncidentSql . ')
         ';
-        $params = [];
-        if ($scope === 'all' && $canViewAllReports) {
-            $sql .= ' WHERE r.station_id = ?';
-            $params[] = $sessionStationId;
-        } else {
-            $sql .= ' WHERE ((rt.type_name = ? AND COALESCE(i.station_id, r.station_id) = ?) OR (rt.type_name <> ? AND r.created_by = ?))';
-            $params[] = 'incident_report';
-            $params[] = $sessionStationId;
-            $params[] = 'incident_report';
-            $params[] = $userId;
-        }
+        $params = [$userId, $userId];
         $sql .= ' ORDER BY r.updated_at DESC, r.created_at DESC LIMIT 200';
         $stmt = $pdo->prepare($sql);
         $stmt->execute($params);

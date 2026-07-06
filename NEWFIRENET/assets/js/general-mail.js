@@ -58,6 +58,21 @@
     return;
   }
 
+  const attachmentPreviewModal = document.getElementById('attachmentPreviewModal');
+
+  function mountMailModalsToBody() {
+    [composeModal, attachmentPreviewModal].forEach(function (el) {
+      if (el && el.parentElement !== document.body) {
+        document.body.appendChild(el);
+      }
+    });
+  }
+
+  function syncMailModalScrollLock() {
+    const anyOpen = !composeModal.hidden || (attachmentPreviewModal && !attachmentPreviewModal.hidden);
+    document.body.classList.toggle('mail-modal-open', anyOpen);
+  }
+
   const apiUrl = String((JSON.parse(contextElement.textContent || '{}') || {}).mailApiUrl || '/firenet/NEWFIRENET/backend/controllers/station_mails.php');
   const state = {
     folder: 'inbox',
@@ -278,13 +293,13 @@
 
   function openCompose() {
     composeModal.hidden = false;
-    document.body.style.overflow = 'hidden';
+    syncMailModalScrollLock();
     setMessage('', false);
   }
 
   function closeCompose() {
     composeModal.hidden = true;
-    document.body.style.overflow = '';
+    syncMailModalScrollLock();
     composeForm.reset();
     composeSubject.value = '';
     composeBody.value = '';
@@ -535,7 +550,6 @@
   if (threadDeleteBtn) threadDeleteBtn.addEventListener('click', function () { smartAction('delete'); });
 
   // attachment preview modal handlers
-  const attachmentPreviewModal = document.getElementById('attachmentPreviewModal');
   const attachmentPreviewContent = document.getElementById('attachmentPreviewContent');
   const attachmentPreviewTitle = document.getElementById('attachmentPreviewTitle');
   const closeAttachmentPreviewBtn = document.getElementById('closeAttachmentPreviewBtn');
@@ -544,6 +558,7 @@
       if (!attachmentPreviewModal) return;
       attachmentPreviewModal.hidden = true;
       attachmentPreviewContent.innerHTML = '';
+      syncMailModalScrollLock();
     });
   }
 
@@ -562,6 +577,7 @@
       attachmentPreviewContent.innerHTML = '<p><a href="' + escapeHtml(url) + '" target="_blank" rel="noreferrer">Open attachment</a></p>';
     }
     attachmentPreviewModal.hidden = false;
+    syncMailModalScrollLock();
   });
 
   // thread message actions (reply/edit)
@@ -606,9 +622,18 @@
 
   // Main keyboard shortcut handler
   document.addEventListener('keydown', function (event) {
-    if (event.key === 'Escape' && !composeModal.hidden) {
-      closeCompose();
-      return;
+    if (event.key === 'Escape') {
+      if (!composeModal.hidden) {
+        closeCompose();
+        return;
+      }
+      if (attachmentPreviewModal && !attachmentPreviewModal.hidden) {
+        attachmentPreviewModal.hidden = true;
+        if (attachmentPreviewContent) {
+          attachmentPreviewContent.innerHTML = '';
+        }
+        syncMailModalScrollLock();
+      }
     }
   });
 
@@ -1056,5 +1081,6 @@
     }
   }
 
+  mountMailModalsToBody();
   init();
 })();

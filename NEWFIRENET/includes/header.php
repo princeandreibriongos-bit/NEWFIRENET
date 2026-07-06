@@ -116,14 +116,14 @@ if ($sessionUserId > 0) {
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
   <link rel="stylesheet" href="/firenet/NEWFIRENET/assets/css/style.css">
+  <link rel="stylesheet" href="/firenet/NEWFIRENET/assets/css/portal-theme.css">
   <?php if (isset($pageStyles) && is_array($pageStyles)): ?>
     <?php foreach ($pageStyles as $stylePath): ?>
       <link rel="stylesheet" href="<?php echo htmlspecialchars($stylePath); ?>">
     <?php endforeach; ?>
   <?php endif; ?>
-  <link rel="stylesheet" href="/firenet/NEWFIRENET/assets/css/portal-theme.css">
 </head>
-<body class="<?php echo isset($_SESSION['user']) ? 'is-authenticated' : ''; ?>">
+<body class="<?php echo trim(((isset($_SESSION['user']) ? 'is-authenticated' : '') . ' ' . ($bodyClass ?? ''))); ?>">
   <header class="app-header">
     <div class="app-header-inner">
       <div class="header-brand">
@@ -202,7 +202,7 @@ if ($sessionUserId > 0) {
               <div id="alertsMenuPanel" class="alerts-menu-panel" hidden>
                 <p class="alerts-menu-title">Recent Alerts</p>
                 <ul class="alerts-menu-list"></ul>
-                <a href="<?php echo htmlspecialchars($dashboardPath); ?>" class="alerts-menu-link">Open Dashboard</a>
+                <a href="<?php echo htmlspecialchars($calendarPath); ?>" class="alerts-menu-link">Open calendar</a>
               </div>
             </div>
 

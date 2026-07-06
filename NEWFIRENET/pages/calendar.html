@@ -1,192 +1,178 @@
-<section class="calendar-shell">
-  <div class="calendar-hero portal-card">
-    <div>
-      <h2>Station Calendar</h2>
-      <p class="muted-text" id="calendarSummary">Loading calendar...</p>
-    </div>
-    <div class="calendar-hero-actions">
-      <button type="button" class="secondary-btn" id="calendarTodayBtn">Today</button>
-      <button type="button" class="secondary-btn" id="calendarPrevBtn" aria-label="Previous month">Previous</button>
-      <button type="button" class="secondary-btn" id="calendarNextBtn" aria-label="Next month">Next</button>
-      <button type="button" class="primary-btn" id="calendarAddEventBtn">Add Event</button>
-    </div>
-  </div>
+<section class="cal-pro" aria-labelledby="calendarPageTitle">
+  <div class="cal-page-bg" aria-hidden="true"></div>
 
-  <section class="calendar-toolbar portal-card" aria-label="Calendar filters">
-    <div class="calendar-toolbar-group">
-      <label class="calendar-field">
-        <span>Search</span>
-        <input type="search" id="calendarSearchInput" placeholder="Search title, location, notes">
+  <header class="cal-hero">
+    <div class="cal-hero-copy">
+      <p class="cal-kicker">Station schedule</p>
+      <h1 id="calendarPageTitle">Calendar</h1>
+      <p class="cal-summary" id="calendarSummary">Loading calendar…</p>
+      <p class="cal-admin-note" id="calendarAdminNote" hidden></p>
+    </div>
+    <div class="cal-hero-actions">
+      <button type="button" class="cal-btn cal-btn--ghost" id="calendarTodayBtn">Today</button>
+      <button type="button" class="cal-btn cal-btn--ghost" id="calendarPrevBtn" aria-label="Previous month">‹</button>
+      <button type="button" class="cal-btn cal-btn--ghost" id="calendarNextBtn" aria-label="Next month">›</button>
+      <button type="button" class="cal-btn cal-btn--primary" id="calendarAddEventBtn" hidden>
+        <span aria-hidden="true">+</span> Add event
+      </button>
+    </div>
+  </header>
+
+  <section class="cal-toolbar" aria-label="Calendar filters">
+    <div class="cal-toolbar-filters">
+      <label class="cal-field cal-field--search">
+        <span class="cal-field-label">Search</span>
+        <input type="search" id="calendarSearchInput" placeholder="Title, location, notes…" autocomplete="off">
       </label>
-
-      <label class="calendar-field calendar-field--compact">
-        <span>Theme</span>
+      <label class="cal-field">
+        <span class="cal-field-label">Theme</span>
         <select id="calendarThemeFilter">
           <option value="">All themes</option>
-          <option value="crimson">Crimson</option>
-          <option value="amber">Amber</option>
-          <option value="sky">Sky</option>
-          <option value="emerald">Emerald</option>
-          <option value="slate">Slate</option>
+          <option value="crimson">Operations</option>
+          <option value="emerald">Training</option>
+          <option value="sky">Meetings</option>
+          <option value="amber">Community</option>
+          <option value="slate">General</option>
         </select>
       </label>
-
-      <label class="calendar-switch" for="calendarNotifyOnly">
+      <label class="cal-switch" for="calendarNotifyOnly">
         <input type="checkbox" id="calendarNotifyOnly">
-        <span>Alerts only</span>
+        <span>Reminders only</span>
       </label>
-
-      <button type="button" class="ghost-btn" id="calendarClearFilters">Reset</button>
+      <button type="button" class="cal-btn cal-btn--ghost" id="calendarClearFilters">Reset</button>
     </div>
-    <p class="muted-text" id="calendarFilterSummary">Showing all events.</p>
+    <p class="cal-filter-summary" id="calendarFilterSummary">Showing all events.</p>
   </section>
 
-  <section class="calendar-stats portal-grid">
-    <article class="portal-card calendar-stat-card">
-      <span class="calendar-stat-label">This Month</span>
-      <strong class="calendar-stat-value" id="calendarMonthCount">0</strong>
+  <section class="cal-stats" aria-label="Calendar summary">
+    <article class="cal-stat">
+      <span class="cal-stat-label">This month</span>
+      <strong class="cal-stat-value" id="calendarMonthCount">0</strong>
     </article>
-    <article class="portal-card calendar-stat-card">
-      <span class="calendar-stat-label">Upcoming</span>
-      <strong class="calendar-stat-value" id="calendarUpcomingCount">0</strong>
+    <article class="cal-stat">
+      <span class="cal-stat-label">Upcoming</span>
+      <strong class="cal-stat-value" id="calendarUpcomingCount">0</strong>
     </article>
-    <article class="portal-card calendar-stat-card">
-      <span class="calendar-stat-label">Alert Events</span>
-      <strong class="calendar-stat-value" id="calendarNotifyCount">0</strong>
-    </article>
-    <article class="portal-card calendar-stat-card">
-      <span class="calendar-stat-label">Selected Day</span>
-      <strong class="calendar-stat-value" id="calendarSelectedCount">0</strong>
+    <article class="cal-stat">
+      <span class="cal-stat-label">Selected day</span>
+      <strong class="cal-stat-value" id="calendarSelectedCount">0</strong>
     </article>
   </section>
 
-  <section class="calendar-layout">
-    <article class="portal-card calendar-board">
-      <div class="calendar-board-header">
+  <section class="cal-layout">
+    <article class="cal-board">
+      <header class="cal-board-head">
         <div>
-          <p class="calendar-board-kicker">Month View</p>
-          <h3 id="calendarMonthLabel">Calendar</h3>
+          <p class="cal-board-kicker">Month view</p>
+          <h2 id="calendarMonthLabel">Calendar</h2>
         </div>
-        <span class="calendar-board-note">Click a day to inspect its events</span>
-      </div>
-      <div class="calendar-weekdays" aria-hidden="true">
-        <span>Sun</span>
-        <span>Mon</span>
-        <span>Tue</span>
-        <span>Wed</span>
-        <span>Thu</span>
-        <span>Fri</span>
-        <span>Sat</span>
+        <span class="cal-board-hint">Click a day to view events</span>
+      </header>
+      <div class="cal-weekdays" aria-hidden="true">
+        <span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span>
       </div>
       <div id="calendarGrid" class="calendar-grid" aria-label="Calendar month grid"></div>
     </article>
 
-    <aside class="calendar-side-stack">
-      <article class="portal-card calendar-side-card">
-        <div class="calendar-side-header">
+    <aside class="cal-aside">
+      <article class="cal-side-card">
+        <header class="cal-side-head">
           <div>
-            <p class="calendar-board-kicker">Selected Date</p>
-            <h3 id="calendarSelectedLabel">Select a date</h3>
+            <p class="cal-board-kicker">Selected date</p>
+            <h2 id="calendarSelectedLabel">Select a date</h2>
           </div>
-          <span class="calendar-selected-pill" id="calendarSelectedPill">0 events</span>
-        </div>
-        <div id="calendarSelectedDetails" class="calendar-selected-details">
-          <p class="muted-text">Choose a day to see its event list.</p>
+          <span class="cal-pill" id="calendarSelectedPill">0 events</span>
+        </header>
+        <div id="calendarSelectedDetails" class="cal-selected-details">
+          <p class="cal-empty">Choose a day on the calendar.</p>
         </div>
       </article>
 
-      <article class="portal-card calendar-side-card">
-        <div class="calendar-side-header">
+      <article class="cal-side-card">
+        <header class="cal-side-head">
           <div>
-            <p class="calendar-board-kicker">Upcoming Events</p>
-            <h3>Agenda</h3>
+            <p class="cal-board-kicker">Agenda</p>
+            <h2>Upcoming</h2>
           </div>
-        </div>
+        </header>
         <div id="calendarAgenda" class="calendar-agenda"></div>
       </article>
 
-      <article class="portal-card calendar-side-card">
-        <h3>Legend</h3>
+      <article class="cal-side-card cal-legend-card">
+        <h2 class="cal-legend-title">Color key</h2>
         <ul class="calendar-legend">
-          <li><span class="calendar-legend-dot calendar-legend-dot--crimson"></span> Fire / Operations</li>
-          <li><span class="calendar-legend-dot calendar-legend-dot--emerald"></span> Training / Drill</li>
-          <li><span class="calendar-legend-dot calendar-legend-dot--sky"></span> Meetings / Briefings</li>
-          <li><span class="calendar-legend-dot calendar-legend-dot--amber"></span> Community / Special</li>
+          <li><span class="calendar-legend-dot calendar-legend-dot--crimson"></span> Operations</li>
+          <li><span class="calendar-legend-dot calendar-legend-dot--emerald"></span> Training / drill</li>
+          <li><span class="calendar-legend-dot calendar-legend-dot--sky"></span> Meetings</li>
+          <li><span class="calendar-legend-dot calendar-legend-dot--amber"></span> Community</li>
         </ul>
       </article>
     </aside>
   </section>
 </section>
 
-<div id="calendarModal" class="calendar-modal" hidden>
-  <div class="calendar-modal-backdrop" data-calendar-close="true"></div>
-  <div class="calendar-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="calendarModalTitle">
-    <div class="calendar-modal-header">
+<div id="calendarModal" class="cal-modal" hidden>
+  <div class="cal-modal-backdrop" data-calendar-close="true"></div>
+  <div class="cal-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="calendarModalTitle">
+    <header class="cal-modal-head">
       <div>
-        <p class="calendar-board-kicker">Admin Only</p>
-        <h3 id="calendarModalTitle">Create Event</h3>
+        <p class="cal-modal-kicker" id="calendarModalKicker">Admin · Station event</p>
+        <h2 id="calendarModalTitle">Create event</h2>
       </div>
-      <button type="button" class="calendar-modal-close" id="calendarModalClose" aria-label="Close">x</button>
-    </div>
+      <button type="button" class="cal-modal-close" id="calendarModalClose" aria-label="Close">×</button>
+    </header>
 
     <form id="calendarForm" class="calendar-form" novalidate>
       <div class="calendar-form-grid">
         <label>
-          Event Title
-          <input type="text" id="calendarEventTitle" maxlength="255" placeholder="Enter event title" required>
+          <span class="cal-field-label">Event title</span>
+          <input type="text" id="calendarEventTitle" maxlength="255" placeholder="e.g. Quarterly safety drill" required>
         </label>
-
         <label>
-          Location
-          <input type="text" id="calendarEventLocation" maxlength="255" placeholder="Optional venue or location">
+          <span class="cal-field-label">Location</span>
+          <input type="text" id="calendarEventLocation" maxlength="255" placeholder="Station bay, address, or venue">
         </label>
-
         <label>
-          Start Date &amp; Time
+          <span class="cal-field-label">Starts</span>
           <input type="datetime-local" id="calendarEventStartAt" required>
         </label>
-
         <label>
-          End Date &amp; Time
+          <span class="cal-field-label">Ends</span>
           <input type="datetime-local" id="calendarEventEndAt">
         </label>
-
         <label class="full-width">
-          Color Theme
+          <span class="cal-field-label">Theme</span>
           <select id="calendarEventColorTheme">
-            <option value="crimson">Crimson</option>
-            <option value="amber">Amber</option>
-            <option value="sky">Sky</option>
-            <option value="emerald">Emerald</option>
-            <option value="slate">Slate</option>
+            <option value="crimson">Operations</option>
+            <option value="emerald">Training / drill</option>
+            <option value="sky">Meetings</option>
+            <option value="amber">Community</option>
+            <option value="slate">General</option>
           </select>
         </label>
-
         <label class="full-width">
-          Description
-          <textarea id="calendarEventDescription" rows="5" placeholder="Add event details, talking points, or instructions"></textarea>
+          <span class="cal-field-label">Notes</span>
+          <textarea id="calendarEventDescription" rows="4" placeholder="Instructions, attendees, or briefing details"></textarea>
         </label>
-
         <label class="calendar-toggle full-width">
           <span>
-            <strong>Notify users</strong>
-            <small>Show this event in the global alerts menu when it is due.</small>
+            <strong>Send reminder alert</strong>
+            <small>Shows in the header notifications bell before the event starts.</small>
           </span>
           <input type="checkbox" id="calendarEventNotifyUsers">
         </label>
-
         <label>
-          Reminder Minutes Before
+          <span class="cal-field-label">Remind (minutes before)</span>
           <input type="number" id="calendarEventNotifyMinutesBefore" min="5" max="10080" step="5" value="60">
         </label>
       </div>
 
       <div class="calendar-form-actions">
-        <button type="button" class="secondary-btn calendar-danger-btn" id="calendarModalDeleteBtn" hidden>Delete Event</button>
-        <button type="button" class="secondary-btn" id="calendarCancelBtn">Cancel</button>
-        <button type="submit" class="primary-btn" id="calendarSaveBtn">Save Event</button>
+        <button type="button" class="cal-btn cal-btn--danger calendar-danger-btn" id="calendarModalDeleteBtn" hidden>Delete</button>
+        <button type="button" class="cal-btn cal-btn--ghost" id="calendarCancelBtn">Cancel</button>
+        <button type="submit" class="cal-btn cal-btn--primary" id="calendarSaveBtn">Save event</button>
       </div>
-      <p id="calendarFormMessage" class="muted-text"></p>
+      <p id="calendarFormMessage" class="cal-form-message"></p>
     </form>
   </div>
 </div>

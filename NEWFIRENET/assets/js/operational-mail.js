@@ -56,6 +56,20 @@
     return;
   }
 
+  function mountMailModalsToBody() {
+    [composeModal, cloudinaryFilePicker].forEach(function (el) {
+      if (el && el.parentElement !== document.body) {
+        document.body.appendChild(el);
+      }
+    });
+  }
+
+  function syncMailModalScrollLock() {
+    const composeOpen = !composeModal.hidden;
+    const pickerOpen = cloudinaryFilePicker && !cloudinaryFilePicker.hidden;
+    document.body.classList.toggle('mail-modal-open', composeOpen || pickerOpen);
+  }
+
   const apiUrl = String((JSON.parse(contextElement.textContent || '{}') || {}).mailApiUrl || '/firenet/NEWFIRENET/backend/controllers/station_mails.php');
   const cloudinaryBrowserUrl = '/firenet/NEWFIRENET/backend/controllers/cloudinary_browser.php';
   const cloudinaryShareUrl = '/firenet/NEWFIRENET/backend/controllers/cloudinary_share.php';
@@ -948,7 +962,7 @@
 
   function openCompose() {
     composeModal.hidden = false;
-    document.body.style.overflow = 'hidden';
+    syncMailModalScrollLock();
     setMessage('', false);
     updateComposeMode();
   }
@@ -956,7 +970,7 @@
   function closeCompose() {
     composeModal.hidden = true;
     composeModal.style.display = '';
-    document.body.style.overflow = '';
+    syncMailModalScrollLock();
     composeForm.reset();
     state.composeReplyMode = false;
     state.composeReplyThreadId = 0;
@@ -989,7 +1003,7 @@
   // ===== File Picker Functions =====
   function openFilePicker() {
     cloudinaryFilePicker.hidden = false;
-    document.body.style.overflow = 'hidden';
+    syncMailModalScrollLock();
     state.filePickerSelectedFile = null;
     filePickerSelectedInfo.textContent = '';
     filePickerSelected.hidden = true;
@@ -999,7 +1013,7 @@
 
   function closeFilePicker() {
     cloudinaryFilePicker.hidden = true;
-    document.body.style.overflow = '';
+    syncMailModalScrollLock();
     state.filePickerSelectedFile = null;
   }
 
@@ -1436,14 +1450,21 @@
   });
 
   document.addEventListener('keydown', function (event) {
-    if (event.key === 'Escape' && !composeModal.hidden) {
+    if (event.key !== 'Escape') {
+      return;
+    }
+    if (cloudinaryFilePicker && !cloudinaryFilePicker.hidden) {
+      closeFilePicker();
+      return;
+    }
+    if (!composeModal.hidden) {
       closeCompose();
     }
   });
 
   async function init() {
     composeModal.hidden = true;
-    document.body.style.overflow = '';
+    syncMailModalScrollLock();
     try {
       setMessage('Loading operational mail...', false);
       await fetchBootstrap();
@@ -1455,5 +1476,6 @@
     }
   }
 
+  mountMailModalsToBody();
   init();
 })();

@@ -27,8 +27,14 @@ $operationalMailContext = [
     'mailApiUrl' => '/firenet/NEWFIRENET/backend/controllers/station_mails.php'
 ];
 
-$pageStyles = ['/firenet/NEWFIRENET/assets/css/station-mails.css', '/firenet/NEWFIRENET/assets/css/general-mail-modern.css'];
-$pageScripts = ['/firenet/NEWFIRENET/assets/js/operational-mail.js?v=20260519-1'];
+$mailCssPath = __DIR__ . '/../../assets/css/mail-pro.css';
+$mailJsPath = __DIR__ . '/../../assets/js/operational-mail.js';
+$mailCssVersion = is_file($mailCssPath) ? (string) filemtime($mailCssPath) : (string) time();
+$mailJsVersion = is_file($mailJsPath) ? (string) filemtime($mailJsPath) : (string) time();
+
+$pageStyles = ['/firenet/NEWFIRENET/assets/css/mail-pro.css?v=' . $mailCssVersion];
+$pageScripts = ['/firenet/NEWFIRENET/assets/js/operational-mail.js?v=' . $mailJsVersion];
+$bodyClass = 'has-reports-bg';
 
 require_once __DIR__ . '/../../includes/header.php';
 ?>

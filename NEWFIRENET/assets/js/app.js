@@ -133,10 +133,10 @@ function replaceCalendarNotifications(existingNotifications, calendarNotificatio
 	return mergeNotifications(keptNonCalendar, normalizedIncoming);
 }
 
-function getNotificationTitle(notification) {
-	const label = String(notification.label || 'Submission');
-	const title = String(notification.title || 'Submission');
-	return label + ': ' + title;
+function getNotificationParts(notification) {
+	const label = String(notification.label || 'Alert').trim();
+	const title = String(notification.title || 'Update').trim();
+	return { label: label, title: title };
 }
 
 function renderNotifications() {
@@ -161,7 +161,7 @@ function renderNotifications() {
 	if (notifications.length === 0) {
 		alertsMenuList.innerHTML = '<li class="alerts-empty">No alerts yet.</li>';
 		if (alertsMenuLink) {
-			alertsMenuLink.textContent = 'Open Calendar';
+			alertsMenuLink.textContent = 'Open calendar';
 			alertsMenuLink.href = calendarPageUrl;
 		}
 		return;
@@ -172,10 +172,12 @@ function renderNotifications() {
 		const className = isRead ? 'is-read' : 'is-unread';
 		const subtitle = notification.createdAt ? new Date(notification.createdAt).toLocaleString() : '';
 		const href = String(notification.url || '#');
+		const parts = getNotificationParts(notification);
 		return (
 			'<li>' +
 				'<a class="alerts-menu-item ' + className + '" href="' + href + '" data-notification-id="' + escapeHtml(String(notification.id || '')) + '">' +
-					'<span class="alerts-menu-item-title">' + escapeHtml(getNotificationTitle(notification)) + '</span>' +
+					'<span class="alerts-menu-item-kicker">' + escapeHtml(parts.label) + '</span>' +
+					'<span class="alerts-menu-item-title">' + escapeHtml(parts.title) + '</span>' +
 					'<span class="alerts-menu-item-meta">' + escapeHtml(subtitle) + '</span>' +
 				'</a>' +
 			'</li>'
@@ -183,7 +185,7 @@ function renderNotifications() {
 	}).join('');
 
 	if (alertsMenuLink) {
-		alertsMenuLink.textContent = 'Open Calendar';
+		alertsMenuLink.textContent = 'Open calendar';
 		alertsMenuLink.href = calendarPageUrl;
 	}
 }
@@ -335,13 +337,22 @@ function setupDropdown(toggle, panel, closeOthersCallback) {
 		return;
 	}
 
-	toggle.addEventListener('click', function () {
-		const expanded = toggle.getAttribute('aria-expanded') === 'true';
-		if (!expanded && typeof closeOthersCallback === 'function') {
+	toggle.addEventListener('click', function (event) {
+		event.stopPropagation();
+		const isOpen = panel.hidden === false;
+
+		if (isOpen) {
+			panel.hidden = true;
+			toggle.setAttribute('aria-expanded', 'false');
+			return;
+		}
+
+		if (typeof closeOthersCallback === 'function') {
 			closeOthersCallback(toggle);
 		}
-		toggle.setAttribute('aria-expanded', expanded ? 'false' : 'true');
-		panel.hidden = expanded;
+
+		panel.hidden = false;
+		toggle.setAttribute('aria-expanded', 'true');
 	});
 }
 
@@ -379,21 +390,21 @@ setupDropdown(appsToggle, appsPanel, function (self) {
 if ((profileToggle && profileMenu) || (alertsToggle && alertsMenu) || (appsToggle && appsPanel)) {
 	document.addEventListener('click', function (event) {
 		const target = event.target;
-		if (!(target instanceof Node)) {
+		if (!(target instanceof Element)) {
 			return;
 		}
 
-		if (profileMenu && profileToggle && !profileMenu.contains(target) && !profileToggle.contains(target)) {
+		if (profileMenu && profileToggle && !target.closest('.profile-menu')) {
 			profileToggle.setAttribute('aria-expanded', 'false');
 			profileMenu.hidden = true;
 		}
 
-		if (alertsMenu && alertsToggle && !alertsMenu.contains(target) && !alertsToggle.contains(target)) {
+		if (alertsMenu && alertsToggle && !target.closest('.alerts-menu')) {
 			alertsToggle.setAttribute('aria-expanded', 'false');
 			alertsMenu.hidden = true;
 		}
 
-		if (appsPanel && appsToggle && !appsPanel.contains(target) && !appsToggle.contains(target)) {
+		if (appsPanel && appsToggle && !target.closest('.apps-menu')) {
 			appsToggle.setAttribute('aria-expanded', 'false');
 			appsPanel.hidden = true;
 		}

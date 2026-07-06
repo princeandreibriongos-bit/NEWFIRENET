@@ -13,6 +13,7 @@
   --portal-accent-deep: var(--brand-dark, #8f1722);
   --portal-accent-soft: var(--brand-soft, #fde8ea);
   --portal-radius: var(--fn-radius-md, 14px);
+  --firenet-bg-photo: url('/firenet/NEWFIRENET/uploads/photos/bg.jpg.png');
 }
 
 body {
@@ -59,8 +60,6 @@ body {
 .settings-profile-card,
 .settings-section-card,
 .settings-modal-dialog,
-.report-modal-dialog,
-.report-type-dialog,
 .calendar-shell .portal-card,
 .analytics-shell .portal-card {
   border: 1px solid var(--portal-border);
@@ -124,10 +123,7 @@ body {
   border-color: #e3e8f0;
 }
 
-/* ── Shared form styling ── */
-.reports-form input,
-.reports-form select,
-.reports-form textarea,
+/* ── Shared form styling (reports modal uses dark theme in reports.css) ── */
 .settings-form input,
 .settings-form select,
 .users-form input,
@@ -155,9 +151,6 @@ body {
   transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
 }
 
-.reports-form input:hover,
-.reports-form select:hover,
-.reports-form textarea:hover,
 .settings-form input:hover,
 .settings-form select:hover,
 .users-form input:hover,
@@ -176,9 +169,6 @@ body {
   background: #f4f6f9;
 }
 
-.reports-form input:focus,
-.reports-form select:focus,
-.reports-form textarea:focus,
 .settings-form input:focus,
 .settings-form select:focus,
 .users-form input:focus,
@@ -199,8 +189,6 @@ body {
   background: #ffffff;
 }
 
-.reports-form input::placeholder,
-.reports-form textarea::placeholder,
 .settings-form input::placeholder,
 .users-form input::placeholder,
 .users-form textarea::placeholder,
@@ -281,8 +269,6 @@ body {
 }
 
 .settings-section-head h3,
-.report-modal-header h3,
-.report-type-dialog strong,
 .users-brgy-head h3 {
   color: var(--portal-text);
 }

@@ -1,49 +1,48 @@
-<section class="mail-landing">
+<section class="mail-pro" aria-labelledby="mailHubTitle">
+  <div class="mail-page-bg" aria-hidden="true"></div>
+
   <header class="mail-landing-header">
     <div>
-      <p class="mail-kicker">Station Mail</p>
-      <h1>Choose your workflow</h1>
-      <p class="muted-text">General communication and operational requests now live on separate pages for a cleaner, more focused experience.</p>
+      <p class="mail-kicker">Station mail</p>
+      <h1 id="mailHubTitle">Choose your inbox</h1>
+      <p class="muted-text">General communication and operational file requests are split into focused workspaces.</p>
     </div>
-    <div class="mail-landing-meta">
-      <span class="mail-user-chip">Signed in to <strong id="landingStationName">Station</strong></span>
-    </div>
+    <span class="mail-user-chip">Signed in · <strong id="landingStationName">Station</strong></span>
   </header>
 
   <div class="mail-landing-grid">
-    <article class="mail-card landing-card">
+    <article class="mail-hub-card">
+      <span class="mail-hub-icon" aria-hidden="true"><i class="bi bi-envelope-paper"></i></span>
       <div>
-        <p class="mail-kicker">General Mail</p>
+        <p class="mail-kicker">General mail</p>
         <h2>Daily station communication</h2>
-        <p class="muted-text">Use this page for announcements, routine coordination, and local station messaging.</p>
+        <p class="muted-text">Announcements, coordination, and direct messages between colleagues.</p>
       </div>
-      <ul class="simple-list">
-        <li>Send direct messages to colleagues.</li>
-        <li>Attach local files from your system.</li>
-        <li>Use filters to find conversations fast.</li>
+      <ul class="mail-hub-features">
+        <li>Direct messages to stations or users</li>
+        <li>Local file attachments</li>
+        <li>Inbox filters and bulk actions</li>
       </ul>
-      <a href="/firenet/NEWFIRENET/backend/pages/general_mail.php" class="primary-btn landing-btn">Open General Mail</a>
+      <a href="/firenet/NEWFIRENET/backend/pages/general_mail.php" class="primary-btn landing-btn">Open general mail</a>
     </article>
 
-    <article class="mail-card landing-card">
+    <article class="mail-hub-card mail-hub-card--ops">
+      <span class="mail-hub-icon" aria-hidden="true"><i class="bi bi-cloud-arrow-up"></i></span>
       <div>
-        <p class="mail-kicker">Operational Mail</p>
-        <h2>Cloudinary request workflow</h2>
-        <p class="muted-text">Create operational file requests using Cloudinary links only. This page is dedicated to incident workflows.</p>
+        <p class="mail-kicker">Operational mail</p>
+        <h2>Cloudinary file requests</h2>
+        <p class="muted-text">Incident-level requests routed through ComL with Cloudinary-hosted files only.</p>
       </div>
-      <ul class="simple-list">
-        <li>Request files using Cloudinary URLs.</li>
-        <li>Route requests through ComL when needed.</li>
-        <li>Track request status separately.</li>
+      <ul class="mail-hub-features">
+        <li>Station folder file references</li>
+        <li>Request status timeline</li>
+        <li>ComL approval workflow</li>
       </ul>
-      <a href="/firenet/NEWFIRENET/backend/pages/operational_mail.php" class="primary-btn landing-btn">Open Operational Mail</a>
+      <a href="/firenet/NEWFIRENET/backend/pages/operational_mail.php" class="primary-btn landing-btn">Open operational mail</a>
     </article>
   </div>
 
-  <section class="mail-landing-summary mail-card">
-    <h2>How the split works</h2>
-    <p class="muted-text">General Mail is for everyday communication and local files. Operational Mail is for incident-level file requests and must reference Cloudinary-hosted attachments.</p>
-  </section>
+  <p class="mail-landing-tip"><strong>Tip:</strong> Use general mail for everyday updates. Use operational mail when you need a formal file request with routing and audit trail.</p>
 </section>
 
 <script>
