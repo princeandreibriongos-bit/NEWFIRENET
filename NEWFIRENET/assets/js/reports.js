@@ -226,8 +226,8 @@
     reportsScopeMine.setAttribute('aria-selected', showingAll ? 'false' : 'true');
     reportsScopeAll.setAttribute('aria-selected', showingAll ? 'true' : 'false');
     reportsScopeDescription.textContent = showingAll
-      ? 'Showing all reports across every station.'
-      : 'Showing only your own report transactions.';
+      ? 'Showing all reports for your station.'
+      : 'Showing incident reports for your station and your equipment reports.';
   }
 
   function setReportsScope(nextScope) {
@@ -1490,6 +1490,10 @@
 
     if ((item.type || '') === 'incident_report') {
       addSectionTitle('Incident Details');
+      addTextLine('Incident Case ID', item.displayId || (item.incidentCaseId ? '#' + String(item.incidentCaseId) : '-'));
+      addTextLine('Station Report ID', item.id ? String(item.id) : '-');
+      addTextLine('Responding Station', item.stationName || context.stationName || '-');
+      addTextLine('Last Updated By', item.updatedBy || item.submittedBy || '-');
       addTextLine('Caller Name', item.callerName || '-');
       addTextLine('Stage', normalizeStage(item.stage || '', item.type || ''));
       addTextLine('Alarm Level', item.alarmLevel ? String(item.alarmLevel) : '-');
@@ -1760,6 +1764,14 @@
     return !isIncidentCompleted(item) && !hasIncidentFirstProgressUpdate(item);
   }
 
+  function formatReportTitle(item) {
+    const title = item.title || '-';
+    if ((item.type || '') === 'incident_report' && item.displayId) {
+      return String(item.displayId) + ' · ' + title;
+    }
+    return title;
+  }
+
   function renderRows(reports) {
     reportsById.clear();
 
@@ -1824,7 +1836,13 @@
         return (
           '<tr>' +
           '<td>' + escapeHtml(normalizeType(item.type || '')) + '</td>' +
-          '<td>' + escapeHtml(item.title || '-') + '</td>' +
+          '<td>' + escapeHtml(formatReportTitle(item)) +
+          ((item.type || '') === 'incident_report' && item.stationName
+            ? '<div class="logs-row-subtitle">' + escapeHtml(item.stationName) + ' report' +
+              (item.updatedBy ? ' · Updated by ' + escapeHtml(item.updatedBy) : '') +
+              '</div>'
+            : '') +
+          '</td>' +
           '<td>' + escapeHtml(timestampLabel) + '</td>' +
           '<td><div class="table-action-group">' +
           actionsHtml +

@@ -251,8 +251,11 @@ ON DUPLICATE KEY UPDATE
 CREATE TABLE IF NOT EXISTS incident_reports (
 	incident_report_id INT PRIMARY KEY AUTO_INCREMENT,
 	report_id INT NOT NULL,
+	incident_case_id INT NULL,
+	station_id INT NULL,
 	incident_report_stage_id INT NOT NULL,
 	received_by_user_id INT,
+	updated_by_user_id INT,
 	caller_name VARCHAR(120),
 	caller_contact VARCHAR(50),
 	incident_location VARCHAR(255) NULL,
@@ -273,7 +276,9 @@ CREATE TABLE IF NOT EXISTS incident_reports (
 	UNIQUE KEY unique_incident_report_reference (report_id),
 	CONSTRAINT fk_incident_reports_report FOREIGN KEY (report_id) REFERENCES reports(report_id) ON DELETE CASCADE,
 	CONSTRAINT fk_incident_reports_stage FOREIGN KEY (incident_report_stage_id) REFERENCES incident_report_stage(incident_report_stage_id),
+	CONSTRAINT fk_incident_reports_station FOREIGN KEY (station_id) REFERENCES stations(station_id) ON DELETE CASCADE,
 	CONSTRAINT fk_incident_reports_receiver FOREIGN KEY (received_by_user_id) REFERENCES users(user_id) ON DELETE SET NULL,
+	CONSTRAINT fk_incident_reports_updated_by FOREIGN KEY (updated_by_user_id) REFERENCES users(user_id) ON DELETE SET NULL,
 	CONSTRAINT fk_incident_reports_dispatch_station FOREIGN KEY (dispatched_station_id) REFERENCES stations(station_id) ON DELETE SET NULL
 );
 
@@ -418,6 +423,67 @@ SET @sql_create_incident_dispatch_table := IF(
 PREPARE stmt_create_incident_dispatch_table FROM @sql_create_incident_dispatch_table;
 EXECUTE stmt_create_incident_dispatch_table;
 DEALLOCATE PREPARE stmt_create_incident_dispatch_table;
+
+SET @incident_case_id_col_exists := (
+	SELECT COUNT(*)
+	FROM information_schema.COLUMNS
+	WHERE TABLE_SCHEMA = DATABASE()
+		AND TABLE_NAME = 'incident_reports'
+		AND COLUMN_NAME = 'incident_case_id'
+);
+
+SET @sql_add_incident_case_id_col := IF(
+	@incident_case_id_col_exists = 0,
+	'ALTER TABLE incident_reports ADD COLUMN incident_case_id INT NULL AFTER report_id',
+	'SELECT 1'
+);
+PREPARE stmt_add_incident_case_id_col FROM @sql_add_incident_case_id_col;
+EXECUTE stmt_add_incident_case_id_col;
+DEALLOCATE PREPARE stmt_add_incident_case_id_col;
+
+SET @incident_station_id_col_exists := (
+	SELECT COUNT(*)
+	FROM information_schema.COLUMNS
+	WHERE TABLE_SCHEMA = DATABASE()
+		AND TABLE_NAME = 'incident_reports'
+		AND COLUMN_NAME = 'station_id'
+);
+
+SET @sql_add_incident_station_id_col := IF(
+	@incident_station_id_col_exists = 0,
+	'ALTER TABLE incident_reports ADD COLUMN station_id INT NULL AFTER incident_case_id',
+	'SELECT 1'
+);
+PREPARE stmt_add_incident_station_id_col FROM @sql_add_incident_station_id_col;
+EXECUTE stmt_add_incident_station_id_col;
+DEALLOCATE PREPARE stmt_add_incident_station_id_col;
+
+SET @incident_updated_by_col_exists := (
+	SELECT COUNT(*)
+	FROM information_schema.COLUMNS
+	WHERE TABLE_SCHEMA = DATABASE()
+		AND TABLE_NAME = 'incident_reports'
+		AND COLUMN_NAME = 'updated_by_user_id'
+);
+
+SET @sql_add_incident_updated_by_col := IF(
+	@incident_updated_by_col_exists = 0,
+	'ALTER TABLE incident_reports ADD COLUMN updated_by_user_id INT NULL AFTER received_by_user_id',
+	'SELECT 1'
+);
+PREPARE stmt_add_incident_updated_by_col FROM @sql_add_incident_updated_by_col;
+EXECUTE stmt_add_incident_updated_by_col;
+DEALLOCATE PREPARE stmt_add_incident_updated_by_col;
+
+UPDATE incident_reports i
+JOIN reports r ON r.report_id = i.report_id
+SET i.station_id = r.station_id
+WHERE i.station_id IS NULL;
+
+UPDATE incident_reports i
+JOIN reports r ON r.report_id = i.report_id
+SET i.updated_by_user_id = COALESCE(i.received_by_user_id, r.created_by)
+WHERE i.updated_by_user_id IS NULL;
 
 CREATE TABLE IF NOT EXISTS calendar_events (
 	calendar_event_id INT PRIMARY KEY AUTO_INCREMENT,

@@ -135,25 +135,11 @@
   }
 
   function renderStationFilterOptions(logs) {
-    const stations = new Map();
-    logs.forEach(function (log) {
-      const id = String(log.stationId || '');
-      if (!id) {
-        return;
-      }
-      if (!stations.has(id)) {
-        stations.set(id, String(log.stationName || 'Station ' + id));
-      }
-    });
-
-    const currentValue = String(stationFilter.value || '');
-    stationFilter.innerHTML = '<option value="">All Stations</option>' + Array.from(stations.entries()).map(function ([id, name]) {
-      return '<option value="' + escapeHtml(id) + '">' + escapeHtml(name) + '</option>';
-    }).join('');
-
-    if (stations.has(currentValue)) {
-      stationFilter.value = currentValue;
-    }
+    const currentStationId = String(context.stationId || '');
+    const currentStationName = String(context.stationName || ('Station ' + currentStationId));
+    stationFilter.innerHTML = '<option value="' + escapeHtml(currentStationId) + '">' + escapeHtml(currentStationName) + '</option>';
+    stationFilter.value = currentStationId;
+    stationFilter.disabled = true;
   }
 
   function renderSummary(logs) {
@@ -163,8 +149,8 @@
     underControlNode.textContent = '0';
     stationNode.textContent = context.stationName || 'All Stations';
     summary.textContent = total === 0
-      ? 'No completed incident logs match your filters.'
-      : 'Showing ' + String(total) + ' completed incident log(s) across ' + String(new Set(logs.map(function (log) { return log.stationId; })).size) + ' station(s).';
+      ? 'No completed incident logs for your station match your filters.'
+      : 'Showing ' + String(total) + ' completed incident log(s) for ' + String(context.stationName || 'your station') + '.';
   }
 
   function sortLogs(logs) {
@@ -248,7 +234,11 @@
       const details = [log.title || 'Untitled Incident', log.incidentLocation || '-', formatAlarmLabel(log.alarmLevel), String(log.incidentStatus || '').replace(/_/g, ' ') || 'fire out'];
       return '<tr class="logs-row" tabindex="0" data-log-id="' + escapeHtml(String(log.id || '')) + '">' +
         '<td>' + escapeHtml(finishedAt) + '</td>' +
-        '<td><strong>#' + escapeHtml(String(log.id || '')) + '</strong></td>' +
+        '<td><strong>#' + escapeHtml(String(log.incidentCaseId || log.id || '')) + '</strong>' +
+        (log.incidentCaseId && String(log.incidentCaseId) !== String(log.id)
+          ? '<div class="logs-row-subtitle">Station copy ' + escapeHtml(String(log.id || '')) + '</div>'
+          : '') +
+        '</td>' +
         '<td>' + escapeHtml(log.stationName || '-') + '</td>' +
         '<td>' + escapeHtml(details[0]) + '<div class="logs-row-subtitle">' + escapeHtml(details[1]) + '</div></td>' +
         '<td>' + escapeHtml(log.submittedBy || '-') + '</td>' +
@@ -268,7 +258,7 @@
     modalTitle.textContent = log.title || 'Incident Report';
     modalMeta.textContent = [log.stationName || 'Station', formatAlarmLabel(log.alarmLevel), String(log.incidentStatus || '').replace(/_/g, ' ') || 'fire out'].join(' • ');
     modalLocation.textContent = log.incidentLocation || '-';
-    modalSubmittedBy.textContent = log.submittedBy || '-';
+    modalSubmittedBy.textContent = (log.updatedBy || log.submittedBy || '-');
     modalFinishedAt.textContent = formatDateTime(log.incidentFinishedAt || log.updatedAt || log.submittedAt || '');
 
     const entries = buildTimelineEntries(log);
@@ -332,13 +322,16 @@
       return;
     }
 
-    const headers = ['Finished At', 'Report ID', 'Station', 'Title', 'Submitted By', 'Status', 'Alarm', 'Location'];
+    const headers = ['Finished At', 'Incident Case ID', 'Station Report ID', 'Station ID', 'Station', 'Updated By', 'Title', 'Submitted By', 'Status', 'Alarm', 'Location'];
     const csvRows = [headers.join(',')];
     rows.forEach(function (log) {
       const row = [
         formatDateTime(log.incidentFinishedAt || log.updatedAt || log.submittedAt || ''),
+        String(log.incidentCaseId || log.id || ''),
         String(log.id || ''),
+        String(log.stationId || ''),
         String(log.stationName || ''),
+        String(log.updatedBy || ''),
         String(log.title || ''),
         String(log.submittedBy || ''),
         String(log.incidentStatus || ''),

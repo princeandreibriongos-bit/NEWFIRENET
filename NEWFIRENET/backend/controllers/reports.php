@@ -215,6 +215,148 @@ function firenet_find_station_assignments(PDO $pdo, float $latitude, float $long
     return $selected;
 }
 
+function firenet_ensure_incident_report_columns(PDO $pdo): void {
+    $columnExistsStmt = $pdo->query("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'incident_reports' AND COLUMN_NAME = 'incident_case_id'");
+    if ((int) $columnExistsStmt->fetchColumn() === 0) {
+        $pdo->exec('ALTER TABLE incident_reports ADD COLUMN incident_case_id INT NULL AFTER report_id');
+        $pdo->exec('CREATE INDEX idx_incident_reports_case ON incident_reports (incident_case_id)');
+    }
+
+    $stationColumnStmt = $pdo->query("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'incident_reports' AND COLUMN_NAME = 'station_id'");
+    if ((int) $stationColumnStmt->fetchColumn() === 0) {
+        $pdo->exec('ALTER TABLE incident_reports ADD COLUMN station_id INT NULL AFTER incident_case_id');
+    }
+
+    $updatedByColumnStmt = $pdo->query("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'incident_reports' AND COLUMN_NAME = 'updated_by_user_id'");
+    if ((int) $updatedByColumnStmt->fetchColumn() === 0) {
+        $pdo->exec('ALTER TABLE incident_reports ADD COLUMN updated_by_user_id INT NULL AFTER received_by_user_id');
+    }
+
+    $stationFkStmt = $pdo->query("SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS WHERE CONSTRAINT_SCHEMA = DATABASE() AND TABLE_NAME = 'incident_reports' AND CONSTRAINT_NAME = 'fk_incident_reports_station'");
+    if ((int) $stationFkStmt->fetchColumn() === 0) {
+        $pdo->exec('ALTER TABLE incident_reports ADD CONSTRAINT fk_incident_reports_station FOREIGN KEY (station_id) REFERENCES stations(station_id) ON DELETE CASCADE');
+    }
+
+    $updatedByFkStmt = $pdo->query("SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS WHERE CONSTRAINT_SCHEMA = DATABASE() AND TABLE_NAME = 'incident_reports' AND CONSTRAINT_NAME = 'fk_incident_reports_updated_by'");
+    if ((int) $updatedByFkStmt->fetchColumn() === 0) {
+        $pdo->exec('ALTER TABLE incident_reports ADD CONSTRAINT fk_incident_reports_updated_by FOREIGN KEY (updated_by_user_id) REFERENCES users(user_id) ON DELETE SET NULL');
+    }
+
+    $pdo->exec('
+        UPDATE incident_reports i
+        JOIN reports r ON r.report_id = i.report_id
+        SET i.station_id = r.station_id
+        WHERE i.station_id IS NULL
+    ');
+    $pdo->exec('
+        UPDATE incident_reports i
+        JOIN reports r ON r.report_id = i.report_id
+        SET i.updated_by_user_id = COALESCE(i.received_by_user_id, r.created_by)
+        WHERE i.updated_by_user_id IS NULL
+    ');
+}
+
+function firenet_sync_responder_station_reports(
+    PDO $pdo,
+    int $primaryReportId,
+    int $primaryIncidentReportId,
+    int $reportTypeId,
+    int $createdByUserId,
+    array $assignedStations,
+    array $snapshot
+): void {
+    firenet_ensure_incident_report_columns($pdo);
+
+    if ($primaryReportId < 1 || $primaryIncidentReportId < 1) {
+        return;
+    }
+
+    $pdo->prepare('UPDATE incident_reports SET incident_case_id = ? WHERE incident_report_id = ?')
+        ->execute([$primaryReportId, $primaryIncidentReportId]);
+
+    $existingStmt = $pdo->prepare('
+        SELECT r.report_id, COALESCE(i.station_id, r.station_id) AS station_id, i.incident_report_id
+        FROM incident_reports i
+        JOIN reports r ON r.report_id = i.report_id
+        WHERE i.incident_case_id = ?
+    ');
+    $existingStmt->execute([$primaryReportId]);
+    $existingByStation = [];
+    foreach ($existingStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        $existingByStation[(int) ($row['station_id'] ?? 0)] = $row;
+    }
+
+    if (empty($assignedStations)) {
+        return;
+    }
+
+    $insertIncidentStmt = $pdo->prepare('
+        INSERT INTO incident_reports (
+            report_id, incident_case_id, station_id, incident_report_stage_id, received_by_user_id, updated_by_user_id,
+            caller_name, incident_location, latitude, longitude, geocode_status, assignment_method, assignment_distance_km,
+            dispatched_station_id, alarm_level, incident_status, incident_started_at, incident_finished_at, remarks
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ');
+    $insertUpdateStmt = $pdo->prepare('
+        INSERT INTO incident_report_updates (incident_report_id, alarm_level, incident_status, recorded_by_user_id)
+        VALUES (?, ?, ?, ?)
+    ');
+
+    foreach ($assignedStations as $assignment) {
+        $responderStationId = (int) ($assignment['stationId'] ?? 0);
+        if ($responderStationId < 1 || isset($existingByStation[$responderStationId])) {
+            continue;
+        }
+
+        $title = (string) ($snapshot['title'] ?? '');
+        $remarks = (string) ($snapshot['remarks'] ?? '');
+
+        $pdo->prepare('
+            INSERT INTO reports (report_type_id, station_id, title, description, created_by, status)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ')->execute([$reportTypeId, $responderStationId, $title, $remarks, $createdByUserId, 'submitted']);
+        $responderReportId = (int) $pdo->lastInsertId();
+
+        $insertIncidentStmt->execute([
+            $responderReportId,
+            $primaryReportId,
+            $responderStationId,
+            (int) ($snapshot['stageId'] ?? 1),
+            $createdByUserId,
+            $createdByUserId,
+            (string) ($snapshot['callerName'] ?? ''),
+            (string) ($snapshot['location'] ?? ''),
+            $snapshot['latitude'],
+            $snapshot['longitude'],
+            (string) ($snapshot['geocodeStatus'] ?? 'skipped'),
+            (string) ($snapshot['assignmentMethod'] ?? 'pending'),
+            $snapshot['assignmentDistanceKm'],
+            $responderStationId,
+            (int) ($snapshot['alarmLevel'] ?? 1),
+            $snapshot['incidentStatus'] ?: null,
+            $snapshot['incidentStartedAt'] ?: null,
+            $snapshot['incidentFinishedAt'] ?: null,
+            $remarks
+        ]);
+
+        $responderIncidentId = (int) $pdo->lastInsertId();
+        firenet_sync_incident_dispatch_stations($pdo, $responderIncidentId, $assignedStations);
+
+        $insertUpdateStmt->execute([
+            $responderIncidentId,
+            (int) ($snapshot['alarmLevel'] ?? 1),
+            $snapshot['incidentStatus'] ?: null,
+            $createdByUserId
+        ]);
+    }
+}
+
+function firenet_report_belongs_to_station(PDO $pdo, int $reportId, int $stationId): bool {
+    $stmt = $pdo->prepare('SELECT report_id FROM reports WHERE report_id = ? AND station_id = ? LIMIT 1');
+    $stmt->execute([$reportId, $stationId]);
+    return (bool) $stmt->fetchColumn();
+}
+
 function firenet_sync_incident_dispatch_stations(PDO $pdo, int $incidentReportId, array $assignments): void {
     $pdo->prepare('DELETE FROM incident_report_dispatch_stations WHERE incident_report_id = ?')->execute([$incidentReportId]);
 
@@ -753,21 +895,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             $where = ["(s.stage_code = 'after_incident' OR i.incident_status = 'fire_out' OR i.incident_finished_at IS NOT NULL)"];
             $params = [];
 
+            $where[] = 'COALESCE(i.station_id, r.station_id) = ?';
+            $params[] = $stationFilter > 0 ? $stationFilter : $sessionStationId;
+
             if ($search !== '') {
                 $where[] = '(r.title LIKE ? OR i.incident_location LIKE ? OR u.username LIKE ? OR COALESCE(ds.station_name, s_report.station_name, "") LIKE ?)';
                 $like = '%' . $search . '%';
                 $params = array_merge($params, [$like, $like, $like, $like]);
             }
 
-            if ($stationFilter > 0) {
-                $where[] = '(s_report.station_id = ? OR i.dispatched_station_id = ? OR d.station_id = ?)';
-                $params = array_merge($params, [$stationFilter, $stationFilter, $stationFilter]);
-            }
+            firenet_ensure_incident_report_columns($pdo);
 
             $sql = '
                 SELECT DISTINCT r.report_id, r.title, r.description, r.created_at, r.updated_at, r.created_by,
                        u.username AS creator_username,
-                       i.incident_report_id, i.incident_location, i.alarm_level, i.incident_status,
+                       i.incident_report_id, i.incident_case_id, i.station_id AS incident_station_id,
+                       i.updated_by_user_id, u_updated.username AS updated_by_username,
+                       i.incident_location, i.alarm_level, i.incident_status,
                        i.incident_started_at, i.incident_finished_at, i.caller_name, i.remarks AS incident_remarks,
                        i.incident_report_stage_id, s.stage_code, i.latitude, i.longitude, i.geocode_status,
                        i.assignment_method, i.assignment_distance_km, i.dispatched_station_id,
@@ -783,6 +927,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                 LEFT JOIN stations s_report ON s_report.station_id = r.station_id
                 LEFT JOIN incident_report_dispatch_stations d ON d.incident_report_id = i.incident_report_id
                 LEFT JOIN users u ON u.user_id = r.created_by
+                LEFT JOIN users u_updated ON u_updated.user_id = i.updated_by_user_id
                 LEFT JOIN equipment_reports e ON e.report_id = r.report_id
                 WHERE ' . implode(' AND ', $where) . '
                 ORDER BY ' . $sortColumn . ' ' . $sortDirection . ', r.report_id DESC
@@ -835,10 +980,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
 
                 $logs[] = [
                     'id' => (int) ($row['report_id'] ?? 0),
+                    'incidentCaseId' => (int) ($row['incident_case_id'] ?? $row['report_id'] ?? 0),
                     'incidentReportId' => $incidentReportId,
-                    'title' => (string) ($row['title'] ?? ''),
-                    'stationId' => (int) ($row['report_station_id'] ?? 0),
+                    'stationId' => (int) ($row['incident_station_id'] ?? $row['report_station_id'] ?? 0),
                     'stationName' => (string) ($row['report_station_name'] ?? ''),
+                    'updatedByUserId' => (int) ($row['updated_by_user_id'] ?? 0),
+                    'updatedBy' => (string) ($row['updated_by_username'] ?? ''),
+                    'title' => (string) ($row['title'] ?? ''),
                     'assignedStationName' => (string) ($row['assigned_station_name'] ?? ''),
                     'incidentLocation' => (string) ($row['incident_location'] ?? ''),
                     'alarmLevel' => (int) ($row['alarm_level'] ?? 0),
@@ -883,13 +1031,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     try {
         $pdo = firenet_get_pdo();
         firenet_ensure_equipment_reports_table($pdo);
+        firenet_ensure_incident_report_columns($pdo);
         $sql = '
-            SELECT DISTINCT r.report_id, r.report_type_id, rt.type_name,
+            SELECT DISTINCT r.report_id, r.report_type_id, r.station_id AS report_station_id, rt.type_name,
                     r.title,
                     r.description,
                     r.created_at, r.updated_at, r.created_by,
                     u.username AS creator_username,
-                    i.incident_report_id, i.incident_location, i.alarm_level,
+                    s_report.station_name AS report_station_name,
+                    i.incident_report_id, i.incident_case_id, i.station_id AS incident_station_id,
+                    i.updated_by_user_id, u_updated.username AS updated_by_username,
+                    i.incident_location, i.alarm_level,
                     i.incident_status, i.incident_started_at, i.incident_finished_at,
                     i.caller_name, i.remarks AS incident_remarks, i.incident_report_stage_id, s.stage_code,
                     i.latitude, i.longitude, i.geocode_status, i.assignment_method, i.assignment_distance_km,
@@ -903,12 +1055,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             LEFT JOIN equipment_reports e ON r.report_id = e.report_id
             LEFT JOIN incident_report_stage s ON i.incident_report_stage_id = s.incident_report_stage_id
             LEFT JOIN stations ds ON ds.station_id = i.dispatched_station_id
-            LEFT JOIN incident_report_dispatch_stations d ON d.incident_report_id = i.incident_report_id
+            LEFT JOIN stations s_report ON s_report.station_id = r.station_id
             LEFT JOIN users u ON u.user_id = r.created_by
+            LEFT JOIN users u_updated ON u_updated.user_id = i.updated_by_user_id
         ';
         $params = [];
-        if ($scope === 'mine') {
-            $sql .= ' WHERE r.created_by = ?';
+        if ($scope === 'all' && $canViewAllReports) {
+            $sql .= ' WHERE r.station_id = ?';
+            $params[] = $sessionStationId;
+        } else {
+            $sql .= ' WHERE ((rt.type_name = ? AND COALESCE(i.station_id, r.station_id) = ?) OR (rt.type_name <> ? AND r.created_by = ?))';
+            $params[] = 'incident_report';
+            $params[] = $sessionStationId;
+            $params[] = 'incident_report';
             $params[] = $userId;
         }
         $sql .= ' ORDER BY r.updated_at DESC, r.created_at DESC LIMIT 200';
@@ -928,6 +1087,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             $report = [
                 'id' => $reportId,
                 'type' => $reportType,
+                'stationId' => (int) ($row['report_station_id'] ?? 0),
+                'stationName' => (string) ($row['report_station_name'] ?? ''),
                 'title' => ($row['title'] ?? '') !== '' ? $row['title'] : ($rawLocation !== '' ? $rawLocation : (string) ($row['equipment_name'] ?? '')),
                 'location' => $rawLocation,
                 'barangay' => $locationParts['barangay'] ?? '',
@@ -943,6 +1104,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             ];
             
             if ($reportType === 'incident_report') {
+                $incidentCaseId = (int) ($row['incident_case_id'] ?? 0);
+                if ($incidentCaseId < 1) {
+                    $incidentCaseId = $reportId;
+                }
+                $report['incidentCaseId'] = $incidentCaseId;
+                $report['displayId'] = '#' . $incidentCaseId;
+                $report['incidentStationId'] = (int) ($row['incident_station_id'] ?? $row['report_station_id'] ?? 0);
+                $report['updatedByUserId'] = (int) ($row['updated_by_user_id'] ?? 0);
+                $report['updatedBy'] = (string) ($row['updated_by_username'] ?? '');
                 $report['alarmLevel'] = (int) ($row['alarm_level'] ?? 0);
                 $report['incidentStatus'] = $row['incident_status'] ?? '';
                 $report['incidentStartedAt'] = $row['incident_started_at'] ?? '';
@@ -1173,6 +1343,7 @@ if ($locationLatitudeRaw !== '' || $locationLongitudeRaw !== '') {
 try {
     $pdo = firenet_get_pdo();
     firenet_ensure_equipment_reports_table($pdo);
+    firenet_ensure_incident_report_columns($pdo);
     
     if ($action === 'delete') {
         http_response_code(403);
@@ -1397,6 +1568,11 @@ try {
                     echo json_encode(['ok' => false, 'message' => 'Only Position 1 can update incident progress.']);
                     exit;
                 }
+                if (!firenet_report_belongs_to_station($pdo, $reportId, $sessionStationId)) {
+                    http_response_code(404);
+                    echo json_encode(['ok' => false, 'message' => 'Report not found for your station']);
+                    exit;
+                }
             } else {
                 $ownershipStmt = $pdo->prepare('SELECT report_id FROM reports WHERE report_id = ? AND created_by = ?');
                 $ownershipStmt->execute([$reportId, $userId]);
@@ -1527,7 +1703,8 @@ try {
                                 incident_finished_at = ?,
                                 assignment_method = ?,
                                 assignment_distance_km = ?,
-                                dispatched_station_id = ?
+                                dispatched_station_id = ?,
+                                updated_by_user_id = ?
                             WHERE report_id = ?
                         ')->execute([
                             $stageId,
@@ -1537,23 +1714,46 @@ try {
                             $primaryProgressAssignment['method'] ?? null,
                             isset($primaryProgressAssignment['distanceKm']) ? (float) $primaryProgressAssignment['distanceKm'] : null,
                             isset($primaryProgressAssignment['stationId']) ? (int) $primaryProgressAssignment['stationId'] : null,
+                            $userId,
                             $reportId
                         ]);
 
                         firenet_sync_incident_dispatch_stations($pdo, $incidentId, $progressAssignments);
+
+                        $caseStmt = $pdo->prepare('SELECT COALESCE(NULLIF(incident_case_id, 0), report_id) FROM incident_reports WHERE incident_report_id = ? LIMIT 1');
+                        $caseStmt->execute([$incidentId]);
+                        $caseReportId = (int) ($caseStmt->fetchColumn() ?: $reportId);
+                        firenet_sync_responder_station_reports($pdo, $caseReportId, $incidentId, $reportTypeId, $userId, $progressAssignments, [
+                            'stageId' => $stageId,
+                            'title' => $title !== '' ? $title : ('Incident ' . $caseReportId),
+                            'remarks' => $remarks,
+                            'callerName' => $callerName,
+                            'location' => $location,
+                            'latitude' => isset($incident['latitude']) ? (float) $incident['latitude'] : null,
+                            'longitude' => isset($incident['longitude']) ? (float) $incident['longitude'] : null,
+                            'geocodeStatus' => $geoContext['geocodeStatus'] ?? 'skipped',
+                            'assignmentMethod' => $primaryProgressAssignment['method'] ?? null,
+                            'assignmentDistanceKm' => isset($primaryProgressAssignment['distanceKm']) ? (float) $primaryProgressAssignment['distanceKm'] : null,
+                            'alarmLevel' => $alarmLevel,
+                            'incidentStatus' => $incidentStatus ?: null,
+                            'incidentStartedAt' => $incidentStartedAt ?: null,
+                            'incidentFinishedAt' => $incidentFinishedAt ?: null
+                        ]);
                     } else {
                         $pdo->prepare('
                             UPDATE incident_reports SET
                                 incident_report_stage_id = ?,
                                 alarm_level = ?,
                                 incident_status = ?,
-                                incident_finished_at = ?
+                                incident_finished_at = ?,
+                                updated_by_user_id = ?
                             WHERE report_id = ?
                         ')->execute([
                             $stageId,
                             $alarmLevel,
                             $incidentStatus,
                             $incidentFinishedAt ?: null,
+                            $userId,
                             $reportId
                         ]);
                     }
@@ -1573,7 +1773,8 @@ try {
                             assignment_distance_km = ?,
                             dispatched_station_id = ?,
                             caller_name = ?,
-                            remarks = ?
+                            remarks = ?,
+                            updated_by_user_id = ?
                         WHERE report_id = ?
                     ')->execute([
                         $stageId,
@@ -1590,10 +1791,28 @@ try {
                         $geoContext['assignedStationId'],
                         $callerName,
                         $remarks,
+                        $userId,
                         $reportId
                     ]);
 
                         firenet_sync_incident_dispatch_stations($pdo, $incidentId, $geoContext['assignedStations']);
+
+                        firenet_sync_responder_station_reports($pdo, $reportId, $incidentId, $reportTypeId, $userId, $geoContext['assignedStations'], [
+                            'stageId' => $stageId,
+                            'title' => $title,
+                            'remarks' => $remarks,
+                            'callerName' => $callerName,
+                            'location' => $location,
+                            'latitude' => $geoContext['latitude'],
+                            'longitude' => $geoContext['longitude'],
+                            'geocodeStatus' => $geoContext['geocodeStatus'],
+                            'assignmentMethod' => $geoContext['assignmentMethod'],
+                            'assignmentDistanceKm' => $geoContext['assignmentDistanceKm'],
+                            'alarmLevel' => $alarmLevel,
+                            'incidentStatus' => $incidentStatus ?: null,
+                            'incidentStartedAt' => $incidentStartedAt ?: null,
+                            'incidentFinishedAt' => $incidentFinishedAt ?: null
+                        ]);
                 }
                 
                 $oldAlarm = (int) $incident['alarm_level'];
@@ -1649,11 +1868,14 @@ try {
         $stageId = $stageRow ? (int) $stageRow['incident_report_stage_id'] : 1;
         
         $pdo->prepare('
-            INSERT INTO incident_reports (report_id, incident_report_stage_id, received_by_user_id, caller_name, incident_location, latitude, longitude, geocode_status, assignment_method, assignment_distance_km, dispatched_station_id, alarm_level, incident_status, incident_started_at, incident_finished_at, remarks)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO incident_reports (report_id, incident_case_id, station_id, incident_report_stage_id, received_by_user_id, updated_by_user_id, caller_name, incident_location, latitude, longitude, geocode_status, assignment_method, assignment_distance_km, dispatched_station_id, alarm_level, incident_status, incident_started_at, incident_finished_at, remarks)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ')->execute([
             $newReportId,
+            $newReportId,
+            $stationId,
             $stageId,
+            $userId,
             $userId,
             $callerName,
             $location,
@@ -1673,6 +1895,23 @@ try {
         $newIncidentId = (int) $pdo->lastInsertId();
 
         firenet_sync_incident_dispatch_stations($pdo, $newIncidentId, $geoContext['assignedStations']);
+
+        firenet_sync_responder_station_reports($pdo, $newReportId, $newIncidentId, $reportTypeId, $userId, $geoContext['assignedStations'], [
+            'stageId' => $stageId,
+            'title' => $title,
+            'remarks' => $remarks,
+            'callerName' => $callerName,
+            'location' => $location,
+            'latitude' => $geoContext['latitude'],
+            'longitude' => $geoContext['longitude'],
+            'geocodeStatus' => $geoContext['geocodeStatus'],
+            'assignmentMethod' => $geoContext['assignmentMethod'],
+            'assignmentDistanceKm' => $geoContext['assignmentDistanceKm'],
+            'alarmLevel' => $alarmLevel,
+            'incidentStatus' => $incidentStatus ?: null,
+            'incidentStartedAt' => $incidentStartedAt ?: null,
+            'incidentFinishedAt' => $incidentFinishedAt ?: null
+        ]);
         
         // Record initial incident update snapshot
         $pdo->prepare('
