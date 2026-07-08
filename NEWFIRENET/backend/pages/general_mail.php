@@ -12,11 +12,14 @@ $user = (string) ($_SESSION['user']['username'] ?? 'Unknown User');
 
 try {
     $pdo = firenet_get_pdo();
-    $stmt = $pdo->prepare('SELECT station_name FROM stations WHERE station_id = ? LIMIT 1');
+    $stmt = $pdo->prepare('SELECT station_name, station_code FROM stations WHERE station_id = ? LIMIT 1');
     $stmt->execute([$stationId]);
-    $stationName = (string) ($stmt->fetchColumn() ?: $stationName);
+    $stationRow = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+    $stationName = (string) ($stationRow['station_name'] ?? $stationName);
+    $isCentralStation = strtolower((string) ($stationRow['station_code'] ?? '')) === 'mcfs';
 } catch (Throwable $ignored) {
     // Use default station label.
+    $isCentralStation = false;
 }
 
 $generalMailContext = [
@@ -24,7 +27,9 @@ $generalMailContext = [
     'stationName' => $stationName,
     'user' => $user,
     'role' => $role,
-    'mailApiUrl' => '/firenet/NEWFIRENET/backend/controllers/station_mails.php'
+    'mailApiUrl' => '/firenet/NEWFIRENET/backend/controllers/station_mails.php',
+    'isCentralStation' => $isCentralStation,
+    'mailHomeUrl' => $isCentralStation ? '/firenet/NEWFIRENET/backend/pages/station_mails.php' : '/firenet/NEWFIRENET/backend/pages/general_mail.php'
 ];
 
 $mailCssPath = __DIR__ . '/../../assets/css/mail-pro.css';

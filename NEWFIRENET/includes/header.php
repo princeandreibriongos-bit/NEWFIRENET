@@ -42,6 +42,7 @@ $sessionUserId = (int) ($sessionUser['user_id'] ?? 0);
 $sessionStationName = 'Station ' . $sessionStationId;
 $headerProfilePhotoUrl = '';
 $headerProfileInitials = 'FN';
+$sessionIsCentralStation = false;
 
 function firenet_build_initials(string $primary, string $fallback): string {
   $source = trim($primary) !== '' ? $primary : $fallback;
@@ -74,13 +75,17 @@ $headerProfileInitials = firenet_build_initials($initialsSource, $roleLabelForIn
 if ($sessionStationId > 0) {
   try {
     $pdo = firenet_get_pdo();
-    $stationNameStmt = $pdo->prepare('SELECT station_name FROM stations WHERE station_id = ? LIMIT 1');
+    $stationNameStmt = $pdo->prepare('SELECT station_name, station_code FROM stations WHERE station_id = ? LIMIT 1');
     $stationNameStmt->execute([$sessionStationId]);
-    $sessionStationName = (string) ($stationNameStmt->fetchColumn() ?: $sessionStationName);
+    $stationRow = $stationNameStmt->fetch(PDO::FETCH_ASSOC) ?: [];
+    $sessionStationName = (string) ($stationRow['station_name'] ?? $sessionStationName);
+    $sessionIsCentralStation = strtolower((string) ($stationRow['station_code'] ?? '')) === 'mcfs';
   } catch (Throwable $e) {
     $sessionStationName = 'Station ' . $sessionStationId;
   }
 }
+
+$mailHomePath = $sessionIsCentralStation ? $stationMailsPath : $generalMailPath;
 
 if ($sessionUserId > 0) {
   try {
@@ -175,9 +180,13 @@ if ($sessionUserId > 0) {
                   <a class="apps-tile" href="<?php echo htmlspecialchars($calendarPath); ?>"><span class="apps-tile-icon" aria-hidden="true"><i class="bi bi-calendar3"></i></span><span>Calendar</span></a>
                   <a class="apps-tile" href="<?php echo htmlspecialchars($stationIncidentLogsPath); ?>"><span class="apps-tile-icon" aria-hidden="true"><i class="bi bi-clipboard-data"></i></span><span>Incident logs</span></a>
                   <a class="apps-tile" href="<?php echo htmlspecialchars($fileRequestsPath); ?>"><span class="apps-tile-icon" aria-hidden="true"><i class="bi bi-inbox"></i></span><span>File requests</span></a>
-                  <a class="apps-tile" href="<?php echo htmlspecialchars($stationMailsPath); ?>"><span class="apps-tile-icon" aria-hidden="true"><i class="bi bi-envelope"></i></span><span>Station mail</span></a>
-                  <a class="apps-tile" href="<?php echo htmlspecialchars($generalMailPath); ?>"><span class="apps-tile-icon" aria-hidden="true"><i class="bi bi-envelope-paper"></i></span><span>General mail</span></a>
-                  <a class="apps-tile" href="<?php echo htmlspecialchars($operationalMailPath); ?>"><span class="apps-tile-icon" aria-hidden="true"><i class="bi bi-envelope-exclamation"></i></span><span>Ops mail</span></a>
+                  <?php if ($sessionIsCentralStation): ?>
+                    <a class="apps-tile" href="<?php echo htmlspecialchars($stationMailsPath); ?>"><span class="apps-tile-icon" aria-hidden="true"><i class="bi bi-envelope"></i></span><span>Station mail</span></a>
+                    <a class="apps-tile" href="<?php echo htmlspecialchars($generalMailPath); ?>"><span class="apps-tile-icon" aria-hidden="true"><i class="bi bi-envelope-paper"></i></span><span>General mail</span></a>
+                    <a class="apps-tile" href="<?php echo htmlspecialchars($operationalMailPath); ?>"><span class="apps-tile-icon" aria-hidden="true"><i class="bi bi-envelope-exclamation"></i></span><span>Ops mail</span></a>
+                  <?php else: ?>
+                    <a class="apps-tile" href="<?php echo htmlspecialchars($generalMailPath); ?>"><span class="apps-tile-icon" aria-hidden="true"><i class="bi bi-envelope-paper"></i></span><span>Mail</span></a>
+                  <?php endif; ?>
                   <a class="apps-tile" href="<?php echo htmlspecialchars($analyticsPath); ?>"><span class="apps-tile-icon" aria-hidden="true"><i class="bi bi-graph-up"></i></span><span>Analytics</span></a>
                   <a class="apps-tile" href="<?php echo htmlspecialchars($settingsPath); ?>"><span class="apps-tile-icon" aria-hidden="true"><i class="bi bi-gear"></i></span><span>Settings</span></a>
                   <?php if (in_array($sessionRoleKey, ['admin', 'superadmin'], true)): ?>
@@ -186,7 +195,7 @@ if ($sessionUserId > 0) {
                 </div>
               </div>
             </div>
-            <a class="quick-action-btn quick-mail-btn" href="<?php echo htmlspecialchars($stationMailsPath); ?>" title="Station mail" aria-label="Open station mail">
+            <a class="quick-action-btn quick-mail-btn" href="<?php echo htmlspecialchars($mailHomePath); ?>" title="Station mail" aria-label="Open station mail">
               <span class="quick-icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="M4 6h16v12H4V6zm2 2 6 4 6-4V6H6v2zm0 8V9.5l6 4 6-4V16H6z" fill="currentColor"></path></svg>
               </span>
@@ -242,11 +251,12 @@ if ($sessionUserId > 0) {
         'dashboardUrl' => $dashboardPath,
         'reportsUrl' => $reportsPath,
         'calendarUrl' => $calendarPath,
-        'mailUrl' => $stationMailsPath,
+        'mailUrl' => $mailHomePath,
         'usersUrl' => $usersPath,
         'fileRequestsUrl' => $fileRequestsPath,
         'generalMailUrl' => $generalMailPath,
         'operationalMailUrl' => $operationalMailPath,
+        'isCentralStation' => $sessionIsCentralStation,
       ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE); ?>;
     </script>
     <div class="app-layout" id="appLayout">
@@ -280,27 +290,34 @@ if ($sessionUserId > 0) {
 
           <div class="sidebar-divider" role="presentation"></div>
 
-          <details class="sidebar-details"<?php echo $sidebarMailOpen ? ' open' : ''; ?>>
-            <summary class="sidebar-group-summary">
+          <?php if ($sessionIsCentralStation): ?>
+            <details class="sidebar-details"<?php echo $sidebarMailOpen ? ' open' : ''; ?>>
+              <summary class="sidebar-group-summary">
+                <span class="sidebar-link-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4-8 5L4 8V6l8 5 8-5v2z"/></svg></span>
+                <span class="sidebar-link-text">Mail</span>
+                <span class="sidebar-summary-chevron" aria-hidden="true"></span>
+              </summary>
+              <div class="sidebar-submenu">
+                <a href="<?php echo htmlspecialchars($stationMailsPath); ?>" class="sidebar-link sidebar-link--sub<?php echo $currentPath === $stationMailsPath ? ' is-active' : ''; ?>">
+                  <span class="sidebar-link-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4-8 5L4 8V6l8 5 8-5v2z"/></svg></span>
+                  <span class="sidebar-link-text">Station</span>
+                </a>
+                <a href="<?php echo htmlspecialchars($generalMailPath); ?>" class="sidebar-link sidebar-link--sub<?php echo $currentPath === $generalMailPath ? ' is-active' : ''; ?>">
+                  <span class="sidebar-link-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M3 5h18v2H3V5zm0 4h18v10H3V9zm2 2v6h14v-6H5zm2 2h10v2H7v-2z"/></svg></span>
+                  <span class="sidebar-link-text">General</span>
+                </a>
+                <a href="<?php echo htmlspecialchars($operationalMailPath); ?>" class="sidebar-link sidebar-link--sub<?php echo $currentPath === $operationalMailPath ? ' is-active' : ''; ?>">
+                  <span class="sidebar-link-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M12 2l4 4h-3v6h2l-5 6-5-6h2V6H8l4-4z"/></svg></span>
+                  <span class="sidebar-link-text">Ops</span>
+                </a>
+              </div>
+            </details>
+          <?php else: ?>
+            <a href="<?php echo htmlspecialchars($generalMailPath); ?>" class="sidebar-link<?php echo $currentPath === $generalMailPath ? ' is-active' : ''; ?>">
               <span class="sidebar-link-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4-8 5L4 8V6l8 5 8-5v2z"/></svg></span>
               <span class="sidebar-link-text">Mail</span>
-              <span class="sidebar-summary-chevron" aria-hidden="true"></span>
-            </summary>
-            <div class="sidebar-submenu">
-              <a href="<?php echo htmlspecialchars($stationMailsPath); ?>" class="sidebar-link sidebar-link--sub<?php echo $currentPath === $stationMailsPath ? ' is-active' : ''; ?>">
-                <span class="sidebar-link-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4-8 5L4 8V6l8 5 8-5v2z"/></svg></span>
-                <span class="sidebar-link-text">Station</span>
-              </a>
-              <a href="<?php echo htmlspecialchars($generalMailPath); ?>" class="sidebar-link sidebar-link--sub<?php echo $currentPath === $generalMailPath ? ' is-active' : ''; ?>">
-                <span class="sidebar-link-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M3 5h18v2H3V5zm0 4h18v10H3V9zm2 2v6h14v-6H5zm2 2h10v2H7v-2z"/></svg></span>
-                <span class="sidebar-link-text">General</span>
-              </a>
-              <a href="<?php echo htmlspecialchars($operationalMailPath); ?>" class="sidebar-link sidebar-link--sub<?php echo $currentPath === $operationalMailPath ? ' is-active' : ''; ?>">
-                <span class="sidebar-link-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M12 2l4 4h-3v6h2l-5 6-5-6h2V6H8l4-4z"/></svg></span>
-                <span class="sidebar-link-text">Ops</span>
-              </a>
-            </div>
-          </details>
+            </a>
+          <?php endif; ?>
 
           <div class="sidebar-divider" role="presentation"></div>
 

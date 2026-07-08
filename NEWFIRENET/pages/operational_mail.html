@@ -7,7 +7,7 @@
         <a href="/firenet/NEWFIRENET/backend/pages/station_mails.php" class="mail-back-link"><i class="bi bi-arrow-left" aria-hidden="true"></i> All mail</a>
         <p class="mail-kicker">Operational mail</p>
         <h1>Operational file requests</h1>
-        <p class="muted-text">Formal requests routed through ComL. Describe what you need; central will pull files from the station folder you select.</p>
+        <p class="muted-text">Formal requests routed through the central ComL at Makati Central Fire Station. Describe the report(s) you need and central will locate them from their records.</p>
       </div>
       <div class="mail-hero-actions">
         <button type="button" class="primary-btn" id="openComposeBtn">New request</button>
@@ -66,36 +66,16 @@
         </div>
       </aside>
 
-      <main class="mail-main">
+      <main class="mail-main mail-main--list-only">
         <section class="mail-list-panel mail-card">
           <div class="mail-panel-header">
             <div>
               <p class="mail-kicker">Requests</p>
-              <h2 id="mailFolderTitle">Pending</h2>
+              <h2 id="mailFolderTitle">Requests</h2>
             </div>
             <p class="mail-filter-note" id="mailActiveFilter">Showing operational mail</p>
           </div>
           <div id="mailList" class="mail-list"></div>
-        </section>
-
-        <section class="mail-detail-panel mail-card" id="threadPanel">
-          <div class="mail-panel-header">
-            <div>
-              <p class="mail-kicker">Request detail</p>
-              <h2 id="threadTitle">Select a request</h2>
-            </div>
-          </div>
-          <div id="requestTimeline" class="mail-request-timeline" hidden>
-            <div class="timeline-header">
-              <span class="timeline-label">Timeline</span>
-              <strong id="timelineRequestTitle">Request title</strong>
-            </div>
-            <div class="timeline-bar" id="timelineSteps"></div>
-            <div class="timeline-note" id="timelineNote"></div>
-          </div>
-          <div class="mail-thread-empty" id="threadEmpty">Select a request to review the thread and attachments.</div>
-          <div class="mail-thread-content" id="threadContent" hidden></div>
-          <div class="mail-thread-actions" id="threadActions" hidden></div>
         </section>
       </main>
     </div>
@@ -119,17 +99,55 @@
         <input type="text" id="composeSubject" maxlength="255" placeholder="Request subject">
       </label>
 
+      <div id="composeFulfillRequestSummary" class="mail-fulfill-summary" hidden></div>
+
       <div class="form-field form-field--readonly">
         <span class="form-field-label">Routed to</span>
         <p class="form-readonly-value" id="composeRoutedToLabel">Makati Central Fire Station</p>
         <p class="form-note">All operational requests are sent to the central ComL at Makati Central Fire Station.</p>
       </div>
 
-      <label class="form-field">
-        Files from station
-        <select id="composeSourceStationSelect"></select>
-        <p class="form-note" id="composeSourceStationHint">Central ComL will retrieve files from this station's cloud folder.</p>
-      </label>
+      <select id="composeSourceStationSelect" hidden aria-hidden="true" tabindex="-1"></select>
+
+      <div class="mail-compose-refs" id="composeRefFields">
+        <div class="mail-compose-refs-head">
+          <span class="form-field-label">Reference details <span class="mail-compose-refs-optional">(optional)</span></span>
+          <p class="form-note">Anything you can provide helps central ComL locate the report(s). Leave blank what you don't know — a date range can match more than one report.</p>
+        </div>
+        <div class="mail-compose-refs-grid">
+          <div class="form-field mail-compose-refs-daterange">
+            <span class="form-field-label">Incident date <span class="mail-compose-refs-optional">(single day or range)</span></span>
+            <div class="mail-compose-daterange-inputs">
+              <label class="mail-compose-daterange-part">
+                <span>From</span>
+                <input type="date" id="composeRefIncidentDateFrom">
+              </label>
+              <label class="mail-compose-daterange-part">
+                <span>To</span>
+                <input type="date" id="composeRefIncidentDateTo">
+              </label>
+            </div>
+            <p class="form-note">Fill only "From" for a single day, or both for a range.</p>
+          </div>
+          <div class="form-field mail-compose-responders">
+            <span class="form-field-label">Responding station(s)</span>
+            <label class="mail-compose-checkline mail-compose-checkline--all">
+              <input type="checkbox" id="composeRefAllResponders">
+              <span>Request from <strong>all stations that responded</strong> to this incident</span>
+            </label>
+            <div class="mail-compose-responder-list" id="composeRefRespondersList" role="group" aria-label="Responding stations"></div>
+            <p class="form-note" id="composeRefRespondersHint">Tick each station you want (you can choose more than one), or use the box above to get every responding station's report.</p>
+          </div>
+          <label class="form-field">
+            Location / address
+            <input type="text" id="composeRefLocation" maxlength="255" placeholder="e.g. Brgy. La Paz, Makati">
+          </label>
+          <label class="form-field">
+            Case / incident ID
+            <input type="text" id="composeRefCaseId" maxlength="64" placeholder="If known">
+          </label>
+        </div>
+      </div>
 
       <div class="form-field mail-compose-body">
         <div class="mail-compose-toolbar" role="toolbar" aria-label="Formatting">
@@ -161,6 +179,7 @@
             <button type="button" class="secondary-btn" id="browseCloudinareFilesBtn" title="Browse your station folder"><i class="bi bi-folder2-open icon-inline" aria-hidden="true"></i>Browse</button>
           </div>
           <p class="form-note" id="composeOrgmailHint">Select the file to return from your station folder, or upload a new file to cloud storage.</p>
+          <div id="composeSelectedCloudFiles" class="mail-selected-cloud-files" hidden></div>
           <div class="mail-inline-upload" id="composeOrgmailUploadRow">
             <input type="file" id="composeOrgmailFile" accept="*/*">
             <button type="button" class="secondary-btn" id="composeOrgmailUploadBtn">Upload to cloud</button>
@@ -181,6 +200,60 @@
       </div>
       <p class="form-note" id="composeMessage"></p>
     </form>
+  </div>
+</div>
+
+<div id="threadModal" class="mail-modal" hidden>
+  <div class="mail-modal-backdrop" data-close-thread="true"></div>
+  <div class="mail-modal-dialog mail-thread-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="threadTitle">
+    <header class="mail-modal-header">
+      <div>
+        <p class="mail-kicker" id="threadModalKicker">Request detail</p>
+        <h2 id="threadTitle">Request</h2>
+      </div>
+      <button type="button" class="icon-button" id="closeThreadBtn" aria-label="Close">×</button>
+    </header>
+    <div class="mail-thread-modal-body">
+      <div id="requestTimeline" class="mail-request-timeline" hidden>
+        <div class="timeline-header">
+          <span class="timeline-label">Progress</span>
+          <strong id="timelineRequestTitle">Request title</strong>
+        </div>
+        <div class="timeline-bar" id="timelineSteps"></div>
+        <div class="timeline-note" id="timelineNote"></div>
+      </div>
+      <div id="threadRequestSummary" class="mail-thread-request-summary" hidden></div>
+      <div class="mail-thread-messages-panel">
+        <div class="mail-thread-messages-label" id="threadMessagesLabel">Conversation</div>
+        <div class="mail-thread-content" id="threadContent" hidden></div>
+        <div class="mail-thread-empty" id="threadEmpty" hidden>No messages in this request yet.</div>
+      </div>
+    </div>
+    <footer class="mail-thread-modal-footer" id="threadActions" hidden>
+      <div id="threadReplyComposer" class="mail-thread-reply" hidden>
+        <div class="mail-thread-reply-head">
+          <div>
+            <p class="mail-kicker">Reply</p>
+            <p class="mail-thread-reply-to" id="threadReplyToLabel">To: requester</p>
+          </div>
+          <button type="button" class="icon-button" id="closeThreadReplyBtn" aria-label="Cancel reply">×</button>
+        </div>
+        <div class="mail-compose-toolbar" role="toolbar" aria-label="Reply formatting">
+          <button type="button" class="mail-compose-tool" data-editor="threadReply" data-cmd="bold" title="Bold" aria-label="Bold"><i class="bi bi-type-bold" aria-hidden="true"></i></button>
+          <button type="button" class="mail-compose-tool" data-editor="threadReply" data-cmd="italic" title="Italic" aria-label="Italic"><i class="bi bi-type-italic" aria-hidden="true"></i></button>
+          <button type="button" class="mail-compose-tool" data-editor="threadReply" data-cmd="underline" title="Underline" aria-label="Underline"><i class="bi bi-type-underline" aria-hidden="true"></i></button>
+          <span class="mail-compose-toolbar-sep" aria-hidden="true"></span>
+          <button type="button" class="mail-compose-tool" data-editor="threadReply" data-cmd="insertUnorderedList" title="Bullet list" aria-label="Bullet list"><i class="bi bi-list-ul" aria-hidden="true"></i></button>
+          <button type="button" class="mail-compose-tool" data-editor="threadReply" data-cmd="insertOrderedList" title="Numbered list" aria-label="Numbered list"><i class="bi bi-list-ol" aria-hidden="true"></i></button>
+        </div>
+        <div id="threadReplyBodyEditor" class="mail-compose-editor mail-thread-reply-editor" contenteditable="true" role="textbox" aria-multiline="true" data-placeholder="Write your reply to the requester…"></div>
+        <div class="mail-thread-reply-actions">
+          <button type="button" class="secondary-btn" id="cancelThreadReplyBtn">Cancel</button>
+          <button type="button" class="primary-btn" id="sendThreadReplyBtn">Send reply</button>
+        </div>
+      </div>
+      <div id="threadActionButtons" class="mail-thread-action-buttons"></div>
+    </footer>
   </div>
 </div>
 
@@ -219,6 +292,7 @@
       </div>
 
       <div class="file-picker-actions">
+        <button type="button" class="secondary-btn" id="filePickerBackBtn" hidden>Back</button>
         <button type="button" class="secondary-btn" id="filePickerRefreshBtn">Refresh</button>
         <button type="button" class="primary-btn" id="filePickerSelectBtn" disabled>Select file</button>
       </div>

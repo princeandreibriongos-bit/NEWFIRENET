@@ -1,6 +1,15 @@
 (function () {
   const contextElement = document.getElementById('generalMailContext');
+  const mailBackLink = document.getElementById('mailBackLink');
+  const composeChooserModal = document.getElementById('composeChooserModal');
+  const closeComposeChooserBtn = document.getElementById('closeComposeChooserBtn');
+  const openGeneralComposeBtn = document.getElementById('openGeneralComposeBtn');
+  const openRequestComposeBtn = document.getElementById('openRequestComposeBtn');
   const mailList = document.getElementById('mailList');
+  const mailListPanel = document.getElementById('mailListPanel');
+  const mailMain = document.querySelector('.mail-main');
+  const backToListBtn = document.getElementById('backToListBtn');
+  const threadRequestSummaryInline = document.getElementById('threadRequestSummaryInline');
   const threadPanel = document.getElementById('threadPanel');
   const threadContent = document.getElementById('threadContent');
   const threadEmpty = document.getElementById('threadEmpty');
@@ -17,10 +26,16 @@
   const composeSubject = document.getElementById('composeSubject');
   const composeStationSelect = document.getElementById('composeStationSelect');
   const composeUserSelect = document.getElementById('composeUserSelect');
+  const composeUserSearch = document.getElementById('composeUserSearch');
+  const composeUserResults = document.getElementById('composeUserResults');
+  const composeRecipientChips = document.getElementById('composeRecipientChips');
+  const composeAttachFilesBtn = document.getElementById('composeAttachFilesBtn');
+  const composeAttachmentList = document.getElementById('composeAttachmentList');
   const composeImportance = document.getElementById('composeImportance');
   const composeThreadId = document.getElementById('composeThreadId');
   const composeParentMailId = document.getElementById('composeParentMailId');
   const composeBody = document.getElementById('composeBody');
+  const composeBodyEditor = document.getElementById('composeBodyEditor');
   const composeAttachments = document.getElementById('composeAttachments');
   const composeMessage = document.getElementById('composeMessage');
   const saveDraftBtn = document.getElementById('saveDraftBtn');
@@ -42,9 +57,14 @@
   const inlineReplyThreadId = document.getElementById('inlineReplyThreadId');
   const inlineReplyParentMailId = document.getElementById('inlineReplyParentMailId');
   const inlineReplyBody = document.getElementById('inlineReplyBody');
+  const inlineReplyBodyEditor = document.getElementById('inlineReplyBodyEditor');
   const inlineReplyAttachments = document.getElementById('inlineReplyAttachments');
   const inlineReplyCancel = document.getElementById('inlineReplyCancel');
+  const inlineReplyDiscard = document.getElementById('inlineReplyDiscard');
   const inlineReplyMessage = document.getElementById('inlineReplyMessage');
+  const inlineReplyToLabel = document.getElementById('inlineReplyToLabel');
+  const inlineReplyAttachName = document.getElementById('inlineReplyAttachName');
+  const mailApp = document.querySelector('.mail-app');
   const showShortcutsBtn = document.getElementById('showShortcutsBtn');
   const threadActions = document.getElementById('threadActions');
   const threadReplyBtn = document.getElementById('threadReplyBtn');
@@ -53,6 +73,34 @@
   const threadStarBtn = document.getElementById('threadStarBtn');
   const threadArchiveBtn = document.getElementById('threadArchiveBtn');
   const threadDeleteBtn = document.getElementById('threadDeleteBtn');
+  const requestComposeModal = document.getElementById('requestComposeModal');
+  const closeRequestComposeBtn = document.getElementById('closeRequestComposeBtn');
+  const requestComposeForm = document.getElementById('requestComposeForm');
+  const requestComposeSubject = document.getElementById('requestComposeSubject');
+  const requestComposeRoutedToLabel = document.getElementById('requestComposeRoutedToLabel');
+  const requestComposeRefIncidentDateFrom = document.getElementById('requestComposeRefIncidentDateFrom');
+  const requestComposeRefIncidentDateTo = document.getElementById('requestComposeRefIncidentDateTo');
+  const requestComposeRefAllResponders = document.getElementById('requestComposeRefAllResponders');
+  const requestComposeRefRespondersList = document.getElementById('requestComposeRefRespondersList');
+  const requestComposeRefLocation = document.getElementById('requestComposeRefLocation');
+  const requestComposeRefCaseId = document.getElementById('requestComposeRefCaseId');
+  const requestComposeBody = document.getElementById('requestComposeBody');
+  const requestComposeAttachFilesBtn = document.getElementById('requestComposeAttachFilesBtn');
+  const requestComposeLocalAttachments = document.getElementById('requestComposeLocalAttachments');
+  const requestComposeAttachmentList = document.getElementById('requestComposeAttachmentList');
+  const requestComposeMessage = document.getElementById('requestComposeMessage');
+  const saveRequestDraftBtn = document.getElementById('saveRequestDraftBtn');
+  const requestThreadModal = document.getElementById('requestThreadModal');
+  const closeRequestThreadBtn = document.getElementById('closeRequestThreadBtn');
+  const requestThreadTitle = document.getElementById('requestThreadTitle');
+  const requestThreadModalKicker = document.getElementById('requestThreadModalKicker');
+  const requestThreadTimeline = document.getElementById('requestThreadTimeline');
+  const requestTimelineRequestTitle = document.getElementById('requestTimelineRequestTitle');
+  const requestTimelineSteps = document.getElementById('requestTimelineSteps');
+  const requestTimelineNote = document.getElementById('requestTimelineNote');
+  const requestThreadSummary = document.getElementById('requestThreadSummary');
+  const requestThreadContent = document.getElementById('requestThreadContent');
+  const requestThreadEmpty = document.getElementById('requestThreadEmpty');
 
   if (!contextElement || !mailList || !threadPanel || !threadContent || !threadEmpty || !threadTitle || !composeModal || !openComposeBtn || !closeComposeBtn || !refreshBtn || !searchInput || !stationFilterSelect || !sortSelect || !unreadOnlyToggle || !composeForm || !composeSubject || !composeStationSelect || !composeUserSelect || !composeImportance || !composeThreadId || !composeParentMailId || !composeBody || !composeAttachments || !composeMessage || !saveDraftBtn || !inboxCount || !unreadCount || !sentCount || !draftCount || !mailFolderTitle || !mailActiveFilter) {
     return;
@@ -61,7 +109,7 @@
   const attachmentPreviewModal = document.getElementById('attachmentPreviewModal');
 
   function mountMailModalsToBody() {
-    [composeModal, attachmentPreviewModal].forEach(function (el) {
+    [composeChooserModal, composeModal, requestComposeModal, requestThreadModal, attachmentPreviewModal].forEach(function (el) {
       if (el && el.parentElement !== document.body) {
         document.body.appendChild(el);
       }
@@ -69,11 +117,17 @@
   }
 
   function syncMailModalScrollLock() {
-    const anyOpen = !composeModal.hidden || (attachmentPreviewModal && !attachmentPreviewModal.hidden);
+    const anyOpen =
+      !composeModal.hidden ||
+      !(composeChooserModal && composeChooserModal.hidden) ||
+      !(requestComposeModal && requestComposeModal.hidden) ||
+      !(requestThreadModal && requestThreadModal.hidden) ||
+      (attachmentPreviewModal && !attachmentPreviewModal.hidden);
     document.body.classList.toggle('mail-modal-open', anyOpen);
   }
 
   const apiUrl = String((JSON.parse(contextElement.textContent || '{}') || {}).mailApiUrl || '/firenet/NEWFIRENET/backend/controllers/station_mails.php');
+  const pageContext = JSON.parse(contextElement.textContent || '{}') || {};
   const state = {
     folder: 'inbox',
     search: '',
@@ -83,8 +137,437 @@
     bootstrap: null,
     items: [],
     activeThread: null,
-    smartFilters: []
+    activeRequestDetail: null,
+    conversationOpen: false,
+    listScrollTop: 0,
+    pageScrollY: 0,
+    smartFilters: [],
+    requestLocalAttachments: [],
+    composeSelectedRecipients: [],
+    composeLocalAttachments: [],
+    requestTimelineSelectedIndex: 0
   };
+
+  function isCentralStation() {
+    return Boolean(pageContext.isCentralStation);
+  }
+
+  function formatMessageBody(body) {
+    const value = String(body || '');
+    if (/<[a-z][\s\S]*>/i.test(value)) {
+      return '<div class="mail-thread-message-body">' + value + '</div>';
+    }
+    if (value === '') {
+      return '';
+    }
+    return '<div class="mail-thread-message-body">' + escapeHtml(value).replace(/\n/g, '<br>') + '</div>';
+  }
+
+  function getEditorHtml(editorEl) {
+    return editorEl ? String(editorEl.innerHTML || '').trim() : '';
+  }
+
+  function isEditorEmpty(editorEl) {
+    const text = getEditorHtml(editorEl)
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<\/(p|div|li|h[1-6]|blockquote)>/gi, '\n')
+      .replace(/<[^>]+>/g, '')
+      .replace(/&nbsp;/gi, ' ')
+      .trim();
+    return text === '';
+  }
+
+  function setEditorHtml(editorEl, hiddenField, value) {
+    if (!editorEl) {
+      return;
+    }
+    const html = String(value || '');
+    if (/<[a-z][\s\S]*>/i.test(html)) {
+      editorEl.innerHTML = html;
+    } else if (html === '') {
+      editorEl.innerHTML = '';
+    } else {
+      editorEl.innerHTML = escapeHtml(html).replace(/\n/g, '<br>');
+    }
+    if (hiddenField) {
+      hiddenField.value = getEditorHtml(editorEl);
+    }
+  }
+
+  function syncEditorToHidden(editorEl, hiddenField) {
+    if (hiddenField) {
+      hiddenField.value = getEditorHtml(editorEl);
+    }
+  }
+
+  function getComposeBodyHtml() {
+    return getEditorHtml(composeBodyEditor);
+  }
+
+  function getInlineReplyBodyHtml() {
+    return getEditorHtml(inlineReplyBodyEditor);
+  }
+
+  function clearComposeBody() {
+    setEditorHtml(composeBodyEditor, composeBody, '');
+  }
+
+  function clearInlineReplyBody() {
+    setEditorHtml(inlineReplyBodyEditor, inlineReplyBody, '');
+  }
+
+  function getEditorByKey(key) {
+    if (key === 'compose') return composeBodyEditor;
+    if (key === 'inlineReply') return inlineReplyBodyEditor;
+    return null;
+  }
+
+  function getHiddenByKey(key) {
+    if (key === 'compose') return composeBody;
+    if (key === 'inlineReply') return inlineReplyBody;
+    return null;
+  }
+
+  function runEditorCommand(editorKey, command, value) {
+    const editorEl = getEditorByKey(editorKey);
+    if (!editorEl || !command) return;
+    editorEl.focus();
+    let arg = value == null ? null : value;
+
+    if (command === 'createLink') {
+      const url = window.prompt('Enter link URL', 'https://');
+      if (!url) return;
+      arg = url;
+    } else if (command === 'formatBlock') {
+      arg = value || 'blockquote';
+    } else if (command === 'fontName' && !arg) {
+      arg = 'Arial';
+    } else if (command === 'fontSize' && !arg) {
+      arg = '3';
+    }
+
+    try {
+      document.execCommand(command, false, arg);
+    } catch (ignored) {
+      // Some browsers reject unsupported commands.
+    }
+    syncEditorToHidden(editorEl, getHiddenByKey(editorKey));
+  }
+
+  function bindRichEditor(editorKey) {
+    const editorEl = getEditorByKey(editorKey);
+    const hiddenField = getHiddenByKey(editorKey);
+    if (!editorEl) return;
+
+    editorEl.addEventListener('input', function () {
+      syncEditorToHidden(editorEl, hiddenField);
+    });
+    editorEl.addEventListener('blur', function () {
+      syncEditorToHidden(editorEl, hiddenField);
+    });
+
+    document.querySelectorAll('.mail-compose-tool[data-editor="' + editorKey + '"]').forEach(function (button) {
+      button.addEventListener('mousedown', function (event) {
+        event.preventDefault();
+      });
+      button.addEventListener('click', function () {
+        runEditorCommand(editorKey, button.getAttribute('data-cmd'), button.getAttribute('data-value'));
+      });
+    });
+
+    document.querySelectorAll('.mail-format-select[data-editor="' + editorKey + '"]').forEach(function (select) {
+      select.addEventListener('change', function () {
+        runEditorCommand(editorKey, select.getAttribute('data-cmd'), select.value);
+        editorEl.focus();
+      });
+    });
+
+    document.querySelectorAll('.mail-format-color[data-editor="' + editorKey + '"]').forEach(function (input) {
+      input.addEventListener('input', function () {
+        runEditorCommand(editorKey, input.getAttribute('data-cmd'), input.value);
+        editorEl.focus();
+      });
+    });
+  }
+
+  function formatRequestStatus(status) {
+    const value = String(status || '').toLowerCase();
+    const labels = {
+      pending_origin_review: 'Pending review',
+      approved: 'Approved',
+      rejected: 'Rejected',
+      forwarded_to_target: 'Awaiting MCFS review',
+      routed_to_user: 'Assigned to user',
+      file_returned_to_coml: 'File ready',
+      returned_to_origin: 'Returned to requester station',
+      completed: 'Completed'
+    };
+    return labels[value] || value.replace(/_/g, ' ');
+  }
+
+  function openRequestThreadModal() {
+    if (!requestThreadModal) return;
+    requestThreadModal.hidden = false;
+    syncMailModalScrollLock();
+  }
+
+  function closeRequestThreadModal() {
+    if (!requestThreadModal) return;
+    requestThreadModal.hidden = true;
+    state.activeRequestDetail = null;
+    syncMailModalScrollLock();
+  }
+
+  function renderRequestReferenceBlock(rr) {
+    if (!rr) return '';
+    const items = [];
+    function addItem(label, valueHtml, wide) {
+      if (!valueHtml) return;
+      items.push(
+        '<div class="mail-request-ref-item' + (wide ? ' mail-request-ref-item--wide' : '') + '">' +
+          '<span>' + escapeHtml(label) + '</span>' +
+          '<div class="mail-request-ref-value">' + valueHtml + '</div>' +
+        '</div>'
+      );
+    }
+    if (rr.refIncidentDate) {
+      const dateLabel = rr.refIncidentDateTo
+        ? (escapeHtml(rr.refIncidentDate) + ' – ' + escapeHtml(rr.refIncidentDateTo))
+        : escapeHtml(rr.refIncidentDate);
+      addItem('Incident date' + (rr.refIncidentDateTo ? ' range' : ''), '<strong>' + dateLabel + '</strong>');
+    }
+    if (rr.refAllRespondingStations) {
+      addItem('Responding stations', '<strong>All stations that responded</strong>', true);
+    } else if (Array.isArray(rr.refRespondingStations) && rr.refRespondingStations.length) {
+      const chips = rr.refRespondingStations.map(function (station) {
+        return '<span class="mail-request-ref-chip">' + escapeHtml(station.stationName || '') + '</span>';
+      }).join('');
+      addItem(
+        'Responding station' + (rr.refRespondingStations.length > 1 ? 's' : ''),
+        '<div class="mail-request-ref-chips">' + chips + '</div>',
+        true
+      );
+    } else if (rr.refRespondingStationName) {
+      addItem('Responding station', '<strong>' + escapeHtml(rr.refRespondingStationName) + '</strong>', true);
+    }
+    if (rr.refLocation) {
+      addItem('Location / address', '<strong>' + escapeHtml(rr.refLocation) + '</strong>', true);
+    }
+    if (rr.refCaseId) {
+      addItem('Case / incident ID', '<strong>' + escapeHtml(rr.refCaseId) + '</strong>');
+    }
+    if (!items.length) return '';
+    return '<section class="mail-request-ref">' +
+      '<h3 class="mail-request-ref-title">Reference details</h3>' +
+      '<div class="mail-request-ref-grid">' + items.join('') + '</div>' +
+    '</section>';
+  }
+
+  function renderRequestMetaBlock(rr) {
+    if (!rr || !rr.routeId) return '';
+    const cards = [
+      '<div class="mail-request-meta-card"><span>Status</span><strong>' + escapeHtml(formatRequestStatus(rr.status)) + '</strong></div>',
+      '<div class="mail-request-meta-card"><span>From station</span><strong>' + escapeHtml(rr.originStationName || '—') + '</strong></div>',
+      '<div class="mail-request-meta-card"><span>Requested by</span><strong>' + escapeHtml(rr.requestUsername || '—') + '</strong></div>'
+    ];
+    return '<div class="mail-request-meta">' + cards.join('') + '</div>';
+  }
+
+  function getRequestTimelineSteps() {
+    return [
+      {
+        title: 'Submitted',
+        note: 'Your request was sent to Makati Central Fire Station.'
+      },
+      {
+        title: 'Central review',
+        note: 'MCFS ComL is locating the requested report(s) from central records.'
+      },
+      {
+        title: 'Delivered',
+        note: 'The requested file has been released back to you.'
+      }
+    ];
+  }
+
+  function requestTimelineActiveIndex(status) {
+    switch (String(status || '').toLowerCase()) {
+      case 'forwarded_to_target':
+      case 'routed_to_user':
+      case 'file_returned_to_coml':
+      case 'returned_to_origin':
+      case 'rejected':
+        return 1;
+      case 'completed':
+        return 2;
+      default:
+        return 0;
+    }
+  }
+
+  function renderRequestTimeline(detail) {
+    if (!requestThreadTimeline || !requestTimelineSteps || !requestTimelineNote || !requestTimelineRequestTitle) {
+      return;
+    }
+    const route = detail.requestRoute || {};
+    if (!route.routeId) {
+      requestThreadTimeline.hidden = true;
+      return;
+    }
+    const steps = getRequestTimelineSteps();
+    const activeIndex = requestTimelineActiveIndex(route.status);
+    if (state.requestTimelineSelectedIndex < 0 || state.requestTimelineSelectedIndex >= steps.length) {
+      state.requestTimelineSelectedIndex = activeIndex;
+    }
+    requestTimelineRequestTitle.textContent = (detail.thread && detail.thread.subject) || 'Operational request timeline';
+    requestTimelineSteps.innerHTML = steps.map(function (step, index) {
+      const completed = index <= activeIndex;
+      const active = index === state.requestTimelineSelectedIndex;
+      return '<button type="button" class="timeline-step' + (completed ? ' completed' : '') + (active ? ' active' : '') + '" data-step-index="' + index + '">' +
+        '<span class="timeline-marker">' + (index + 1) + '</span>' +
+        '<span class="timeline-step-title">' + escapeHtml(step.title) + '</span>' +
+      '</button>';
+    }).join('');
+    const selectedStep = steps[state.requestTimelineSelectedIndex];
+    requestTimelineNote.textContent = selectedStep ? selectedStep.note : '';
+    requestThreadTimeline.hidden = false;
+  }
+
+  function renderRequestThreadSummary(detail) {
+    if (!requestThreadSummary) return;
+    const rr = detail.requestRoute || {};
+    const html = renderRequestMetaBlock(rr) + renderRequestReferenceBlock(rr);
+    requestThreadSummary.innerHTML = html;
+    requestThreadSummary.hidden = html === '';
+  }
+
+  function renderRequestThreadMessages(detail) {
+    if (!requestThreadContent || !requestThreadEmpty) return;
+    const messages = Array.isArray(detail.messages) ? detail.messages : [];
+    if (messages.length === 0) {
+      requestThreadContent.innerHTML = '';
+      requestThreadContent.hidden = true;
+      requestThreadEmpty.hidden = false;
+      return;
+    }
+    requestThreadContent.innerHTML = messages.map(function (message) {
+      const attachments = Array.isArray(message.attachments) ? message.attachments.map(function (attachment) {
+        return '<a class="mail-attachment-link" href="' + escapeHtml(attachment.downloadUrl || '#') + '" target="_blank" rel="noreferrer">' + escapeHtml(attachment.originalFileName) + '</a>';
+      }).join('') : '';
+      const requestTags = message.mailType === 'request' ? '<span class="mail-badge">Request</span>' : '';
+      return '<article class="mail-thread-message">' +
+        '<div class="mail-thread-message-head"><strong>' + escapeHtml(message.senderStationName || '') + '</strong><span>' + escapeHtml(formatDate(message.sentAt || message.createdAt)) + '</span></div>' +
+        '<div class="mail-thread-message-meta"><span>' + escapeHtml(message.senderUsername || '') + '</span>' + requestTags + '</div>' +
+        formatMessageBody(message.body) +
+        (attachments ? '<div class="mail-attachments">' + attachments + '</div>' : '') +
+      '</article>';
+    }).join('');
+    requestThreadContent.hidden = false;
+    requestThreadEmpty.hidden = true;
+  }
+
+  function renderRequestThreadModal(detail) {
+    state.activeRequestDetail = detail;
+    const thread = detail.thread || {};
+    if (requestThreadTitle) {
+      requestThreadTitle.textContent = thread.subject || 'Request detail';
+    }
+    if (requestThreadModalKicker) {
+      requestThreadModalKicker.textContent = 'Your request';
+    }
+    state.requestTimelineSelectedIndex = requestTimelineActiveIndex((detail.requestRoute || {}).status);
+    renderRequestTimeline(detail);
+    renderRequestThreadSummary(detail);
+    renderRequestThreadMessages(detail);
+    openRequestThreadModal();
+  }
+
+  function setRequestComposeMessage(text, isError) {
+    if (!requestComposeMessage) return;
+    requestComposeMessage.textContent = text;
+    requestComposeMessage.style.color = isError ? '#b8333b' : '#1f5e2d';
+  }
+
+  function renderRequestResponderOptions() {
+    if (!requestComposeRefRespondersList) return;
+    const stations = Array.isArray(state.bootstrap && state.bootstrap.stations) ? state.bootstrap.stations : [];
+    requestComposeRefRespondersList.innerHTML = stations.map(function (entry) {
+      return '<label class="mail-compose-checkline"><input type="checkbox" value="' + escapeHtml(String(entry.stationId)) + '"' +
+        (requestComposeRefAllResponders && requestComposeRefAllResponders.checked ? ' disabled' : '') +
+        '><span>' + escapeHtml(entry.stationName) + '</span></label>';
+    }).join('');
+  }
+
+  function selectedRequestResponderIds() {
+    if (!requestComposeRefRespondersList) return [];
+    return Array.from(requestComposeRefRespondersList.querySelectorAll('input[type="checkbox"]:checked')).map(function (input) {
+      return Number(input.value || 0);
+    }).filter(Boolean);
+  }
+
+  function renderRequestAttachmentList() {
+    if (!requestComposeAttachmentList) return;
+    if (!state.requestLocalAttachments.length) {
+      requestComposeAttachmentList.hidden = true;
+      requestComposeAttachmentList.innerHTML = '';
+      return;
+    }
+    requestComposeAttachmentList.hidden = false;
+    requestComposeAttachmentList.innerHTML = state.requestLocalAttachments.map(function (file, index) {
+      return '<li class="mail-compose-attachment-chip"><span>' + escapeHtml(file.name || 'attachment') + '</span><button type="button" data-request-attachment-index="' + index + '" aria-label="Remove attachment">×</button></li>';
+    }).join('');
+  }
+
+  function addRequestAttachments(fileList) {
+    Array.from(fileList || []).forEach(function (file) {
+      const duplicate = state.requestLocalAttachments.some(function (existing) {
+        return existing.name === file.name && existing.size === file.size && existing.lastModified === file.lastModified;
+      });
+      if (!duplicate) {
+        state.requestLocalAttachments.push(file);
+      }
+    });
+    renderRequestAttachmentList();
+  }
+
+  function clearRequestComposeForm() {
+    if (requestComposeForm) requestComposeForm.reset();
+    if (requestComposeSubject) requestComposeSubject.value = '';
+    if (requestComposeBody) requestComposeBody.value = '';
+    state.requestLocalAttachments = [];
+    renderRequestAttachmentList();
+    renderRequestResponderOptions();
+    setRequestComposeMessage('', false);
+  }
+
+  function openComposeChooser() {
+    composeChooserModal.hidden = false;
+    syncMailModalScrollLock();
+  }
+
+  function closeComposeChooser() {
+    composeChooserModal.hidden = true;
+    syncMailModalScrollLock();
+  }
+
+  function openRequestCompose() {
+    closeComposeChooser();
+    if (requestComposeRoutedToLabel) {
+      const centralStation = state.bootstrap && state.bootstrap.centralStation ? state.bootstrap.centralStation : null;
+      requestComposeRoutedToLabel.textContent = (centralStation && centralStation.stationName) || 'Makati Central Fire Station';
+    }
+    renderRequestResponderOptions();
+    requestComposeModal.hidden = false;
+    syncMailModalScrollLock();
+    setRequestComposeMessage('', false);
+    if (requestComposeBody) requestComposeBody.focus();
+  }
+
+  function closeRequestCompose() {
+    requestComposeModal.hidden = true;
+    syncMailModalScrollLock();
+    clearRequestComposeForm();
+  }
 
   function escapeHtml(value) {
     return String(value || '')
@@ -113,17 +596,142 @@
       return '<option value="' + escapeHtml(String(entry.stationId)) + '">' + escapeHtml(entry.stationName) + '</option>';
     }).join('');
 
-    composeStationSelect.innerHTML = '<option value="">Choose station</option>' + stations.map(function (entry) {
-      return '<option value="' + escapeHtml(String(entry.stationId)) + '">' + escapeHtml(entry.stationName) + '</option>';
+    composeStationSelect.innerHTML = '<option value="">All stations</option>' + stations.map(function (entry) {
+      const code = entry.stationCode ? ('[' + String(entry.stationCode) + '] ') : '';
+      return '<option value="' + escapeHtml(String(entry.stationId)) + '">' + escapeHtml(code + entry.stationName) + '</option>';
+    }).join('');
+  }
+
+  function currentUserId() {
+    return Number((state.bootstrap && state.bootstrap.currentUser && state.bootstrap.currentUser.userId) || 0);
+  }
+
+  function isComposeRecipientSelected(userId) {
+    return state.composeSelectedRecipients.some(function (entry) {
+      return Number(entry.userId) === Number(userId);
+    });
+  }
+
+  function eligibleComposeUsers() {
+    const users = Array.isArray(state.bootstrap && state.bootstrap.networkUsers) ? state.bootstrap.networkUsers : [];
+    const selectedStationId = Number(composeStationSelect && composeStationSelect.value || 0);
+    const search = String(composeUserSearch && composeUserSearch.value || '').trim().toLowerCase();
+    const me = currentUserId();
+
+    return users.filter(function (user) {
+      const userId = Number(user.userId || 0);
+      const stationId = Number(user.stationId || 0);
+      const isActive = String(user.status || '').toLowerCase() === 'active';
+      if (!isActive || userId < 1 || userId === me) {
+        return false;
+      }
+      if (selectedStationId > 0 && stationId !== selectedStationId) {
+        return false;
+      }
+      if (isComposeRecipientSelected(userId)) {
+        return false;
+      }
+      if (search === '') {
+        return true;
+      }
+      const haystack = [
+        user.username || '',
+        user.stationName || '',
+        user.stationCode || '',
+        user.positionName || ''
+      ].join(' ').toLowerCase();
+      return haystack.indexOf(search) !== -1;
+    }).slice(0, 8);
+  }
+
+  function renderComposeRecipientChips() {
+    if (!composeRecipientChips) return;
+    if (!state.composeSelectedRecipients.length) {
+      composeRecipientChips.hidden = true;
+      composeRecipientChips.innerHTML = '';
+      return;
+    }
+    composeRecipientChips.hidden = false;
+    composeRecipientChips.innerHTML = state.composeSelectedRecipients.map(function (user) {
+      const code = user.stationCode ? ('[' + escapeHtml(user.stationCode) + '] ') : '';
+      return '<span class="mail-recipient-chip">' +
+        '<strong>' + escapeHtml(user.username || 'User') + '</strong>' +
+        '<em>' + code + escapeHtml(user.stationName || '') + '</em>' +
+        '<button type="button" data-remove-recipient="' + escapeHtml(String(user.userId)) + '" aria-label="Remove recipient">×</button>' +
+      '</span>';
+    }).join('');
+  }
+
+  function renderComposeUserResults() {
+    if (!composeUserResults) return;
+    const users = eligibleComposeUsers();
+    if (!users.length) {
+      const hasSearch = String(composeUserSearch && composeUserSearch.value || '').trim() !== '';
+      composeUserResults.innerHTML = '<div class="mail-recipient-empty">' +
+        escapeHtml(hasSearch ? 'No matching people found.' : 'Choose a station or start typing a name.') +
+      '</div>';
+      return;
+    }
+    composeUserResults.innerHTML = users.map(function (user) {
+      const initials = String(user.username || 'U').slice(0, 2).toUpperCase();
+      return '<button type="button" class="mail-recipient-result" data-add-recipient="' + escapeHtml(String(user.userId)) + '">' +
+        '<span class="mail-recipient-avatar" aria-hidden="true">' + escapeHtml(initials) + '</span>' +
+        '<span class="mail-recipient-result-body">' +
+          '<strong>' + escapeHtml(user.username || 'User') + '</strong>' +
+          '<span>' + escapeHtml((user.stationCode ? '[' + user.stationCode + '] ' : '') + (user.stationName || '')) + '</span>' +
+        '</span>' +
+        '<span class="mail-recipient-add" aria-hidden="true"><i class="bi bi-plus-lg"></i></span>' +
+      '</button>';
+    }).join('');
+  }
+
+  function addComposeRecipient(userId) {
+    const users = Array.isArray(state.bootstrap && state.bootstrap.networkUsers) ? state.bootstrap.networkUsers : [];
+    const found = users.find(function (user) {
+      return Number(user.userId) === Number(userId);
+    });
+    if (!found || isComposeRecipientSelected(userId)) {
+      return;
+    }
+    state.composeSelectedRecipients.push({
+      userId: Number(found.userId),
+      username: found.username || 'User',
+      stationId: Number(found.stationId || 0),
+      stationName: found.stationName || '',
+      stationCode: found.stationCode || ''
+    });
+    renderComposeRecipientChips();
+    renderComposeUserResults();
+    if (composeUserSearch) {
+      composeUserSearch.value = '';
+      composeUserSearch.focus();
+    }
+  }
+
+  function removeComposeRecipient(userId) {
+    state.composeSelectedRecipients = state.composeSelectedRecipients.filter(function (entry) {
+      return Number(entry.userId) !== Number(userId);
+    });
+    renderComposeRecipientChips();
+    renderComposeUserResults();
+  }
+
+  function renderComposeAttachments() {
+    if (!composeAttachmentList) return;
+    if (!state.composeLocalAttachments.length) {
+      composeAttachmentList.hidden = true;
+      composeAttachmentList.innerHTML = '';
+      return;
+    }
+    composeAttachmentList.hidden = false;
+    composeAttachmentList.innerHTML = state.composeLocalAttachments.map(function (file, index) {
+      return '<li class="mail-compose-attachment-chip"><span>' + escapeHtml(file.name || 'attachment') + '</span><button type="button" data-compose-attachment-index="' + index + '" aria-label="Remove attachment">×</button></li>';
     }).join('');
   }
 
   function renderUserOptions() {
-    const users = Array.isArray(state.bootstrap.networkUsers) ? state.bootstrap.networkUsers : [];
-    composeUserSelect.innerHTML = users.map(function (user) {
-      const label = (user.stationCode ? '[' + escapeHtml(user.stationCode) + '] ' : '') + escapeHtml(user.stationName) + ' — ' + escapeHtml(user.username);
-      return '<option value="' + escapeHtml(String(user.userId)) + '">' + label + '</option>';
-    }).join('');
+    renderComposeRecipientChips();
+    renderComposeUserResults();
   }
 
   function applyBootstrap(payload) {
@@ -131,7 +739,14 @@
     updateCounts(state.bootstrap);
     renderStationOptions();
     renderUserOptions();
-    mailActiveFilter.textContent = 'Showing general mail';
+    mailActiveFilter.textContent = isCentralStation() ? 'Showing general mail' : 'Showing station mail';
+    if (mailBackLink && pageContext.mailHomeUrl) {
+      mailBackLink.href = String(pageContext.mailHomeUrl);
+      if (!isCentralStation()) {
+        mailBackLink.hidden = true;
+      }
+    }
+    renderRequestResponderOptions();
   }
 
   function formatDate(value) {
@@ -143,7 +758,7 @@
   function visibleItems() {
     return (state.items || []).filter(function (item) {
       const isOperational = item.mailType === 'request' && item.requestFiles;
-      if (isOperational) {
+      if (isOperational && isCentralStation()) {
         return false;
       }
       const matchesStation = state.stationFilter === '' || String(item.senderStationId) === state.stationFilter;
@@ -174,8 +789,167 @@
     });
   }
 
+  function itemTimestamp(item) {
+    return new Date(item.sentAt || item.createdAt || 0).getTime() || 0;
+  }
+
+  function groupedVisibleItems() {
+    const raw = visibleItems();
+    const byThread = new Map();
+
+    raw.forEach(function (item) {
+      const threadId = Number(item.threadId || 0);
+      if (threadId < 1) {
+        return;
+      }
+      const existing = byThread.get(threadId);
+      if (!existing) {
+        byThread.set(threadId, Object.assign({}, item, {
+          messageCount: 1,
+          latestMailId: item.mailId
+        }));
+        return;
+      }
+      existing.messageCount += 1;
+      if (itemTimestamp(item) >= itemTimestamp(existing)) {
+        existing.mailId = item.mailId;
+        existing.latestMailId = item.mailId;
+        existing.subject = item.subject || existing.subject;
+        existing.snippet = item.snippet || existing.snippet;
+        existing.body = item.body || existing.body;
+        existing.sentAt = item.sentAt || existing.sentAt;
+        existing.createdAt = item.createdAt || existing.createdAt;
+        existing.senderUsername = item.senderUsername || existing.senderUsername;
+        existing.senderStationName = item.senderStationName || existing.senderStationName;
+        existing.importance = item.importance || existing.importance;
+        existing.attachmentCount = Math.max(Number(existing.attachmentCount || 0), Number(item.attachmentCount || 0));
+      }
+      if (item.mailType === 'request' && item.requestFiles) {
+        existing.mailType = 'request';
+        existing.requestFiles = true;
+      }
+      if (!item.readAt) {
+        existing.readAt = '';
+      }
+      if (item.starredAt) {
+        existing.starredAt = item.starredAt;
+      }
+    });
+
+    return Array.from(byThread.values()).sort(function (a, b) {
+      if (state.sort === 'oldest') {
+        return itemTimestamp(a) - itemTimestamp(b);
+      }
+      if (state.sort === 'unread') {
+        const unreadA = a.readAt ? 1 : 0;
+        const unreadB = b.readAt ? 1 : 0;
+        if (unreadA !== unreadB) {
+          return unreadA - unreadB;
+        }
+      }
+      return itemTimestamp(b) - itemTimestamp(a);
+    });
+  }
+
+  function saveListScrollPosition() {
+    state.pageScrollY = window.scrollY || window.pageYOffset || 0;
+    state.listScrollTop = mailList ? mailList.scrollTop : 0;
+  }
+
+  function restoreListScrollPosition() {
+    window.requestAnimationFrame(function () {
+      if (mailList) {
+        mailList.scrollTop = state.listScrollTop || 0;
+      }
+      window.scrollTo(0, state.pageScrollY || 0);
+    });
+  }
+
+  function showConversationView() {
+    state.conversationOpen = true;
+    if (mailApp) {
+      mailApp.classList.add('is-conversation-open');
+    }
+    if (mailMain) {
+      mailMain.classList.add('is-conversation-open');
+    }
+    if (threadPanel) {
+      threadPanel.hidden = false;
+    }
+    if (mailListPanel) {
+      mailListPanel.hidden = true;
+    }
+  }
+
+  function showListView(restoreScroll) {
+    state.conversationOpen = false;
+    state.activeThread = null;
+    state.activeRequestDetail = null;
+    if (mailApp) {
+      mailApp.classList.remove('is-conversation-open');
+    }
+    if (mailMain) {
+      mailMain.classList.remove('is-conversation-open');
+    }
+    if (threadPanel) {
+      threadPanel.hidden = true;
+    }
+    if (mailListPanel) {
+      mailListPanel.hidden = false;
+    }
+    if (threadActions) threadActions.hidden = true;
+    if (inlineReplyContainer) inlineReplyContainer.hidden = true;
+    if (threadRequestSummaryInline) {
+      threadRequestSummaryInline.hidden = true;
+      threadRequestSummaryInline.innerHTML = '';
+    }
+    if (threadTitle) threadTitle.textContent = 'Select a message';
+    if (threadContent) {
+      threadContent.hidden = true;
+      threadContent.innerHTML = '';
+    }
+    if (threadEmpty) {
+      threadEmpty.hidden = false;
+      threadEmpty.textContent = 'Open a message to view the full conversation.';
+    }
+    renderList();
+    if (restoreScroll !== false) {
+      restoreListScrollPosition();
+    }
+  }
+
+  function openInlineReply(parentMailId, replyToText) {
+    if (!inlineReplyContainer || !state.activeThread) {
+      setMessage('Open a message to reply.', true);
+      return;
+    }
+    const hasRequestRoute = Boolean(state.activeRequestDetail && state.activeRequestDetail.requestRoute && state.activeRequestDetail.requestRoute.routeId);
+    if (hasRequestRoute && !isCentralStation()) {
+      setMessage('This request conversation is tracked separately once completed files are delivered.', true);
+      return;
+    }
+    inlineReplyContainer.hidden = false;
+    inlineReplyThreadId.value = String(state.activeThread.threadId || '');
+    inlineReplyParentMailId.value = parentMailId ? String(parentMailId) : '';
+    clearInlineReplyBody();
+    if (inlineReplyAttachments) inlineReplyAttachments.value = '';
+    if (inlineReplyAttachName) inlineReplyAttachName.textContent = '';
+    if (inlineReplyMessage) inlineReplyMessage.textContent = '';
+    if (inlineReplyToLabel) {
+      inlineReplyToLabel.textContent = replyToText ? ('Reply to ' + replyToText) : 'Reply';
+    }
+    if (inlineReplyBodyEditor) {
+      inlineReplyBodyEditor.focus();
+    }
+    window.requestAnimationFrame(function () {
+      if (inlineReplyContainer) {
+        inlineReplyContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    });
+  }
+
   function renderList() {
-    const items = visibleItems();
+    const items = groupedVisibleItems();
     if (items.length === 0) {
       mailList.innerHTML = '<div class="mail-empty-list">No general mail messages found.</div>';
       return;
@@ -184,11 +958,16 @@
       const unreadClass = item.readAt ? '' : ' unread';
       const selectedClass = state.activeThread && state.activeThread.threadId === item.threadId ? ' is-active' : '';
       const snippet = escapeHtml(item.snippet || item.body || '');
+      const isOperational = item.mailType === 'request' && item.requestFiles;
+      const count = Number(item.messageCount || 1);
+      const countHtml = count > 1
+        ? '<span class="mail-thread-count" title="' + escapeHtml(String(count) + ' messages in this conversation') + '">' + escapeHtml(String(count)) + '</span>'
+        : '';
       return '<article class="mail-list-item' + unreadClass + selectedClass + '" data-thread-id="' + escapeHtml(String(item.threadId)) + '" data-thread-mailid="' + escapeHtml(String(item.mailId)) + '">' +
         '<input type="checkbox" class="select-checkbox" data-thread-id="' + escapeHtml(String(item.threadId)) + '">' +
-        '<div class="mail-list-title"><strong>' + escapeHtml(item.subject || '(No subject)') + '</strong><span>' + escapeHtml(formatDate(item.sentAt || item.createdAt)) + '</span></div>' +
+        '<div class="mail-list-title"><span class="mail-list-item-subject"><strong>' + escapeHtml(item.subject || '(No subject)') + '</strong>' + countHtml + '</span><span>' + escapeHtml(formatDate(item.sentAt || item.createdAt)) + '</span></div>' +
         '<div class="mail-list-meta"><span>' + escapeHtml(item.senderStationName || '') + ' / ' + escapeHtml(item.senderUsername || '') + '</span>' +
-        '<span class="mail-badge">' + escapeHtml(item.mailType || 'message') + '</span></div>' +
+        '<span class="mail-badge">' + escapeHtml(isOperational ? 'request' : (item.mailType || 'message')) + '</span></div>' +
         '<p class="mail-list-snippet">' + snippet + '</p>' +
       '</article>';
     }).join('');
@@ -224,7 +1003,20 @@
   function renderThread(detail) {
     const thread = detail.thread || {};
     const messages = Array.isArray(detail.messages) ? detail.messages : [];
+    const hasRequestRoute = Boolean(detail.requestRoute && detail.requestRoute.routeId);
     threadTitle.textContent = thread.subject || 'Conversation';
+
+    if (threadRequestSummaryInline) {
+      if (hasRequestRoute) {
+        const html = renderRequestMetaBlock(detail.requestRoute) + renderRequestReferenceBlock(detail.requestRoute);
+        threadRequestSummaryInline.innerHTML = html;
+        threadRequestSummaryInline.hidden = html === '';
+      } else {
+        threadRequestSummaryInline.hidden = true;
+        threadRequestSummaryInline.innerHTML = '';
+      }
+    }
+
     if (messages.length === 0) {
       threadContent.innerHTML = '<div class="mail-empty-list">No messages in this thread.</div>';
       threadContent.hidden = false;
@@ -232,21 +1024,51 @@
       return;
     }
 
-    threadContent.innerHTML = messages.map(function (message) {
+    threadContent.innerHTML = messages.map(function (message, index) {
       const attachments = Array.isArray(message.attachments) ? message.attachments.map(function (attachment) {
         return '<a class="mail-attachment-link" href="' + escapeHtml(attachment.downloadUrl) + '" target="_blank" rel="noreferrer">' + escapeHtml(attachment.originalFileName) + '</a>';
       }).join('') : '';
-      return '<article class="mail-thread-message" data-mail-id="' + escapeHtml(String(message.mailId)) + '">' +
-        '<div class="mail-thread-message-head"><strong>' + escapeHtml(message.senderStationName || '') + '</strong><span>' + escapeHtml(formatDate(message.sentAt || message.createdAt)) + '</span></div>' +
-        '<div class="mail-thread-message-meta"><span>' + escapeHtml(message.senderUsername || '') + '</span><span>' + escapeHtml(message.importance || 'normal') + '</span></div>' +
-        '<p>' + escapeHtml(message.body || '') + '</p>' +
+      const isLatest = index === messages.length - 1;
+      const collapsedClass = (!isLatest && messages.length > 2) ? ' is-collapsed' : '';
+      const latestClass = isLatest ? ' is-latest' : '';
+      return '<article class="mail-thread-message' + collapsedClass + latestClass + '" data-mail-id="' + escapeHtml(String(message.mailId)) + '">' +
+        '<div class="mail-thread-message-head"><strong>' + escapeHtml(message.senderStationName || '') + ' / ' + escapeHtml(message.senderUsername || '') + '</strong><span>' + escapeHtml(formatDate(message.sentAt || message.createdAt)) + '</span></div>' +
+        '<div class="mail-thread-message-meta"><span>' + escapeHtml(message.importance || 'normal') + '</span>' +
+        (message.mailType === 'request' ? '<span class="mail-badge">Request</span>' : '') + '</div>' +
+        formatMessageBody(message.body) +
         (attachments ? '<div class="mail-attachments">' + attachments + '</div>' : '') +
-        '<div class="thread-message-actions"><button type="button" class="inline-reply-btn secondary-btn" data-mail-id="' + escapeHtml(String(message.mailId)) + '">Reply</button> <button type="button" class="edit-msg-btn secondary-btn" data-mail-id="' + escapeHtml(String(message.mailId)) + '">Edit</button></div>' +
+        (isLatest && !(hasRequestRoute && !isCentralStation())
+          ? '<div class="thread-message-actions">' +
+              '<button type="button" class="mail-pill-reply-btn inline-reply-btn" data-mail-id="' + escapeHtml(String(message.mailId)) + '" data-reply-to="' + escapeHtml((message.senderStationName || '') + ' / ' + (message.senderUsername || '')) + '">' +
+                '<i class="bi bi-reply" aria-hidden="true"></i><span>Reply</span>' +
+              '</button>' +
+            '</div>'
+          : '') +
       '</article>';
     }).join('');
 
+    if (messages.length > 2) {
+      const expandBtn = '<button type="button" class="mail-thread-expand-btn" id="expandOlderMessagesBtn">Show ' + (messages.length - 1) + ' earlier messages</button>';
+      threadContent.insertAdjacentHTML('afterbegin', expandBtn);
+      const expandEl = document.getElementById('expandOlderMessagesBtn');
+      if (expandEl) {
+        expandEl.addEventListener('click', function () {
+          Array.from(threadContent.querySelectorAll('.mail-thread-message.is-collapsed')).forEach(function (el) {
+            el.classList.remove('is-collapsed');
+          });
+          expandEl.remove();
+        });
+      }
+    }
+
     threadContent.hidden = false;
     threadEmpty.hidden = true;
+    if (threadActions) {
+      threadActions.hidden = hasRequestRoute && !isCentralStation();
+    }
+    if (inlineReplyContainer && hasRequestRoute && !isCentralStation()) {
+      inlineReplyContainer.hidden = true;
+    }
   }
 
   async function fetchBootstrap() {
@@ -273,21 +1095,24 @@
   }
 
   async function openThread(threadId) {
+    saveListScrollPosition();
     const response = await fetch(apiUrl + '?action=thread&threadId=' + encodeURIComponent(String(threadId)), { credentials: 'same-origin' });
     const payload = await response.json();
     if (!response.ok || !payload || payload.ok !== true || !payload.data) {
       throw new Error((payload && payload.message) || 'Unable to load thread.');
     }
     state.activeThread = payload.data.thread || null;
+    state.activeRequestDetail = payload.data;
+    closeRequestThreadModal();
+    showConversationView();
     renderThread(payload.data);
     renderList();
-    // Show thread actions when thread is open
-    if (threadActions) {
-      threadActions.hidden = false;
-    }
-    // Hide inline reply form when opening new thread
     if (inlineReplyContainer) {
       inlineReplyContainer.hidden = true;
+    }
+    const scrollArea = document.getElementById('threadScrollArea');
+    if (scrollArea) {
+      scrollArea.scrollTop = 0;
     }
   }
 
@@ -295,6 +1120,10 @@
     composeModal.hidden = false;
     syncMailModalScrollLock();
     setMessage('', false);
+    renderUserOptions();
+    if (composeUserSearch) {
+      composeUserSearch.focus();
+    }
   }
 
   function closeCompose() {
@@ -302,38 +1131,47 @@
     syncMailModalScrollLock();
     composeForm.reset();
     composeSubject.value = '';
-    composeBody.value = '';
+    clearComposeBody();
     composeAttachments.value = '';
     composeStationSelect.value = '';
+    if (composeUserSearch) composeUserSearch.value = '';
+    state.composeSelectedRecipients = [];
+    state.composeLocalAttachments = [];
+    renderComposeAttachments();
     renderUserOptions();
   }
 
   function selectedRecipients() {
-    return Array.from(composeUserSelect.selectedOptions).map(function (option) {
-      return Number(option.value || 0);
+    return state.composeSelectedRecipients.map(function (entry) {
+      return Number(entry.userId || 0);
     }).filter(function (id) {
       return id > 0;
     });
   }
 
   function selectedStationIds() {
-    const stationId = Number(composeStationSelect.value || 0);
-    return stationId > 0 ? [stationId] : [];
+    return [];
   }
 
   async function submitMail(isDraft) {
     const subject = composeSubject.value.trim();
-    const body = composeBody.value.trim();
+    syncEditorToHidden(composeBodyEditor, composeBody);
+    const body = getComposeBodyHtml();
     const recipients = selectedRecipients();
     const stations = selectedStationIds();
-    const files = Array.from(composeAttachments.files || []);
+    const files = state.composeLocalAttachments.slice();
 
-    if (!isDraft && subject === '' && body === '' && files.length === 0) {
-      throw new Error('Write a message or attach files before sending.');
+    if (!subject && !isDraft) {
+      setMessage('Subject is required.', true);
+      return;
     }
-
+    if (!isDraft && isEditorEmpty(composeBodyEditor) && files.length === 0) {
+      setMessage('Write a message or attach files before sending.', true);
+      return;
+    }
     if (!isDraft && recipients.length === 0 && stations.length === 0) {
-      throw new Error('Select at least one recipient user or station.');
+      setMessage('Select at least one person to message.', true);
+      return;
     }
 
     const formData = new FormData();
@@ -374,6 +1212,66 @@
     await fetchList();
   }
 
+  async function submitRequestMail(isDraft) {
+    const subject = String(requestComposeSubject && requestComposeSubject.value || '').trim();
+    const body = String(requestComposeBody && requestComposeBody.value || '').trim();
+    const centralStationId = Number((state.bootstrap && state.bootstrap.centralStation && state.bootstrap.centralStation.stationId) || 0);
+
+    if (!isDraft && subject === '' && body === '' && state.requestLocalAttachments.length === 0) {
+      throw new Error('Write a request or attach reference files before sending.');
+    }
+    if (centralStationId < 1) {
+      throw new Error('Central station routing is not configured.');
+    }
+
+    const formData = new FormData();
+    formData.append('action', isDraft ? 'save-draft' : 'send');
+    formData.append('subject', subject);
+    formData.append('body', body);
+    formData.append('mailType', 'request');
+    formData.append('importance', 'normal');
+    formData.append('requestFiles', '1');
+    formData.append('sourceStationId', String((state.bootstrap && state.bootstrap.currentUser && state.bootstrap.currentUser.stationId) || 0));
+    formData.append('recipientStationIds[]', String(centralStationId));
+
+    if (requestComposeRefIncidentDateFrom && requestComposeRefIncidentDateFrom.value) {
+      formData.append('refIncidentDateFrom', requestComposeRefIncidentDateFrom.value);
+    }
+    if (requestComposeRefIncidentDateTo && requestComposeRefIncidentDateTo.value) {
+      formData.append('refIncidentDateTo', requestComposeRefIncidentDateTo.value);
+    }
+    if (requestComposeRefAllResponders && requestComposeRefAllResponders.checked) {
+      formData.append('refAllRespondingStations', '1');
+    } else {
+      selectedRequestResponderIds().forEach(function (stationId) {
+        formData.append('refRespondingStationIds[]', String(stationId));
+      });
+    }
+    if (requestComposeRefLocation && requestComposeRefLocation.value.trim() !== '') {
+      formData.append('refLocation', requestComposeRefLocation.value.trim());
+    }
+    if (requestComposeRefCaseId && requestComposeRefCaseId.value.trim() !== '') {
+      formData.append('refCaseId', requestComposeRefCaseId.value.trim());
+    }
+    state.requestLocalAttachments.forEach(function (file) {
+      formData.append('attachments[]', file);
+    });
+
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      body: formData,
+      credentials: 'same-origin'
+    });
+    const payload = await response.json();
+    if (!response.ok || !payload || payload.ok !== true) {
+      throw new Error((payload && payload.message) || 'Unable to submit request.');
+    }
+    setRequestComposeMessage(payload.message || (isDraft ? 'Draft saved.' : 'Request sent.'), false);
+    closeRequestCompose();
+    await fetchBootstrap();
+    await fetchList();
+  }
+
   async function updateThreadAction(action, threadId) {
     if (!threadId && !state.activeThread) {
       return;
@@ -398,8 +1296,73 @@
     }
   }
 
-  openComposeBtn.addEventListener('click', openCompose);
+  openComposeBtn.addEventListener('click', function () {
+    if (isCentralStation()) {
+      openCompose();
+      return;
+    }
+    openComposeChooser();
+  });
+  if (backToListBtn) {
+    backToListBtn.addEventListener('click', function () {
+      showListView(true);
+    });
+  }
   closeComposeBtn.addEventListener('click', closeCompose);
+  if (closeComposeChooserBtn) {
+    closeComposeChooserBtn.addEventListener('click', closeComposeChooser);
+  }
+  if (openGeneralComposeBtn) {
+    openGeneralComposeBtn.addEventListener('click', function () {
+      closeComposeChooser();
+      openCompose();
+    });
+  }
+  if (openRequestComposeBtn) {
+    openRequestComposeBtn.addEventListener('click', openRequestCompose);
+  }
+  if (closeRequestComposeBtn) {
+    closeRequestComposeBtn.addEventListener('click', closeRequestCompose);
+  }
+  if (closeRequestThreadBtn) {
+    closeRequestThreadBtn.addEventListener('click', closeRequestThreadModal);
+  }
+  if (requestThreadModal) {
+    requestThreadModal.addEventListener('click', function (event) {
+      if (event.target && event.target.hasAttribute('data-close-request-thread')) {
+        closeRequestThreadModal();
+      }
+    });
+  }
+  if (requestTimelineSteps) {
+    requestTimelineSteps.addEventListener('click', function (event) {
+      const stepBtn = event.target.closest('[data-step-index]');
+      if (!stepBtn || !state.activeRequestDetail) return;
+      state.requestTimelineSelectedIndex = Number(stepBtn.getAttribute('data-step-index') || 0);
+      renderRequestTimeline(state.activeRequestDetail);
+    });
+  }
+  if (composeChooserModal) {
+    composeChooserModal.addEventListener('click', function (event) {
+      if (event.target && event.target.hasAttribute('data-close-chooser')) {
+        closeComposeChooser();
+      }
+    });
+  }
+  if (composeModal) {
+    composeModal.addEventListener('click', function (event) {
+      if (event.target && event.target.hasAttribute('data-close')) {
+        closeCompose();
+      }
+    });
+  }
+  if (requestComposeModal) {
+    requestComposeModal.addEventListener('click', function (event) {
+      if (event.target && event.target.hasAttribute('data-close-request-compose')) {
+        closeRequestCompose();
+      }
+    });
+  }
   refreshBtn.addEventListener('click', function () {
     fetchList().catch(function (error) { setMessage(error.message, true); });
   });
@@ -411,6 +1374,88 @@
     submitMail(true).catch(function (error) { setMessage(error.message, true); });
   });
   composeStationSelect.addEventListener('change', renderUserOptions);
+  if (composeUserSearch) {
+    composeUserSearch.addEventListener('input', renderComposeUserResults);
+  }
+  if (composeUserResults) {
+    composeUserResults.addEventListener('click', function (event) {
+      const button = event.target.closest('[data-add-recipient]');
+      if (!button) return;
+      addComposeRecipient(Number(button.getAttribute('data-add-recipient') || 0));
+    });
+  }
+  if (composeRecipientChips) {
+    composeRecipientChips.addEventListener('click', function (event) {
+      const button = event.target.closest('[data-remove-recipient]');
+      if (!button) return;
+      removeComposeRecipient(Number(button.getAttribute('data-remove-recipient') || 0));
+    });
+  }
+  if (composeAttachFilesBtn && composeAttachments) {
+    composeAttachFilesBtn.addEventListener('click', function () {
+      composeAttachments.click();
+    });
+    composeAttachments.addEventListener('change', function () {
+      Array.from(composeAttachments.files || []).forEach(function (file) {
+        const duplicate = state.composeLocalAttachments.some(function (existing) {
+          return existing.name === file.name && existing.size === file.size && existing.lastModified === file.lastModified;
+        });
+        if (!duplicate) {
+          state.composeLocalAttachments.push(file);
+        }
+      });
+      composeAttachments.value = '';
+      renderComposeAttachments();
+    });
+  }
+  if (composeAttachmentList) {
+    composeAttachmentList.addEventListener('click', function (event) {
+      const button = event.target.closest('[data-compose-attachment-index]');
+      if (!button) return;
+      const index = Number(button.getAttribute('data-compose-attachment-index') || -1);
+      if (index < 0 || index >= state.composeLocalAttachments.length) return;
+      state.composeLocalAttachments.splice(index, 1);
+      renderComposeAttachments();
+    });
+  }
+  if (requestComposeForm) {
+    requestComposeForm.addEventListener('submit', function (event) {
+      event.preventDefault();
+      submitRequestMail(false).catch(function (error) { setRequestComposeMessage(error.message, true); });
+    });
+  }
+  if (saveRequestDraftBtn) {
+    saveRequestDraftBtn.addEventListener('click', function () {
+      submitRequestMail(true).catch(function (error) { setRequestComposeMessage(error.message, true); });
+    });
+  }
+  if (requestComposeAttachFilesBtn && requestComposeLocalAttachments) {
+    requestComposeAttachFilesBtn.addEventListener('click', function () {
+      requestComposeLocalAttachments.click();
+    });
+    requestComposeLocalAttachments.addEventListener('change', function () {
+      if (!requestComposeLocalAttachments.files || !requestComposeLocalAttachments.files.length) {
+        return;
+      }
+      addRequestAttachments(requestComposeLocalAttachments.files);
+      requestComposeLocalAttachments.value = '';
+    });
+  }
+  if (requestComposeAttachmentList) {
+    requestComposeAttachmentList.addEventListener('click', function (event) {
+      const button = event.target.closest('[data-request-attachment-index]');
+      if (!button) return;
+      const index = Number(button.getAttribute('data-request-attachment-index') || -1);
+      if (index < 0 || index >= state.requestLocalAttachments.length) return;
+      state.requestLocalAttachments.splice(index, 1);
+      renderRequestAttachmentList();
+    });
+  }
+  if (requestComposeRefAllResponders) {
+    requestComposeRefAllResponders.addEventListener('change', function () {
+      renderRequestResponderOptions();
+    });
+  }
   searchInput.addEventListener('input', function () {
     state.search = searchInput.value.trim();
     renderList();
@@ -433,7 +1478,6 @@
     btn.addEventListener('click', function() {
       const folder = btn.getAttribute('data-folder');
       state.folder = folder;
-      state.activeThread = null;
 
       // Update active button
       document.querySelectorAll('.mail-folder-btn').forEach(function(b) {
@@ -449,11 +1493,8 @@
       };
       mailFolderTitle.textContent = titles[folder] || 'Inbox';
 
-      // Fetch and render
+      showListView(false);
       fetchList().catch(function (error) { setMessage(error.message, true); });
-      threadEmpty.hidden = false;
-      threadContent.hidden = true;
-      threadTitle.textContent = 'Select a message';
     });
   });
 
@@ -475,21 +1516,25 @@
   }
 
   // Smart action handler: works on active thread OR selected items
+  function latestReplyTarget() {
+    const detail = state.activeRequestDetail;
+    const messages = detail && Array.isArray(detail.messages) ? detail.messages : [];
+    if (!messages.length) return { mailId: 0, label: 'Reply' };
+    const latest = messages[messages.length - 1] || {};
+    return {
+      mailId: Number(latest.mailId || 0),
+      label: ((latest.senderStationName || '') + ' / ' + (latest.senderUsername || '')).replace(/^\s*\/\s*$/, '').trim() || 'Reply'
+    };
+  }
+
   function smartAction(action) {
     if (action === 'reply') {
-      if (state.activeThread) {
-        if (!inlineReplyContainer) {
-          setMessage('Reply form not available.', true);
-          return;
-        }
-        inlineReplyContainer.hidden = false;
-        inlineReplyThreadId.value = String(state.activeThread.threadId || '');
-        inlineReplyParentMailId.value = '';
-        inlineReplyBody.value = '';
-        inlineReplyBody.focus();
-      } else {
+      if (!state.activeThread) {
         setMessage('Open a message to reply.', true);
+        return;
       }
+      const target = latestReplyTarget();
+      openInlineReply(target.mailId, target.label === 'Reply' ? '' : target.label);
       return;
     }
 
@@ -585,12 +1630,8 @@
     const replyBtn = event.target.closest('.inline-reply-btn');
     if (replyBtn) {
       const mailId = Number(replyBtn.getAttribute('data-mail-id') || 0);
-      if (!inlineReplyContainer || !inlineReplyForm) return;
-      inlineReplyContainer.hidden = false;
-      inlineReplyThreadId.value = String(state.activeThread.threadId || '');
-      inlineReplyParentMailId.value = String(mailId || '');
-      inlineReplyBody.value = '';
-      inlineReplyBody.focus();
+      const replyTo = replyBtn.getAttribute('data-reply-to') || '';
+      openInlineReply(mailId, replyTo);
       return;
     }
 
@@ -604,10 +1645,10 @@
       // attempt to load message body from rendered DOM
       const article = event.target.closest('article[data-mail-id]');
       if (article) {
-        const p = article.querySelector('p');
-        composeBody.value = p ? p.textContent || '' : '';
+        const bodyEl = article.querySelector('.mail-thread-message-body');
+        setEditorHtml(composeBodyEditor, composeBody, bodyEl ? bodyEl.innerHTML : '');
       }
-      composeBody.focus();
+      if (composeBodyEditor) composeBodyEditor.focus();
       return;
     }
   });
@@ -617,12 +1658,20 @@
   const SHORTCUT_TIMEOUT = 1500; // ms for multi-key sequences
 
   function isInputFocused() {
-    return document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA');
+    const el = document.activeElement;
+    if (!el) return false;
+    if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT') return true;
+    if (el.isContentEditable) return true;
+    return false;
   }
 
   // Main keyboard shortcut handler
   document.addEventListener('keydown', function (event) {
     if (event.key === 'Escape') {
+      if (inlineReplyContainer && !inlineReplyContainer.hidden) {
+        closeInlineReply();
+        return;
+      }
       if (!composeModal.hidden) {
         closeCompose();
         return;
@@ -773,10 +1822,7 @@
 
     if (e.key === 'r') {
       e.preventDefault();
-      openCompose();
-      composeThreadId.value = String(state.activeThread.threadId || '');
-      composeSubject.value = 'Re: ' + (state.activeThread.subject || '');
-      composeBody.focus();
+      smartAction('reply');
       return;
     }
 
@@ -785,7 +1831,7 @@
       openCompose();
       composeThreadId.value = String(state.activeThread.threadId || '');
       composeSubject.value = 'Re: ' + (state.activeThread.subject || '');
-      composeBody.focus();
+      if (composeBodyEditor) composeBodyEditor.focus();
       return;
     }
 
@@ -832,9 +1878,10 @@
       ev.preventDefault();
       const threadId = Number(inlineReplyThreadId.value || 0);
       const parentMailId = Number(inlineReplyParentMailId.value || 0);
-      const body = inlineReplyBody.value.trim();
-      const files = Array.from(inlineReplyAttachments.files || []);
-      if (!body && files.length === 0) {
+      syncEditorToHidden(inlineReplyBodyEditor, inlineReplyBody);
+      const body = getInlineReplyBodyHtml();
+      const files = Array.from((inlineReplyAttachments && inlineReplyAttachments.files) || []);
+      if (isEditorEmpty(inlineReplyBodyEditor) && files.length === 0) {
         inlineReplyMessage.textContent = 'Write a reply or attach files before sending.';
         inlineReplyMessage.style.color = '#b8333b';
         return;
@@ -856,6 +1903,8 @@
           inlineReplyMessage.textContent = 'Reply sent.';
           inlineReplyMessage.style.color = '#1f5e2d';
           inlineReplyForm.reset();
+          clearInlineReplyBody();
+          if (inlineReplyAttachName) inlineReplyAttachName.textContent = '';
           inlineReplyContainer.hidden = true;
           fetchBootstrap().then(fetchList).then(function () { openThread(threadId).catch(function (e) { setMessage(e.message, true); }); });
         }).catch(function (err) {
@@ -865,13 +1914,32 @@
     });
   }
 
+  function closeInlineReply() {
+    if (!inlineReplyContainer) return;
+    inlineReplyContainer.hidden = true;
+    if (inlineReplyForm) inlineReplyForm.reset();
+    clearInlineReplyBody();
+    if (inlineReplyAttachName) inlineReplyAttachName.textContent = '';
+    if (inlineReplyMessage) inlineReplyMessage.textContent = '';
+  }
+
   if (inlineReplyCancel) {
-    inlineReplyCancel.addEventListener('click', function () {
-      if (!inlineReplyContainer) return;
-      inlineReplyContainer.hidden = true;
-      inlineReplyForm.reset();
+    inlineReplyCancel.addEventListener('click', closeInlineReply);
+  }
+  if (inlineReplyDiscard) {
+    inlineReplyDiscard.addEventListener('click', closeInlineReply);
+  }
+  if (inlineReplyAttachments && inlineReplyAttachName) {
+    inlineReplyAttachments.addEventListener('change', function () {
+      const files = Array.from(inlineReplyAttachments.files || []);
+      inlineReplyAttachName.textContent = files.length
+        ? files.map(function (file) { return file.name; }).join(', ')
+        : '';
     });
   }
+
+  bindRichEditor('compose');
+  bindRichEditor('inlineReply');
 
   // quick filters
   if (quickFilters) {
@@ -1027,11 +2095,8 @@
       const action = item.getAttribute('data-action');
       if (action === 'reply') {
         openThread(threadId).then(function () {
-          inlineReplyContainer.hidden = false;
-          inlineReplyThreadId.value = String(threadId || '');
-          inlineReplyParentMailId.value = '';
-          inlineReplyBody.value = '';
-          inlineReplyBody.focus();
+          const target = latestReplyTarget();
+          openInlineReply(target.mailId, target.label === 'Reply' ? '' : target.label);
         }).catch(function (err) { setMessage(err.message, true); });
       } else {
         updateThreadAction(action, threadId).catch(function (err) { setMessage(err.message, true); });
@@ -1072,8 +2137,13 @@
   async function init() {
     try {
       setMessage('Loading general mail...', false);
+      showListView(false);
       await fetchBootstrap();
       await fetchList();
+      const threadIdFromUrl = Number(new URLSearchParams(window.location.search).get('thread') || 0);
+      if (threadIdFromUrl > 0) {
+        await openThread(threadIdFromUrl);
+      }
       setMessage('Ready.', false);
     } catch (error) {
       setMessage(error.message, true);

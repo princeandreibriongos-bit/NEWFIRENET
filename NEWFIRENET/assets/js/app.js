@@ -14,6 +14,7 @@ const notificationsStorageKey = 'firenet.reportNotifications';
 const sessionContext = window.firenetSessionContext || {};
 const calendarAlertsEndpoint = '/firenet/NEWFIRENET/backend/controllers/calendar.php?action=alerts';
 const warningAlertsEndpoint = '/firenet/NEWFIRENET/backend/controllers/warnings.php?action=alerts';
+const mailAlertsEndpoint = '/firenet/NEWFIRENET/backend/controllers/station_mails.php?action=alerts';
 const calendarPageUrl = String(sessionContext.calendarUrl || '/firenet/NEWFIRENET/backend/pages/calendar.php');
 
 navLinks.forEach(function (link) {
@@ -238,6 +239,30 @@ async function syncWarningAlerts() {
 	}
 }
 
+async function syncMailAlerts() {
+	if (!sessionContext || !sessionContext.userId) {
+		return;
+	}
+
+	try {
+		const response = await fetch(mailAlertsEndpoint, {
+			method: 'GET',
+			credentials: 'same-origin'
+		});
+		const payload = await response.json();
+		if (!response.ok || !payload || payload.ok !== true || !Array.isArray(payload.alerts)) {
+			return;
+		}
+
+		const nextNotifications = mergeNotifications(loadNotifications(), payload.alerts);
+		saveNotifications(nextNotifications);
+		renderNotifications();
+		window.dispatchEvent(new CustomEvent('firenet:notifications-updated', { detail: { source: 'mail' } }));
+	} catch (error) {
+		return;
+	}
+}
+
 function escapeHtml(value) {
 	return String(value)
 		.replace(/&/g, '&amp;')
@@ -288,19 +313,23 @@ if (headerDateTime) {
 renderNotifications();
 syncCalendarAlerts();
 syncWarningAlerts();
+syncMailAlerts();
 
 window.addEventListener('focus', function () {
     syncWarningAlerts();
+    syncMailAlerts();
 });
 
 window.addEventListener('visibilitychange', function () {
     if (document.visibilityState === 'visible') {
         syncWarningAlerts();
+        syncMailAlerts();
     }
 });
 
 window.setInterval(function () {
     syncWarningAlerts();
+    syncMailAlerts();
 }, 30000);
 
 window.addEventListener('storage', function (event) {

@@ -244,6 +244,13 @@ SQL);
         'target_confidential_confirmed' => 'TINYINT(1) NOT NULL DEFAULT 0',
         'released_access_mode' => 'VARCHAR(16) NULL',
         'confidential_acknowledged_at' => 'DATETIME NULL',
+        'ref_incident_date' => 'DATE NULL',
+        'ref_incident_date_to' => 'DATE NULL',
+        'ref_location' => 'VARCHAR(255) NULL',
+        'ref_responding_station_id' => 'INT NULL',
+        'ref_responding_station_ids' => 'VARCHAR(255) NULL',
+        'ref_all_responding_stations' => 'TINYINT(1) NOT NULL DEFAULT 0',
+        'ref_case_id' => 'VARCHAR(64) NULL',
     ];
     foreach ($routeCols as $col => $definition) {
         if (!firenet_mail_table_column_exists($pdo, 'station_mail_request_routes', $col)) {
@@ -355,6 +362,32 @@ function firenet_mail_orgmail_extract_r2_key(string $url): string
     return ltrim(str_replace('\\', '/', $url), '/');
 }
 
+function firenet_mail_r2_original_name(string $url): string
+{
+    $key = firenet_mail_orgmail_extract_r2_key($url);
+    if ($key === '') {
+        return 'attachment';
+    }
+
+    $name = basename($key);
+    $name = preg_replace('/[^A-Za-z0-9._-]+/', '_', (string) $name) ?: 'attachment';
+    return $name;
+}
+
+function firenet_mail_attachment_display_name(string $originalName, string $filePath): string
+{
+    $originalName = trim($originalName);
+    $filePath = trim($filePath);
+
+    if ($filePath !== '' && preg_match('#/r2_storage\.php#i', $filePath)) {
+        if ($originalName === '' || preg_match('/\.php$/i', $originalName)) {
+            return firenet_mail_r2_original_name($filePath);
+        }
+    }
+
+    return $originalName !== '' ? $originalName : 'attachment';
+}
+
 function firenet_mail_orgmail_url_matches_station_r2(string $url, string $stationCode): bool
 {
     $stationCode = strtoupper(preg_replace('/[^A-Z0-9_-]+/i', '', trim($stationCode)) ?: '');
@@ -368,6 +401,22 @@ function firenet_mail_orgmail_url_matches_station_r2(string $url, string $statio
     }
 
     $prefix = firenet_r2_orgmail_prefix($stationCode);
+    return stripos($key, $prefix . '/') === 0 || strcasecmp($key, $prefix) === 0;
+}
+
+function firenet_mail_reports_url_matches_station_r2(string $url, string $stationCode): bool
+{
+    $stationCode = strtoupper(preg_replace('/[^A-Z0-9_-]+/i', '', trim($stationCode)) ?: '');
+    if ($stationCode === '') {
+        return false;
+    }
+
+    $key = firenet_mail_orgmail_extract_r2_key($url);
+    if ($key === '') {
+        return false;
+    }
+
+    $prefix = firenet_r2_reports_prefix($stationCode);
     return stripos($key, $prefix . '/') === 0 || strcasecmp($key, $prefix) === 0;
 }
 
@@ -448,6 +497,22 @@ function firenet_mail_orgmail_require_url_for_station(string $url, string $stati
 
     if (!firenet_mail_orgmail_url_matches_station($url, $stationCode, $cloudName)) {
         firenet_mail_fail('Operational attachments must use a Cloudinary file inside this station\'s folder (' . firenet_mail_orgmail_station_folder($stationCode, $cfg) . ').', 422);
+    }
+}
+
+function firenet_mail_reports_require_url_for_station(string $url, string $stationCode): void
+{
+    if (!firenet_r2_enabled()) {
+        firenet_mail_fail('Report-browsing attachments require R2 storage to be enabled.', 503);
+    }
+
+    if (!firenet_mail_reports_url_matches_station_r2($url, $stationCode)) {
+        firenet_mail_fail(
+            'Fulfillment attachments must use a file inside this station\'s reports folder ('
+            . firenet_r2_reports_prefix($stationCode)
+            . ').',
+            422
+        );
     }
 }
 
@@ -734,17 +799,27 @@ function firenet_mail_request_route_by_thread(PDO $pdo, int $threadId): array
             rr.target_confidential_confirmed,
             rr.released_access_mode,
             rr.confidential_acknowledged_at,
+            rr.ref_incident_date,
+            rr.ref_incident_date_to,
+            rr.ref_location,
+            rr.ref_responding_station_id,
+            rr.ref_responding_station_ids,
+            rr.ref_all_responding_stations,
+            rr.ref_case_id,
             request_user.username AS request_username,
             origin_station.station_name AS origin_station_name,
             origin_station.station_code AS origin_station_code,
             target_station.station_name AS target_station_name,
             target_station.station_code AS target_station_code,
+            responding_station.station_name AS ref_responding_station_name,
+            responding_station.station_code AS ref_responding_station_code,
             origin_reviewer.username AS origin_reviewer_username,
             target_reviewer.username AS target_reviewer_username
         FROM station_mail_request_routes rr
         LEFT JOIN users request_user ON request_user.user_id = rr.request_user_id
         LEFT JOIN stations origin_station ON origin_station.station_id = rr.origin_station_id
         LEFT JOIN stations target_station ON target_station.station_id = rr.target_station_id
+        LEFT JOIN stations responding_station ON responding_station.station_id = rr.ref_responding_station_id
         LEFT JOIN users origin_reviewer ON origin_reviewer.user_id = rr.origin_reviewed_by
         LEFT JOIN users target_reviewer ON target_reviewer.user_id = rr.target_reviewed_by
         WHERE rr.thread_id = ?
@@ -774,6 +849,30 @@ function firenet_mail_request_route_by_thread(PDO $pdo, int $threadId): array
         $assignedUsername = (string) ($assignmentRow['username'] ?? '');
     }
 
+    $refRespondingStations = [];
+    $refRespondingIds = firenet_mail_normalize_station_ids((string) ($row['ref_responding_station_ids'] ?? ''));
+    if ($refRespondingIds === [] && (int) ($row['ref_responding_station_id'] ?? 0) > 0) {
+        $refRespondingIds = [(int) $row['ref_responding_station_id']];
+    }
+    if ($refRespondingIds !== []) {
+        $placeholders = implode(',', array_fill(0, count($refRespondingIds), '?'));
+        $stationStmt = $pdo->prepare('SELECT station_id, station_name, station_code FROM stations WHERE station_id IN (' . $placeholders . ')');
+        $stationStmt->execute($refRespondingIds);
+        $nameById = [];
+        foreach ($stationStmt->fetchAll(PDO::FETCH_ASSOC) as $stationRow) {
+            $nameById[(int) $stationRow['station_id']] = [
+                'stationId' => (int) $stationRow['station_id'],
+                'stationName' => (string) $stationRow['station_name'],
+                'stationCode' => (string) $stationRow['station_code'],
+            ];
+        }
+        foreach ($refRespondingIds as $refStationId) {
+            if (isset($nameById[$refStationId])) {
+                $refRespondingStations[] = $nameById[$refStationId];
+            }
+        }
+    }
+
     return [
         'routeId' => (int) ($row['route_id'] ?? 0),
         'threadId' => (int) ($row['thread_id'] ?? 0),
@@ -796,6 +895,15 @@ function firenet_mail_request_route_by_thread(PDO $pdo, int $threadId): array
         'targetConfidentialConfirmed' => ((int) ($row['target_confidential_confirmed'] ?? 0)) === 1,
         'releasedAccessMode' => (string) ($row['released_access_mode'] ?? ''),
         'confidentialAcknowledgedAt' => (string) ($row['confidential_acknowledged_at'] ?? ''),
+        'refIncidentDate' => (string) ($row['ref_incident_date'] ?? ''),
+        'refIncidentDateTo' => (string) ($row['ref_incident_date_to'] ?? ''),
+        'refLocation' => (string) ($row['ref_location'] ?? ''),
+        'refRespondingStationId' => (int) ($row['ref_responding_station_id'] ?? 0),
+        'refRespondingStationName' => (string) ($row['ref_responding_station_name'] ?? ''),
+        'refRespondingStationCode' => (string) ($row['ref_responding_station_code'] ?? ''),
+        'refRespondingStations' => $refRespondingStations,
+        'refAllRespondingStations' => ((int) ($row['ref_all_responding_stations'] ?? 0)) === 1,
+        'refCaseId' => (string) ($row['ref_case_id'] ?? ''),
         'requestUsername' => (string) ($row['request_username'] ?? ''),
         'originStationName' => (string) ($row['origin_station_name'] ?? ''),
         'originStationCode' => (string) ($row['origin_station_code'] ?? ''),
@@ -811,8 +919,9 @@ function firenet_mail_request_route_by_thread(PDO $pdo, int $threadId): array
 function firenet_mail_request_tracking(PDO $pdo, int $userId, int $stationId, array $userProfile): array
 {
     $isComl = firenet_mail_is_coml_position($userProfile);
+    $isCentral = firenet_r2_is_central_station($pdo, $stationId);
 
-    if ($isComl) {
+    if ($isComl && $isCentral) {
         $stmt = $pdo->prepare('
             SELECT
                 rr.route_id,
@@ -826,11 +935,11 @@ function firenet_mail_request_tracking(PDO $pdo, int $userId, int $stationId, ar
             JOIN station_mail_threads t ON t.thread_id = rr.thread_id
             LEFT JOIN stations origin_station ON origin_station.station_id = rr.origin_station_id
             LEFT JOIN stations target_station ON target_station.station_id = rr.target_station_id
-            WHERE rr.origin_station_id = ? OR rr.target_station_id = ?
+            WHERE rr.target_station_id = ?
             ORDER BY rr.updated_at DESC, rr.route_id DESC
-            LIMIT 12
+            LIMIT 50
         ');
-        $stmt->execute([$stationId, $stationId]);
+        $stmt->execute([$stationId]);
     } else {
         $stmt = $pdo->prepare('
             SELECT
@@ -846,18 +955,10 @@ function firenet_mail_request_tracking(PDO $pdo, int $userId, int $stationId, ar
             LEFT JOIN stations origin_station ON origin_station.station_id = rr.origin_station_id
             LEFT JOIN stations target_station ON target_station.station_id = rr.target_station_id
             WHERE rr.request_user_id = ?
-               OR EXISTS (
-                    SELECT 1
-                    FROM station_mail_messages m
-                    JOIN station_mail_recipients r ON r.mail_id = m.mail_id
-                    WHERE m.thread_id = rr.thread_id
-                      AND r.recipient_user_id = ?
-                      AND r.deleted_at IS NULL
-               )
             ORDER BY rr.updated_at DESC, rr.route_id DESC
-            LIMIT 12
+            LIMIT 50
         ');
-        $stmt->execute([$userId, $userId]);
+        $stmt->execute([$userId]);
     }
 
     return array_map(static function (array $row): array {
@@ -967,7 +1068,7 @@ function firenet_mail_sanitize_html_body(?string $value): string
         return '';
     }
 
-    $allowed = '<p><br><b><strong><i><em><u><ul><ol><li><a><div><span>';
+    $allowed = '<p><br><b><strong><i><em><u><ul><ol><li><a><div><span><blockquote><font><h1><h2><h3>';
     $clean = strip_tags($html, $allowed);
     if ($clean === '') {
         return '';
@@ -1096,9 +1197,13 @@ function firenet_mail_attachment_rows(PDO $pdo, int $mailId): array
     $stmt->execute([$mailId]);
 
     return array_map(static function (array $row): array {
+        $displayName = firenet_mail_attachment_display_name(
+            (string) ($row['original_file_name'] ?? ''),
+            (string) ($row['file_path'] ?? '')
+        );
         return [
             'attachmentId' => (int) ($row['attachment_id'] ?? 0),
-            'originalFileName' => (string) ($row['original_file_name'] ?? ''),
+            'originalFileName' => $displayName,
             'storedFileName' => (string) ($row['stored_file_name'] ?? ''),
             'filePath' => (string) ($row['file_path'] ?? ''),
             'mimeType' => (string) ($row['mime_type'] ?? ''),
@@ -1106,6 +1211,68 @@ function firenet_mail_attachment_rows(PDO $pdo, int $mailId): array
             'downloadUrl' => '/firenet/NEWFIRENET/backend/controllers/station_mails.php?action=download&attachmentId=' . (int) ($row['attachment_id'] ?? 0),
             'uploadedBy' => (int) ($row['uploaded_by'] ?? 0),
             'createdAt' => (string) ($row['created_at'] ?? '')
+        ];
+    }, $stmt->fetchAll(PDO::FETCH_ASSOC));
+}
+
+function firenet_mail_alerts(PDO $pdo, int $userId, int $stationId): array
+{
+    $mailPageUrl = firenet_r2_is_central_station($pdo, $stationId)
+        ? '/firenet/NEWFIRENET/backend/pages/operational_mail.php'
+        : '/firenet/NEWFIRENET/backend/pages/general_mail.php';
+
+    $stmt = $pdo->prepare(<<<'SQL'
+SELECT
+    m.mail_id,
+    m.thread_id,
+    m.subject,
+    m.body,
+    m.mail_type,
+    m.sent_at,
+    m.created_at,
+    sender.username AS sender_username,
+    COALESCE(sender_station.station_name, CONCAT('Station ', m.sender_station_id)) AS sender_station_name,
+    r.recipient_id,
+    r.read_at,
+    (
+        SELECT COUNT(*)
+        FROM station_mail_attachments a
+        WHERE a.mail_id = m.mail_id
+    ) AS attachment_count
+FROM station_mail_messages m
+JOIN station_mail_recipients r ON r.mail_id = m.mail_id
+LEFT JOIN users sender ON sender.user_id = m.sender_user_id
+LEFT JOIN stations sender_station ON sender_station.station_id = m.sender_station_id
+WHERE m.is_draft = 0
+  AND r.deleted_at IS NULL
+  AND (
+        r.recipient_user_id = ?
+        OR (r.recipient_station_id = ? AND r.recipient_user_id IS NULL)
+      )
+ORDER BY COALESCE(m.sent_at, m.created_at) DESC, m.mail_id DESC
+LIMIT 10
+SQL);
+    $stmt->execute([$userId, $stationId]);
+
+    return array_map(static function (array $row) use ($mailPageUrl): array {
+        $subject = trim((string) ($row['subject'] ?? ''));
+        $senderStation = trim((string) ($row['sender_station_name'] ?? 'MCFS'));
+        $attachmentCount = (int) ($row['attachment_count'] ?? 0);
+        $title = $subject !== '' ? $subject : 'Operational mail update';
+        if ($attachmentCount > 0) {
+            $title = $senderStation . ' sent ' . $attachmentCount . ' file' . ($attachmentCount > 1 ? 's' : '') . ': ' . $title;
+        } else {
+            $title = $senderStation . ': ' . $title;
+        }
+
+        return [
+            'id' => 'mail-message-' . (int) ($row['mail_id'] ?? 0) . '-' . (int) ($row['recipient_id'] ?? 0),
+            'label' => 'Operational Mail',
+            'title' => $title,
+            'url' => $mailPageUrl . '?thread=' . (int) ($row['thread_id'] ?? 0),
+            'createdAt' => (string) (($row['sent_at'] ?? '') ?: ($row['created_at'] ?? '')),
+            'read' => trim((string) ($row['read_at'] ?? '')) !== '',
+            'message' => trim(strip_tags((string) ($row['body'] ?? '')))
         ];
     }, $stmt->fetchAll(PDO::FETCH_ASSOC));
 }
@@ -1118,9 +1285,8 @@ function firenet_mail_count_folder(PDO $pdo, int $userId, int $stationId, string
             $stmt->execute([$stationId, $userId]);
             return (int) ($stmt->fetchColumn() ?: 0);
         case 'sent':
-            // Sent mailbox includes both the current user's sent items and station-shared sent items.
-            $stmt = $pdo->prepare('SELECT COUNT(*) FROM station_mail_messages WHERE (sender_user_id = ? OR sender_station_id = ?) AND is_draft = 0');
-            $stmt->execute([$userId, $stationId]);
+            $stmt = $pdo->prepare('SELECT COUNT(*) FROM station_mail_messages WHERE sender_user_id = ? AND is_draft = 0');
+            $stmt->execute([$userId]);
             return (int) ($stmt->fetchColumn() ?: 0);
         case 'drafts':
             $stmt = $pdo->prepare('SELECT COUNT(*) FROM station_mail_messages WHERE sender_user_id = ? AND is_draft = 1');
@@ -1168,6 +1334,7 @@ function firenet_mail_bootstrap(PDO $pdo, int $userId, int $stationId, string $r
             'positionCode' => (string) ($userProfile['positionCode'] ?? ''),
             'positionName' => (string) ($userProfile['positionName'] ?? ''),
             'isComl' => $isComl,
+            'isCentralStation' => firenet_r2_is_central_station($pdo, $stationId),
             'canRouteStations' => $isComl,
             'canReplyAcrossStations' => $isComl,
             'canRequestOnly' => !$isComl
@@ -1212,6 +1379,19 @@ function firenet_mail_thread_access_sql(): string
 
 function firenet_mail_can_view_thread(PDO $pdo, int $threadId, int $userId, int $stationId): bool
 {
+    $route = firenet_mail_request_route_by_thread($pdo, $threadId);
+    if ($route !== []) {
+        if ((int) ($route['requestUserId'] ?? 0) === $userId) {
+            return true;
+        }
+
+        if (firenet_r2_is_central_station($pdo, $stationId) && (int) ($route['targetStationId'] ?? 0) === $stationId) {
+            return true;
+        }
+
+        return false;
+    }
+
     $stmt = $pdo->prepare('
         SELECT 1
         FROM station_mail_messages m
@@ -1304,13 +1484,14 @@ function firenet_mail_fetch_list(PDO $pdo, int $userId, int $stationId, string $
             FROM station_mail_messages m
             LEFT JOIN users sender ON sender.user_id = m.sender_user_id
             LEFT JOIN stations sender_station ON sender_station.station_id = m.sender_station_id
-                        WHERE (m.sender_user_id = :userId OR m.sender_station_id = :stationId)
+                        WHERE m.sender_user_id = :userId
               AND m.is_draft = 0
                             $searchSql
                             $filterForMessages
                         ORDER BY COALESCE(m.sent_at, m.created_at) DESC, m.mail_id DESC
             LIMIT 200
         ";
+        unset($params[':stationId']);
     } elseif ($folder === 'drafts') {
         $params[':userId'] = $userId;
         $sql = "
@@ -1634,8 +1815,7 @@ function firenet_mail_save_remote_attachment(PDO $pdo, int $mailId, int $userId,
         firenet_mail_orgmail_require_url_for_station($url, $orgmailStationCode);
     }
 
-    $fileName = basename(parse_url($url, PHP_URL_PATH) ?: 'cloudinary-file');
-    $safeName = preg_replace('/[^A-Za-z0-9._-]+/', '_', (string) $fileName) ?: 'cloudinary-file';
+    $safeName = firenet_mail_r2_original_name($url);
     $storedFileName = 'cloudinary_' . bin2hex(random_bytes(16));
     $relativePath = $url;
     $mimeType = 'application/octet-stream';
@@ -1679,11 +1859,52 @@ function firenet_mail_store_message(PDO $pdo, array $input, int $currentUserId, 
     $threadId = (int) ($input['threadId'] ?? 0);
     $parentMailId = (int) ($input['parentMailId'] ?? 0);
     $isStationNotice = !empty($input['isStationNotice']) ? 1 : 0;
+
+    $refIncidentDate = trim((string) ($input['refIncidentDateFrom'] ?? $input['refIncidentDate'] ?? ''));
+    if ($refIncidentDate !== '' && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $refIncidentDate)) {
+        $refIncidentDate = '';
+    }
+    $refIncidentDateTo = trim((string) ($input['refIncidentDateTo'] ?? ''));
+    if ($refIncidentDateTo !== '' && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $refIncidentDateTo)) {
+        $refIncidentDateTo = '';
+    }
+    // If only the end date was provided, treat it as the start.
+    if ($refIncidentDate === '' && $refIncidentDateTo !== '') {
+        $refIncidentDate = $refIncidentDateTo;
+        $refIncidentDateTo = '';
+    }
+    // Normalize a reversed range so "from" is always the earlier date.
+    if ($refIncidentDate !== '' && $refIncidentDateTo !== '' && $refIncidentDateTo < $refIncidentDate) {
+        $swap = $refIncidentDate;
+        $refIncidentDate = $refIncidentDateTo;
+        $refIncidentDateTo = $swap;
+    }
+    // A range with identical endpoints is just a single day.
+    if ($refIncidentDateTo !== '' && $refIncidentDateTo === $refIncidentDate) {
+        $refIncidentDateTo = '';
+    }
+    $refLocation = firenet_mail_clean_text((string) ($input['refLocation'] ?? ''));
+    if (mb_strlen($refLocation) > 255) {
+        $refLocation = mb_substr($refLocation, 0, 255);
+    }
+    $refAllRespondingStations = !empty($input['refAllRespondingStations']) ? 1 : 0;
+    $refRespondingStationIds = firenet_mail_normalize_station_ids($input['refRespondingStationIds'] ?? ($input['refRespondingStationId'] ?? []));
+    if ($refAllRespondingStations === 1) {
+        // "All responding" overrides any specific picks.
+        $refRespondingStationIds = [];
+    }
+    $refRespondingStationId = $refRespondingStationIds[0] ?? 0;
+    $refRespondingStationIdsCsv = $refRespondingStationIds !== [] ? implode(',', $refRespondingStationIds) : '';
+    $refCaseId = firenet_mail_clean_text((string) ($input['refCaseId'] ?? ''));
+    if (mb_strlen($refCaseId) > 64) {
+        $refCaseId = mb_substr($refCaseId, 0, 64);
+    }
     $recipientStations = firenet_mail_normalize_station_ids($input['recipientStationIds'] ?? []);
     $recipientUserIds = firenet_mail_normalize_user_ids($input['recipientUserIds'] ?? []);
     $targetUsers = firenet_mail_recipient_users($pdo, $recipientUserIds, $currentUserId);
     $targetStations = firenet_mail_recipient_stations($pdo, $recipientStations);
     $isComl = firenet_mail_is_coml_position($currentUserProfile);
+    $isCentralStation = firenet_r2_is_central_station($pdo, $currentStationId);
 
     if ($subject === '' && $threadId > 0) {
         $threadStmt = $pdo->prepare('SELECT subject FROM station_mail_threads WHERE thread_id = ? LIMIT 1');
@@ -1711,7 +1932,7 @@ function firenet_mail_store_message(PDO $pdo, array $input, int $currentUserId, 
     $originComlUserIds = [];
     $directReplyComlUserIds = [];
 
-    if ($mailType === 'request' && !$isComl && !$allowNonComlDirectReply) {
+    if ($mailType === 'request' && $requestFiles === 1 && !$allowNonComlDirectReply && !$isCentralStation) {
         $mailType = 'request';
         $requestFiles = 1;
 
@@ -1725,11 +1946,6 @@ function firenet_mail_store_message(PDO $pdo, array $input, int $currentUserId, 
 
         if (!firenet_mail_station_has_coml_user($pdo, $requestTargetStationId)) {
             firenet_mail_fail('Makati Central Fire Station does not have an active ComL user to receive requests.', 422);
-        }
-
-        $originComlUserIds = firenet_mail_station_coml_user_ids($pdo, $currentStationId);
-        if ($originComlUserIds === []) {
-            firenet_mail_fail('Your origin station does not currently have an active ComL user to receive this request.', 422);
         }
 
         if ($isStationNotice === 1) {
@@ -1792,7 +2008,7 @@ function firenet_mail_store_message(PDO $pdo, array $input, int $currentUserId, 
         firenet_mail_fail('Write a message or attach a file before sending.', 422);
     }
 
-    if ($isComl && !$asDraft && $targetStations === [] && $mailType !== 'request') {
+    if ($isComl && !$asDraft && $targetStations === [] && $targetUsers === [] && $mailType !== 'request') {
         firenet_mail_fail('Select at least one active station with an active ComL user to receive the mail.', 422);
     }
 
@@ -1836,22 +2052,44 @@ function firenet_mail_store_message(PDO $pdo, array $input, int $currentUserId, 
         $mailId = (int) $pdo->lastInsertId();
         $routeId = 0;
 
-        if ($mailType === 'request' && !$isComl && !$allowNonComlDirectReply && !$asDraft) {
+        if ($mailType === 'request' && $requestFiles === 1 && !$allowNonComlDirectReply && !$asDraft && !$isCentralStation) {
             $routeStmt = $pdo->prepare('
                 INSERT INTO station_mail_request_routes (
-                    thread_id, request_mail_id, request_user_id, origin_station_id, target_station_id, status
-                ) VALUES (?, ?, ?, ?, ?, "pending_origin_review")
+                    thread_id, request_mail_id, request_user_id, origin_station_id, target_station_id, status,
+                    ref_incident_date, ref_incident_date_to, ref_location,
+                    ref_responding_station_id, ref_responding_station_ids, ref_all_responding_stations, ref_case_id
+                ) VALUES (?, ?, ?, ?, ?, "forwarded_to_target", ?, ?, ?, ?, ?, ?, ?)
             ');
-            $routeStmt->execute([$threadId, $mailId, $currentUserId, $currentStationId, $requestTargetStationId]);
+            $routeStmt->execute([
+                $threadId,
+                $mailId,
+                $currentUserId,
+                $currentStationId,
+                $requestTargetStationId,
+                $refIncidentDate !== '' ? $refIncidentDate : null,
+                $refIncidentDateTo !== '' ? $refIncidentDateTo : null,
+                $refLocation !== '' ? $refLocation : null,
+                $refRespondingStationId > 0 ? $refRespondingStationId : null,
+                $refRespondingStationIdsCsv !== '' ? $refRespondingStationIdsCsv : null,
+                $refAllRespondingStations,
+                $refCaseId !== '' ? $refCaseId : null
+            ]);
             $routeId = (int) $pdo->lastInsertId();
 
-            $recipientStmt = $pdo->prepare('
+            $centralComlUserIds = firenet_mail_station_coml_user_ids($pdo, $requestTargetStationId);
+            $recipientUserStmt = $pdo->prepare('
                 INSERT INTO station_mail_recipients (mail_id, recipient_type, recipient_user_id)
                 VALUES (?, "user", ?)
             ');
-            foreach ($originComlUserIds as $originComlUserId) {
-                $recipientStmt->execute([$mailId, $originComlUserId]);
+            foreach ($centralComlUserIds as $centralComlUserId) {
+                $recipientUserStmt->execute([$mailId, $centralComlUserId]);
             }
+
+            $recipientStationStmt = $pdo->prepare('
+                INSERT INTO station_mail_recipients (mail_id, recipient_type, recipient_station_id)
+                VALUES (?, "station", ?)
+            ');
+            $recipientStationStmt->execute([$mailId, $requestTargetStationId]);
         } else {
             if ($targetUsers !== []) {
                 $recipientUserStmt = $pdo->prepare('INSERT INTO station_mail_recipients (mail_id, recipient_type, recipient_user_id) VALUES (?, "user", ?)');
@@ -1860,46 +2098,44 @@ function firenet_mail_store_message(PDO $pdo, array $input, int $currentUserId, 
                 }
             }
 
-            if ($targetStations === []) {
-                $targetStations = array_values(array_unique(array_map(static function (array $targetUser): int {
-                    return (int) ($targetUser['stationId'] ?? 0);
-                }, $targetUsers)));
-                $targetStations = array_values(array_filter($targetStations, static function (int $stationId): bool {
-                    return $stationId > 0;
-                }));
-            }
+            // Person-to-person mail (selected users) should not also expand to whole-station recipients.
+            if ($targetUsers === []) {
+                if ($targetStations !== []) {
+                    if (!$isComl && $allowNonComlDirectReply) {
+                        $recipientStmt = $pdo->prepare('INSERT INTO station_mail_recipients (mail_id, recipient_type, recipient_user_id) VALUES (?, "user", ?)');
+                        foreach ($directReplyComlUserIds as $comlUserId) {
+                            $recipientStmt->execute([$mailId, $comlUserId]);
+                        }
+                    } else {
+                        $recipientStmt = $pdo->prepare('
+                            INSERT INTO station_mail_recipients (mail_id, recipient_type, recipient_station_id)
+                            VALUES (?, "station", ?)
+                        ');
 
-            if ($targetStations !== []) {
-            if (!$isComl && $allowNonComlDirectReply) {
-                $recipientStmt = $pdo->prepare('INSERT INTO station_mail_recipients (mail_id, recipient_type, recipient_user_id) VALUES (?, "user", ?)');
-                foreach ($directReplyComlUserIds as $comlUserId) {
-                    $recipientStmt->execute([$mailId, $comlUserId]);
+                        foreach ($targetStations as $stationId) {
+                            $recipientStmt->execute([$mailId, $stationId]);
+                        }
+                    }
                 }
-            } else {
-            $recipientStmt = $pdo->prepare('
-                INSERT INTO station_mail_recipients (mail_id, recipient_type, recipient_station_id)
-                VALUES (?, "station", ?)
-            ');
-
-            foreach ($targetStations as $stationId) {
-                $recipientStmt->execute([$mailId, $stationId]);
-            }
-            }
             }
         }
 
         $attachments = [];
-        $orgmailValidateStationCode = null;
-        if ($mailType === 'request' && $requestFiles === 1) {
-            if ($sourceStationId !== $currentStationId && !firenet_r2_is_central_station($pdo, $currentStationId)) {
-                firenet_mail_fail('You can only attach files from your own station folder.', 422);
-            }
-            $orgmailValidateStationCode = firenet_mail_station_code($pdo, $sourceStationId);
-        } elseif ($allowNonComlDirectReply && $cloudinaryUrl !== '') {
-            $orgmailValidateStationCode = firenet_mail_station_code($pdo, $currentStationId);
-        }
-
         if ($cloudinaryUrl !== '') {
+            // A cloud file is only attached when returning files to ComL (reply) or when a
+            // sender explicitly picks one from a station folder. The "Files from station"
+            // field on a new request is just a reference hint for central, not an upload,
+            // so ownership is only enforced when an actual cloud URL is present.
+            $orgmailValidateStationCode = null;
+            if ($allowNonComlDirectReply) {
+                $orgmailValidateStationCode = firenet_mail_station_code($pdo, $currentStationId);
+            } elseif ($mailType === 'request' && $requestFiles === 1) {
+                if ($sourceStationId !== $currentStationId && !firenet_r2_is_central_station($pdo, $currentStationId)) {
+                    firenet_mail_fail('You can only attach files from your own station folder.', 422);
+                }
+                $orgmailValidateStationCode = firenet_mail_station_code($pdo, $sourceStationId);
+            }
+
             $attachments[] = firenet_mail_save_remote_attachment($pdo, $mailId, $currentUserId, $cloudinaryUrl, $orgmailValidateStationCode !== null && trim($orgmailValidateStationCode) !== '' ? $orgmailValidateStationCode : null);
         } else {
             $attachments = firenet_mail_save_attachments($pdo, $mailId, $currentUserId);
@@ -1992,6 +2228,28 @@ try {
         $relativePath = str_replace('\\', '/', (string) ($attachment['file_path'] ?? ''));
         if (preg_match('/^https?:\/\//i', $relativePath)) {
             header('Location: ' . $relativePath);
+            exit;
+        }
+
+        if (preg_match('#^/firenet/NEWFIRENET/backend/controllers/r2_storage\.php#i', $relativePath)) {
+            $objectKey = firenet_mail_orgmail_extract_r2_key($relativePath);
+            if ($objectKey === '') {
+                firenet_mail_fail('Attachment file is missing.', 404);
+            }
+            if (!firenet_r2_enabled()) {
+                firenet_mail_fail('R2 storage is not configured.', 503);
+            }
+
+            $client = FirenetR2Client::fromConfig();
+            $object = $client->getObject($objectKey);
+            $downloadName = firenet_mail_attachment_display_name(
+                (string) ($attachment['original_file_name'] ?? ''),
+                (string) ($attachment['file_path'] ?? '')
+            );
+            header('Content-Type: ' . (string) ($object['content_type'] ?? $attachment['mime_type'] ?? 'application/octet-stream'));
+            header('Content-Disposition: attachment; filename="' . str_replace('"', '', $downloadName) . '"');
+            header('Cache-Control: private, max-age=300');
+            echo $object['body'];
             exit;
         }
 
@@ -2178,6 +2436,14 @@ try {
         exit;
     }
 
+    if ($action === 'alerts') {
+        echo json_encode([
+            'ok' => true,
+            'alerts' => firenet_mail_alerts($pdo, $currentUserId, $currentStationId),
+        ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
     if ($action === 'send' || $action === 'save-draft') {
         $input = array_merge($_POST, firenet_mail_parse_json_input());
         $currentUserProfile = firenet_mail_current_user_profile($pdo, $currentUserId);
@@ -2191,7 +2457,7 @@ try {
         exit;
     }
 
-    if ($action === 'request-edit' || $action === 'request-approve' || $action === 'request-reject' || $action === 'request-target-assign' || $action === 'request-target-confirm-confidential' || $action === 'request-target-reject' || $action === 'request-target-edit' || $action === 'request-target-file-returned' || $action === 'request-target-return-origin' || $action === 'request-origin-assign') {
+    if ($action === 'request-edit' || $action === 'request-approve' || $action === 'request-reject' || $action === 'request-target-assign' || $action === 'request-target-confirm-confidential' || $action === 'request-target-reject' || $action === 'request-target-edit' || $action === 'request-target-file-returned' || $action === 'request-target-return-origin' || $action === 'request-origin-assign' || $action === 'request-central-fulfill') {
         $currentUserProfile = firenet_mail_current_user_profile($pdo, $currentUserId);
         if (!firenet_mail_is_coml_position($currentUserProfile)) {
             firenet_mail_fail('Only ComL users can review requests.', 403);
@@ -2400,18 +2666,26 @@ try {
         if ($action === 'request-target-edit') {
             $targetStationId = (int) ($route['target_station_id'] ?? 0);
             if ($targetStationId !== $currentStationId) {
-                firenet_mail_fail('You can only edit requests for your own target station.', 403);
+                firenet_mail_fail('You can only reply to requests for your own station.', 403);
             }
 
             $status = (string) ($route['status'] ?? '');
             if (!in_array($status, ['forwarded_to_target', 'routed_to_user', 'file_returned_to_coml'], true)) {
-                firenet_mail_fail('This request cannot be edited in its current state.', 422);
+                firenet_mail_fail('This request cannot be replied to in its current state.', 422);
             }
 
-            $note = firenet_mail_clean_text((string) ($input['note'] ?? ''));
-            if ($note === '') {
-                firenet_mail_fail('Enter the edit note for the request.', 422);
+            $body = firenet_mail_sanitize_html_body((string) ($input['body'] ?? $input['note'] ?? ''));
+            if (!firenet_mail_body_has_content($body)) {
+                firenet_mail_fail('Write your reply before sending.', 422);
             }
+
+            $requestUserId = (int) ($route['request_user_id'] ?? 0);
+            if ($requestUserId < 1) {
+                firenet_mail_fail('Unable to locate the requesting user for this route.', 422);
+            }
+
+            $subject = (string) ($route['edited_subject'] ?: $route['thread_subject'] ?: '(No subject)');
+            $replySubject = 'Re: ' . ltrim(preg_replace('/^re:\s*/i', '', $subject) ?: $subject);
 
             $pdo->beginTransaction();
             try {
@@ -2419,26 +2693,34 @@ try {
                     INSERT INTO station_mail_messages (
                         thread_id, parent_mail_id, sender_user_id, sender_station_id,
                         subject, body, mail_type, importance, request_files, is_draft, sent_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, "request", "normal", 1, 0, NOW())
+                    ) VALUES (?, ?, ?, ?, ?, ?, "message", "normal", 0, 0, NOW())
                 ');
                 $messageStmt->execute([
                     (int) ($route['thread_id'] ?? 0),
                     (int) (($route['forwarded_mail_id'] ?? 0) ?: ($route['request_mail_id'] ?? 0)),
                     $currentUserId,
                     $currentStationId,
-                    (string) ($route['edited_subject'] ?: $route['thread_subject'] ?: '(No subject)'),
-                    'Target ComL edited the request: ' . $note,
+                    $replySubject,
+                    $body,
                 ]);
+
+                $replyMailId = (int) $pdo->lastInsertId();
+                $recipientStmt = $pdo->prepare('INSERT INTO station_mail_recipients (mail_id, recipient_type, recipient_user_id) VALUES (?, "user", ?)');
+                $recipientStmt->execute([$replyMailId, $requestUserId]);
 
                 $threadUpdateStmt = $pdo->prepare('UPDATE station_mail_threads SET last_message_at = NOW(), updated_at = NOW() WHERE thread_id = ?');
                 $threadUpdateStmt->execute([(int) ($route['thread_id'] ?? 0)]);
 
                 $routeUpdateStmt = $pdo->prepare('
                     UPDATE station_mail_request_routes
-                    SET edited_body = COALESCE(?, edited_body), updated_at = NOW()
+                    SET target_reviewed_by = ?, target_reviewed_at = NOW(), updated_at = NOW()
                     WHERE route_id = ?
                 ');
-                $routeUpdateStmt->execute([$note, $routeId]);
+                $routeUpdateStmt->execute([$currentUserId, $routeId]);
+
+                firenet_mail_operational_audit($pdo, (int) ($route['thread_id'] ?? 0), $routeId, $currentUserId, $currentStationId, 'target_reply', [
+                    'requestUserId' => $requestUserId,
+                ]);
 
                 $pdo->commit();
             } catch (Throwable $error) {
@@ -2446,7 +2728,7 @@ try {
                 throw $error;
             }
 
-            echo json_encode(['ok' => true, 'message' => 'Target ComL edits have been recorded.'], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+            echo json_encode(['ok' => true, 'message' => 'Reply sent to the requester.'], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
             exit;
         }
 
@@ -2568,6 +2850,108 @@ try {
             }
 
             echo json_encode(['ok' => true, 'message' => 'Request returned to the origin station.'], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+            exit;
+        }
+
+        if ($action === 'request-central-fulfill') {
+            if (!firenet_r2_is_central_station($pdo, $currentStationId)) {
+                firenet_mail_fail('Only Makati Central Fire Station can fulfill operational requests.', 403);
+            }
+
+            $targetStationId = (int) ($route['target_station_id'] ?? 0);
+            if ($targetStationId !== $currentStationId) {
+                firenet_mail_fail('You can only fulfill requests at central ComL.', 403);
+            }
+
+            $status = (string) ($route['status'] ?? '');
+            if (!in_array($status, ['forwarded_to_target', 'routed_to_user', 'file_returned_to_coml', 'returned_to_origin'], true)) {
+                firenet_mail_fail('This request cannot be fulfilled in its current state.', 422);
+            }
+
+            $requestUserId = (int) ($route['request_user_id'] ?? 0);
+            if ($requestUserId < 1) {
+                firenet_mail_fail('Unable to locate the requesting user for this route.', 422);
+            }
+
+            $centralStationCode = firenet_mail_station_code($pdo, $currentStationId);
+            $attachmentUrls = [];
+            $rawUrls = $input['cloudinaryUrls'] ?? $input['cloudinaryUrls[]'] ?? [];
+            if (is_array($rawUrls)) {
+                foreach ($rawUrls as $entry) {
+                    $value = trim((string) $entry);
+                    if ($value !== '') {
+                        $attachmentUrls[] = $value;
+                    }
+                }
+            }
+
+            $cloudinaryUrl = trim((string) ($input['cloudinaryUrl'] ?? ''));
+            if ($cloudinaryUrl !== '') {
+                $attachmentUrls[] = $cloudinaryUrl;
+            }
+
+            $attachmentUrls = array_values(array_unique($attachmentUrls));
+            if ($attachmentUrls === []) {
+                firenet_mail_fail('Attach the requested file from cloud storage before sending.', 422);
+            }
+
+            foreach ($attachmentUrls as $attachmentUrl) {
+                firenet_mail_reports_require_url_for_station($attachmentUrl, $centralStationCode);
+            }
+
+            $note = firenet_mail_sanitize_html_body((string) ($input['note'] ?? ''));
+            if (!firenet_mail_body_has_content($note)) {
+                $note = 'Makati Central Fire Station has attached the requested file.';
+            }
+
+            $subject = (string) ($route['edited_subject'] ?: $route['thread_subject'] ?: '(No subject)');
+            $pdo->beginTransaction();
+            try {
+                $messageStmt = $pdo->prepare('
+                    INSERT INTO station_mail_messages (
+                        thread_id, parent_mail_id, sender_user_id, sender_station_id,
+                        subject, body, mail_type, importance, request_files, is_draft, sent_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, "message", "normal", 0, 0, NOW())
+                ');
+                $messageStmt->execute([
+                    (int) ($route['thread_id'] ?? 0),
+                    (int) (($route['forwarded_mail_id'] ?? 0) ?: ($route['request_mail_id'] ?? 0)),
+                    $currentUserId,
+                    $currentStationId,
+                    'Re: ' . ltrim(preg_replace('/^re:\s*/i', '', $subject) ?: $subject),
+                    $note,
+                ]);
+
+                $releaseMailId = (int) $pdo->lastInsertId();
+                foreach ($attachmentUrls as $attachmentUrl) {
+                    firenet_mail_save_remote_attachment($pdo, $releaseMailId, $currentUserId, $attachmentUrl, null);
+                }
+
+                $recipientStmt = $pdo->prepare('INSERT INTO station_mail_recipients (mail_id, recipient_type, recipient_user_id) VALUES (?, "user", ?)');
+                $recipientStmt->execute([$releaseMailId, $requestUserId]);
+
+                $threadUpdateStmt = $pdo->prepare('UPDATE station_mail_threads SET last_message_at = NOW(), updated_at = NOW() WHERE thread_id = ?');
+                $threadUpdateStmt->execute([(int) ($route['thread_id'] ?? 0)]);
+
+                $routeUpdateStmt = $pdo->prepare('
+                    UPDATE station_mail_request_routes
+                    SET status = "completed", target_reviewed_by = ?, target_reviewed_at = NOW(), updated_at = NOW()
+                    WHERE route_id = ?
+                ');
+                $routeUpdateStmt->execute([$currentUserId, $routeId]);
+
+                firenet_mail_operational_audit($pdo, (int) ($route['thread_id'] ?? 0), $routeId, $currentUserId, $currentStationId, 'central_fulfill', [
+                    'requestUserId' => $requestUserId,
+                    'attachmentCount' => count($attachmentUrls),
+                ]);
+
+                $pdo->commit();
+            } catch (Throwable $error) {
+                $pdo->rollBack();
+                throw $error;
+            }
+
+            echo json_encode(['ok' => true, 'message' => 'File sent to the requester. Request completed.'], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
             exit;
         }
 
@@ -2953,26 +3337,73 @@ try {
 
         if ($allowNonComlRequestReply) {
             $targetStations = [(int) ($requestRoute['originStationId'] ?? 0)];
-        } else {
-            $latestRecipientStmt = $pdo->prepare('
-                SELECT DISTINCT r.recipient_station_id
-                FROM station_mail_messages m
-                JOIN station_mail_recipients r ON r.mail_id = m.mail_id
-                WHERE m.thread_id = ?
-                  AND m.is_draft = 0
-                  AND r.deleted_at IS NULL
-                  AND r.recipient_station_id IS NOT NULL
-                  AND r.recipient_station_id <> ?
-            ');
-            $latestRecipientStmt->execute([$threadId, $currentStationId]);
-            $targetStations = array_map('intval', $latestRecipientStmt->fetchAll(PDO::FETCH_COLUMN));
-        }
-        $input['recipientStationIds'] = $targetStations;
-        $input['threadId'] = $threadId;
-        if ($allowNonComlRequestReply) {
+            $input['recipientStationIds'] = $targetStations;
             $input['mailType'] = 'message';
             $input['requestFiles'] = 0;
+        } else {
+            // Prefer person-to-person reply targets from the thread participants.
+            $participantUserStmt = $pdo->prepare('
+                SELECT DISTINCT participant_user_id
+                FROM (
+                    SELECT m.sender_user_id AS participant_user_id
+                    FROM station_mail_messages m
+                    WHERE m.thread_id = ?
+                      AND m.is_draft = 0
+                      AND m.sender_user_id IS NOT NULL
+                      AND m.sender_user_id <> ?
+                    UNION
+                    SELECT r.recipient_user_id AS participant_user_id
+                    FROM station_mail_messages m
+                    JOIN station_mail_recipients r ON r.mail_id = m.mail_id
+                    WHERE m.thread_id = ?
+                      AND m.is_draft = 0
+                      AND r.deleted_at IS NULL
+                      AND r.recipient_user_id IS NOT NULL
+                      AND r.recipient_user_id <> ?
+                ) participants
+            ');
+            $participantUserStmt->execute([$threadId, $currentUserId, $threadId, $currentUserId]);
+            $targetUserIds = array_values(array_filter(array_map('intval', $participantUserStmt->fetchAll(PDO::FETCH_COLUMN))));
+
+            if ($targetUserIds !== []) {
+                $input['recipientUserIds'] = $targetUserIds;
+                $input['recipientStationIds'] = [];
+            } else {
+                $latestRecipientStmt = $pdo->prepare('
+                    SELECT DISTINCT r.recipient_station_id
+                    FROM station_mail_messages m
+                    JOIN station_mail_recipients r ON r.mail_id = m.mail_id
+                    WHERE m.thread_id = ?
+                      AND m.is_draft = 0
+                      AND r.deleted_at IS NULL
+                      AND r.recipient_station_id IS NOT NULL
+                      AND r.recipient_station_id <> ?
+                ');
+                $latestRecipientStmt->execute([$threadId, $currentStationId]);
+                $targetStations = array_map('intval', $latestRecipientStmt->fetchAll(PDO::FETCH_COLUMN));
+
+                // Fallback: reply to the original sender's station when no station recipients exist.
+                if ($targetStations === []) {
+                    $senderStationStmt = $pdo->prepare('
+                        SELECT sender_station_id
+                        FROM station_mail_messages
+                        WHERE thread_id = ?
+                          AND is_draft = 0
+                          AND sender_user_id <> ?
+                        ORDER BY sent_at DESC, mail_id DESC
+                        LIMIT 1
+                    ');
+                    $senderStationStmt->execute([$threadId, $currentUserId]);
+                    $senderStationId = (int) ($senderStationStmt->fetchColumn() ?: 0);
+                    if ($senderStationId > 0) {
+                        $targetStations = [$senderStationId];
+                    }
+                }
+
+                $input['recipientStationIds'] = $targetStations;
+            }
         }
+        $input['threadId'] = $threadId;
 
         $result = firenet_mail_store_message($pdo, $input, $currentUserId, $currentStationId, $currentRole, $currentUserProfile, false, $allowNonComlRequestReply);
         echo json_encode(['ok' => true, 'message' => 'Reply sent.', 'data' => $result], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);

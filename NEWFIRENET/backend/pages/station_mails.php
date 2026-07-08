@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../../includes/auth.php';
 require_once __DIR__ . '/../../includes/db.php';
+require_once __DIR__ . '/../../includes/r2_storage.php';
 
 firenet_require_login();
 
@@ -12,6 +13,11 @@ $user = (string) ($_SESSION['user']['username'] ?? 'Unknown User');
 
 try {
     $pdo = firenet_get_pdo();
+    if (!firenet_r2_is_central_station($pdo, $stationId)) {
+        $query = $_SERVER['QUERY_STRING'] ?? '';
+        header('Location: /firenet/NEWFIRENET/backend/pages/general_mail.php' . ($query !== '' ? ('?' . $query) : ''));
+        exit;
+    }
     $stmt = $pdo->prepare('SELECT station_name FROM stations WHERE station_id = ? LIMIT 1');
     $stmt->execute([$stationId]);
     $stationName = (string) ($stmt->fetchColumn() ?: $stationName);

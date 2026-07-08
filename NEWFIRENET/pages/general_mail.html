@@ -4,15 +4,15 @@
   <div class="mail-app">
     <header class="mail-hero">
       <div>
-        <a href="/firenet/NEWFIRENET/backend/pages/station_mails.php" class="mail-back-link"><i class="bi bi-arrow-left" aria-hidden="true"></i> All mail</a>
+        <a href="/firenet/NEWFIRENET/backend/pages/station_mails.php" class="mail-back-link" id="mailBackLink"><i class="bi bi-arrow-left" aria-hidden="true"></i> All mail</a>
         <p class="mail-kicker">General mail</p>
         <h1>Station communication</h1>
         <p class="muted-text">Send updates, coordinate with colleagues, and manage your inbox.</p>
       </div>
       <div class="mail-hero-actions">
-        <button type="button" class="primary-btn" id="openComposeBtn">New message</button>
-        <button type="button" class="secondary-btn" id="showShortcutsBtn" title="Keyboard shortcuts">Shortcuts</button>
-        <button type="button" class="secondary-btn" id="refreshBtn">Refresh</button>
+        <button type="button" class="mail-gmail-compose-btn" id="openComposeBtn"><i class="bi bi-pencil" aria-hidden="true"></i><span>Compose</span></button>
+        <button type="button" class="mail-hero-tool-btn" id="showShortcutsBtn" title="Keyboard shortcuts"><i class="bi bi-keyboard" aria-hidden="true"></i><span>Shortcuts</span></button>
+        <button type="button" class="mail-hero-icon-btn" id="refreshBtn" title="Refresh" aria-label="Refresh"><i class="bi bi-arrow-clockwise" aria-hidden="true"></i></button>
       </div>
     </header>
 
@@ -82,7 +82,7 @@
       </aside>
 
       <main class="mail-main">
-        <section class="mail-list-panel mail-card">
+        <section class="mail-list-panel mail-card" id="mailListPanel">
           <div class="mail-panel-header">
             <div>
               <p class="mail-kicker">Messages</p>
@@ -103,40 +103,115 @@
           <div id="mailList" class="mail-list"></div>
         </section>
 
-        <section class="mail-detail-panel mail-card" id="threadPanel">
-          <div class="mail-panel-header">
-            <div>
-              <p class="mail-kicker">Conversation</p>
-              <h2 id="threadTitle">Select a message</h2>
+        <section class="mail-detail-panel mail-card" id="threadPanel" hidden>
+          <div class="mail-panel-header mail-conversation-header">
+            <div class="mail-conversation-heading">
+              <button type="button" class="mail-back-to-list-btn" id="backToListBtn" title="Back to list" aria-label="Back to list">
+                <i class="bi bi-arrow-left" aria-hidden="true"></i>
+                <span>Back</span>
+              </button>
+              <div class="mail-conversation-title-wrap">
+                <p class="mail-kicker">Conversation</p>
+                <h2 id="threadTitle">Select a message</h2>
+              </div>
             </div>
             <div class="mail-panel-actions" id="threadActions" hidden>
-              <div class="bulk-actions">
-                <button type="button" class="secondary-btn" id="threadReplyBtn">Reply</button>
-                <button type="button" class="secondary-btn" id="threadMarkReadBtn">Read</button>
-                <button type="button" class="secondary-btn" id="threadMarkUnreadBtn">Unread</button>
-                <button type="button" class="secondary-btn" id="threadStarBtn">Star</button>
-                <button type="button" class="secondary-btn" id="threadArchiveBtn">Archive</button>
-                <button type="button" class="secondary-btn" id="threadDeleteBtn">Delete</button>
+              <div class="bulk-actions mail-conversation-actions">
+                <button type="button" class="mail-pill-btn" id="threadReplyBtn"><i class="bi bi-reply" aria-hidden="true"></i><span>Reply</span></button>
+                <button type="button" class="mail-pill-btn" id="threadMarkReadBtn">Read</button>
+                <button type="button" class="mail-pill-btn" id="threadMarkUnreadBtn">Unread</button>
+                <button type="button" class="mail-pill-btn" id="threadStarBtn"><i class="bi bi-star" aria-hidden="true"></i><span>Star</span></button>
+                <button type="button" class="mail-pill-btn" id="threadArchiveBtn">Archive</button>
+                <button type="button" class="mail-pill-btn" id="threadDeleteBtn">Delete</button>
               </div>
             </div>
           </div>
-          <div class="mail-thread-empty" id="threadEmpty">Open a message to view the full conversation.</div>
-          <div class="mail-thread-content" id="threadContent" hidden></div>
-          <div class="mail-inline-reply" id="inlineReply" hidden>
-            <form id="inlineReplyForm" class="mail-form" novalidate>
+
+          <div class="mail-conversation-scroll" id="threadScrollArea">
+            <div id="threadRequestSummaryInline" class="mail-thread-request-summary" hidden></div>
+            <div class="mail-thread-empty" id="threadEmpty">Open a message to view the full conversation.</div>
+            <div class="mail-thread-content" id="threadContent" hidden></div>
+          </div>
+
+          <div class="mail-gmail-reply" id="inlineReply" hidden>
+            <form id="inlineReplyForm" class="mail-gmail-reply-card" novalidate>
               <input type="hidden" id="inlineReplyThreadId" value="">
               <input type="hidden" id="inlineReplyParentMailId" value="">
-              <label class="form-field">
-                Reply
-                <textarea id="inlineReplyBody" rows="4" placeholder="Write your reply"></textarea>
-              </label>
-              <label class="form-field">
-                Attach files
-                <input type="file" id="inlineReplyAttachments" multiple>
-              </label>
-              <div class="mail-form-actions">
-                <button type="button" class="secondary-btn" id="inlineReplyCancel">Cancel</button>
-                <button type="submit" class="primary-btn" id="inlineReplySend">Send reply</button>
+              <div class="mail-gmail-reply-head">
+                <div class="mail-gmail-reply-to">
+                  <i class="bi bi-reply-fill" aria-hidden="true"></i>
+                  <span id="inlineReplyToLabel">Reply</span>
+                </div>
+                <button type="button" class="icon-button" id="inlineReplyCancel" aria-label="Close reply">×</button>
+              </div>
+
+              <div class="mail-gmail-reply-editor-wrap">
+                <div
+                  id="inlineReplyBodyEditor"
+                  class="mail-compose-editor mail-gmail-reply-editor"
+                  contenteditable="true"
+                  role="textbox"
+                  aria-multiline="true"
+                  data-placeholder="Write your reply…"
+                ></div>
+                <textarea id="inlineReplyBody" hidden aria-hidden="true" tabindex="-1"></textarea>
+
+                <div class="mail-gmail-format-bar" id="inlineReplyFormatBar" role="toolbar" aria-label="Text formatting">
+                  <button type="button" class="mail-compose-tool" data-editor="inlineReply" data-cmd="undo" title="Undo" aria-label="Undo"><i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i></button>
+                  <button type="button" class="mail-compose-tool" data-editor="inlineReply" data-cmd="redo" title="Redo" aria-label="Redo"><i class="bi bi-arrow-clockwise" aria-hidden="true"></i></button>
+                  <span class="mail-compose-toolbar-sep" aria-hidden="true"></span>
+                  <label class="mail-format-select-wrap" title="Font">
+                    <select class="mail-format-select" data-editor="inlineReply" data-cmd="fontName" aria-label="Font">
+                      <option value="">Sans Serif</option>
+                      <option value="Arial">Arial</option>
+                      <option value="Georgia">Georgia</option>
+                      <option value="Times New Roman">Times New Roman</option>
+                      <option value="Courier New">Courier New</option>
+                      <option value="Verdana">Verdana</option>
+                    </select>
+                  </label>
+                  <label class="mail-format-select-wrap" title="Size">
+                    <select class="mail-format-select mail-format-select--size" data-editor="inlineReply" data-cmd="fontSize" aria-label="Font size">
+                      <option value="2">Small</option>
+                      <option value="3" selected>Normal</option>
+                      <option value="4">Large</option>
+                      <option value="5">Huge</option>
+                    </select>
+                  </label>
+                  <span class="mail-compose-toolbar-sep" aria-hidden="true"></span>
+                  <button type="button" class="mail-compose-tool" data-editor="inlineReply" data-cmd="bold" title="Bold" aria-label="Bold"><i class="bi bi-type-bold" aria-hidden="true"></i></button>
+                  <button type="button" class="mail-compose-tool" data-editor="inlineReply" data-cmd="italic" title="Italic" aria-label="Italic"><i class="bi bi-type-italic" aria-hidden="true"></i></button>
+                  <button type="button" class="mail-compose-tool" data-editor="inlineReply" data-cmd="underline" title="Underline" aria-label="Underline"><i class="bi bi-type-underline" aria-hidden="true"></i></button>
+                  <label class="mail-format-color-wrap" title="Text color">
+                    <i class="bi bi-fonts" aria-hidden="true"></i>
+                    <input type="color" class="mail-format-color" data-editor="inlineReply" data-cmd="foreColor" value="#edf3ff" aria-label="Text color">
+                  </label>
+                  <span class="mail-compose-toolbar-sep" aria-hidden="true"></span>
+                  <button type="button" class="mail-compose-tool" data-editor="inlineReply" data-cmd="justifyLeft" title="Align left" aria-label="Align left"><i class="bi bi-text-left" aria-hidden="true"></i></button>
+                  <button type="button" class="mail-compose-tool" data-editor="inlineReply" data-cmd="justifyCenter" title="Align center" aria-label="Align center"><i class="bi bi-text-center" aria-hidden="true"></i></button>
+                  <button type="button" class="mail-compose-tool" data-editor="inlineReply" data-cmd="justifyRight" title="Align right" aria-label="Align right"><i class="bi bi-text-right" aria-hidden="true"></i></button>
+                  <button type="button" class="mail-compose-tool" data-editor="inlineReply" data-cmd="insertOrderedList" title="Numbered list" aria-label="Numbered list"><i class="bi bi-list-ol" aria-hidden="true"></i></button>
+                  <button type="button" class="mail-compose-tool" data-editor="inlineReply" data-cmd="insertUnorderedList" title="Bullet list" aria-label="Bullet list"><i class="bi bi-list-ul" aria-hidden="true"></i></button>
+                  <button type="button" class="mail-compose-tool" data-editor="inlineReply" data-cmd="outdent" title="Decrease indent" aria-label="Decrease indent"><i class="bi bi-text-indent-left" aria-hidden="true"></i></button>
+                  <button type="button" class="mail-compose-tool" data-editor="inlineReply" data-cmd="indent" title="Increase indent" aria-label="Increase indent"><i class="bi bi-text-indent-right" aria-hidden="true"></i></button>
+                  <button type="button" class="mail-compose-tool" data-editor="inlineReply" data-cmd="formatBlock" data-value="blockquote" title="Quote" aria-label="Quote"><i class="bi bi-quote" aria-hidden="true"></i></button>
+                  <span class="mail-compose-toolbar-sep" aria-hidden="true"></span>
+                  <button type="button" class="mail-compose-tool" data-editor="inlineReply" data-cmd="createLink" title="Insert link" aria-label="Insert link"><i class="bi bi-link-45deg" aria-hidden="true"></i></button>
+                  <button type="button" class="mail-compose-tool" data-editor="inlineReply" data-cmd="removeFormat" title="Clear formatting" aria-label="Clear formatting"><i class="bi bi-eraser" aria-hidden="true"></i></button>
+                </div>
+              </div>
+
+              <div class="mail-gmail-reply-toolbar">
+                <label class="mail-gmail-reply-attach" for="inlineReplyAttachments" title="Attach files">
+                  <i class="bi bi-paperclip" aria-hidden="true"></i>
+                  <span>Attach</span>
+                  <input type="file" id="inlineReplyAttachments" multiple hidden>
+                </label>
+                <span class="mail-gmail-reply-attach-name" id="inlineReplyAttachName"></span>
+              </div>
+              <div class="mail-gmail-reply-actions">
+                <button type="submit" class="primary-btn" id="inlineReplySend">Send</button>
+                <button type="button" class="secondary-btn" id="inlineReplyDiscard">Discard</button>
               </div>
               <p class="form-note" id="inlineReplyMessage"></p>
             </form>
@@ -146,6 +221,35 @@
     </div>
   </div>
 </section>
+
+<div id="composeChooserModal" class="mail-modal" hidden>
+  <div class="mail-modal-backdrop" data-close-chooser="true"></div>
+  <div class="mail-modal-dialog mail-compose-choice-dialog">
+    <header class="mail-modal-header mail-compose-choice-header">
+      <div>
+        <h2>Compose</h2>
+        <p class="mail-compose-choice-intro">Choose how you want to start.</p>
+      </div>
+      <button type="button" class="icon-button" id="closeComposeChooserBtn" aria-label="Close">×</button>
+    </header>
+    <div class="mail-compose-choice mail-compose-choice--modal">
+      <button type="button" class="mail-compose-choice-card mail-compose-choice-card--general" id="openGeneralComposeBtn">
+        <span class="mail-compose-choice-icon" aria-hidden="true"><i class="bi bi-pencil-square"></i></span>
+        <span class="mail-compose-choice-body">
+          <strong>General email</strong>
+          <span>Message station users directly.</span>
+        </span>
+      </button>
+      <button type="button" class="mail-compose-choice-card mail-compose-choice-card--request" id="openRequestComposeBtn">
+        <span class="mail-compose-choice-icon" aria-hidden="true"><i class="bi bi-cloud-arrow-up"></i></span>
+        <span class="mail-compose-choice-body">
+          <strong>Request files</strong>
+          <span>Send a request to MCFS for review.</span>
+        </span>
+      </button>
+    </div>
+  </div>
+</div>
 
 <div id="composeModal" class="mail-modal" hidden>
   <div class="mail-modal-backdrop" data-close="true"></div>
@@ -167,17 +271,21 @@
         <input type="text" id="composeSubject" maxlength="255" placeholder="Subject line">
       </label>
 
-      <label class="form-field">
-        Recipient station
-        <select id="composeStationSelect">
-          <option value="">All active stations</option>
-        </select>
-      </label>
-
-      <label class="form-field">
-        Recipient users
-        <select id="composeUserSelect" multiple size="5"></select>
-      </label>
+      <div class="form-field">
+        <span class="form-field-label">To</span>
+        <div class="mail-recipient-picker">
+          <div class="mail-recipient-chips" id="composeRecipientChips" hidden></div>
+          <div class="mail-recipient-toolbar">
+            <select id="composeStationSelect" aria-label="Filter by station">
+              <option value="">All stations</option>
+            </select>
+            <input type="search" id="composeUserSearch" placeholder="Search people by name…" autocomplete="off">
+          </div>
+          <div class="mail-recipient-results" id="composeUserResults" role="listbox" aria-label="People"></div>
+          <p class="form-note" id="composeRecipientHint">Select people to message. Chosen recipients appear as chips above.</p>
+        </div>
+        <select id="composeUserSelect" multiple hidden aria-hidden="true" tabindex="-1"></select>
+      </div>
 
       <label class="form-field">
         Priority
@@ -188,15 +296,32 @@
         </select>
       </label>
 
-      <label class="form-field">
-        Message
-        <textarea id="composeBody" rows="6" placeholder="Write your message"></textarea>
-      </label>
+      <div class="form-field mail-compose-body">
+        <span class="form-field-label">Message</span>
+        <div class="mail-compose-toolbar" role="toolbar" aria-label="Formatting">
+          <button type="button" class="mail-compose-tool" data-editor="compose" data-cmd="undo" title="Undo" aria-label="Undo"><i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i></button>
+          <button type="button" class="mail-compose-tool" data-editor="compose" data-cmd="redo" title="Redo" aria-label="Redo"><i class="bi bi-arrow-clockwise" aria-hidden="true"></i></button>
+          <span class="mail-compose-toolbar-sep" aria-hidden="true"></span>
+          <button type="button" class="mail-compose-tool" data-editor="compose" data-cmd="bold" title="Bold" aria-label="Bold"><i class="bi bi-type-bold" aria-hidden="true"></i></button>
+          <button type="button" class="mail-compose-tool" data-editor="compose" data-cmd="italic" title="Italic" aria-label="Italic"><i class="bi bi-type-italic" aria-hidden="true"></i></button>
+          <button type="button" class="mail-compose-tool" data-editor="compose" data-cmd="underline" title="Underline" aria-label="Underline"><i class="bi bi-type-underline" aria-hidden="true"></i></button>
+          <span class="mail-compose-toolbar-sep" aria-hidden="true"></span>
+          <button type="button" class="mail-compose-tool" data-editor="compose" data-cmd="insertUnorderedList" title="Bullet list" aria-label="Bullet list"><i class="bi bi-list-ul" aria-hidden="true"></i></button>
+          <button type="button" class="mail-compose-tool" data-editor="compose" data-cmd="insertOrderedList" title="Numbered list" aria-label="Numbered list"><i class="bi bi-list-ol" aria-hidden="true"></i></button>
+          <button type="button" class="mail-compose-tool" data-editor="compose" data-cmd="createLink" title="Insert link" aria-label="Insert link"><i class="bi bi-link-45deg" aria-hidden="true"></i></button>
+          <button type="button" class="mail-compose-tool" data-editor="compose" data-cmd="removeFormat" title="Clear formatting" aria-label="Clear formatting"><i class="bi bi-eraser" aria-hidden="true"></i></button>
+        </div>
+        <div id="composeBodyEditor" class="mail-compose-editor" contenteditable="true" role="textbox" aria-multiline="true" data-placeholder="Write your message…"></div>
+        <textarea id="composeBody" hidden aria-hidden="true" tabindex="-1"></textarea>
+      </div>
 
-      <label class="form-field">
-        Attach files
-        <input type="file" id="composeAttachments" multiple>
-      </label>
+      <div class="form-field mail-compose-attachments">
+        <div class="mail-compose-attach-row">
+          <button type="button" class="mail-compose-attach-btn secondary-btn" id="composeAttachFilesBtn"><i class="bi bi-paperclip icon-inline" aria-hidden="true"></i> Attach files</button>
+          <input type="file" id="composeAttachments" multiple hidden>
+        </div>
+        <ul class="mail-compose-attachment-chips" id="composeAttachmentList" hidden></ul>
+      </div>
 
       <div class="mail-form-actions">
         <button type="button" class="secondary-btn" id="saveDraftBtn">Save draft</button>
@@ -204,6 +329,121 @@
       </div>
       <p class="form-note" id="composeMessage"></p>
     </form>
+  </div>
+</div>
+
+<div id="requestComposeModal" class="mail-modal" hidden>
+  <div class="mail-modal-backdrop" data-close-request-compose="true"></div>
+  <div class="mail-modal-dialog mail-compose-modal-dialog">
+    <header class="mail-modal-header">
+      <div>
+        <p class="mail-kicker">New request</p>
+        <h2>Create operational request</h2>
+      </div>
+      <button type="button" class="icon-button" id="closeRequestComposeBtn" aria-label="Close">×</button>
+    </header>
+
+    <form id="requestComposeForm" class="mail-form" novalidate>
+      <label class="form-field">
+        Subject
+        <input type="text" id="requestComposeSubject" maxlength="255" placeholder="Request subject">
+      </label>
+
+      <div class="form-field form-field--readonly">
+        <span class="form-field-label">Routed to</span>
+        <p class="form-readonly-value" id="requestComposeRoutedToLabel">Makati Central Fire Station</p>
+        <p class="form-note">All operational requests are sent to the central ComL at Makati Central Fire Station.</p>
+      </div>
+
+      <div class="mail-compose-refs" id="requestComposeRefFields">
+        <div class="mail-compose-refs-head">
+          <span class="form-field-label">Reference details <span class="mail-compose-refs-optional">(optional)</span></span>
+          <p class="form-note">Anything you can provide helps central ComL locate the report(s). Leave blank what you don't know.</p>
+        </div>
+        <div class="mail-compose-refs-grid">
+          <div class="form-field mail-compose-refs-daterange">
+            <span class="form-field-label">Incident date <span class="mail-compose-refs-optional">(single day or range)</span></span>
+            <div class="mail-compose-daterange-inputs">
+              <label class="mail-compose-daterange-part">
+                <span>From</span>
+                <input type="date" id="requestComposeRefIncidentDateFrom">
+              </label>
+              <label class="mail-compose-daterange-part">
+                <span>To</span>
+                <input type="date" id="requestComposeRefIncidentDateTo">
+              </label>
+            </div>
+            <p class="form-note">Fill only "From" for a single day, or both for a range.</p>
+          </div>
+          <div class="form-field mail-compose-responders">
+            <span class="form-field-label">Responding station(s)</span>
+            <label class="mail-compose-checkline mail-compose-checkline--all">
+              <input type="checkbox" id="requestComposeRefAllResponders">
+              <span>Request from <strong>all stations that responded</strong> to this incident</span>
+            </label>
+            <div class="mail-compose-responder-list" id="requestComposeRefRespondersList" role="group" aria-label="Responding stations"></div>
+            <p class="form-note" id="requestComposeRefRespondersHint">Tick each station you want, or use the box above to get every responding station's report.</p>
+          </div>
+          <label class="form-field">
+            Location / address
+            <input type="text" id="requestComposeRefLocation" maxlength="255" placeholder="e.g. Brgy. La Paz, Makati">
+          </label>
+          <label class="form-field">
+            Case / incident ID
+            <input type="text" id="requestComposeRefCaseId" maxlength="64" placeholder="If known">
+          </label>
+        </div>
+      </div>
+
+      <label class="form-field">
+        Message
+        <textarea id="requestComposeBody" rows="6" placeholder="Describe the file/report you need. Include incident date, station, location, or case number if available."></textarea>
+      </label>
+
+      <div class="form-field mail-compose-attachments">
+        <div class="mail-compose-attach-row">
+          <button type="button" class="mail-compose-attach-btn secondary-btn" id="requestComposeAttachFilesBtn"><i class="bi bi-paperclip icon-inline" aria-hidden="true"></i> Attach files</button>
+          <input type="file" id="requestComposeLocalAttachments" multiple hidden>
+        </div>
+        <ul class="mail-compose-attachment-chips" id="requestComposeAttachmentList" hidden></ul>
+        <p class="form-note">Optional reference documents to send with your request.</p>
+      </div>
+
+      <div class="mail-form-actions">
+        <button type="button" class="secondary-btn" id="saveRequestDraftBtn">Save draft</button>
+        <button type="submit" class="primary-btn" id="sendRequestBtn">Send request</button>
+      </div>
+      <p class="form-note" id="requestComposeMessage"></p>
+    </form>
+  </div>
+</div>
+
+<div id="requestThreadModal" class="mail-modal" hidden>
+  <div class="mail-modal-backdrop" data-close-request-thread="true"></div>
+  <div class="mail-modal-dialog mail-thread-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="requestThreadTitle">
+    <header class="mail-modal-header">
+      <div>
+        <p class="mail-kicker" id="requestThreadModalKicker">Request detail</p>
+        <h2 id="requestThreadTitle">Request</h2>
+      </div>
+      <button type="button" class="icon-button" id="closeRequestThreadBtn" aria-label="Close">×</button>
+    </header>
+    <div class="mail-thread-modal-body">
+      <div id="requestThreadTimeline" class="mail-request-timeline" hidden>
+        <div class="timeline-header">
+          <span class="timeline-label">Progress</span>
+          <strong id="requestTimelineRequestTitle">Request title</strong>
+        </div>
+        <div class="timeline-bar" id="requestTimelineSteps"></div>
+        <div class="timeline-note" id="requestTimelineNote"></div>
+      </div>
+      <div id="requestThreadSummary" class="mail-thread-request-summary" hidden></div>
+      <div class="mail-thread-messages-panel">
+        <div class="mail-thread-messages-label">Conversation</div>
+        <div class="mail-thread-content" id="requestThreadContent" hidden></div>
+        <div class="mail-thread-empty" id="requestThreadEmpty" hidden>No messages in this request yet.</div>
+      </div>
+    </div>
   </div>
 </div>
 

@@ -1,7 +1,8 @@
 (function () {
   const contextElement = document.getElementById('operationalMailContext');
   const mailList = document.getElementById('mailList');
-  const threadPanel = document.getElementById('threadPanel');
+  const threadModal = document.getElementById('threadModal');
+  const closeThreadBtn = document.getElementById('closeThreadBtn');
   const threadContent = document.getElementById('threadContent');
   const threadEmpty = document.getElementById('threadEmpty');
   const threadTitle = document.getElementById('threadTitle');
@@ -14,6 +15,15 @@
   const sortSelect = document.getElementById('sortSelect');
   const composeForm = document.getElementById('composeForm');
   const threadActions = document.getElementById('threadActions');
+  const threadRequestSummary = document.getElementById('threadRequestSummary');
+  const threadMessagesLabel = document.getElementById('threadMessagesLabel');
+  const threadActionButtons = document.getElementById('threadActionButtons');
+  const threadReplyComposer = document.getElementById('threadReplyComposer');
+  const threadReplyToLabel = document.getElementById('threadReplyToLabel');
+  const threadReplyBodyEditor = document.getElementById('threadReplyBodyEditor');
+  const closeThreadReplyBtn = document.getElementById('closeThreadReplyBtn');
+  const cancelThreadReplyBtn = document.getElementById('cancelThreadReplyBtn');
+  const sendThreadReplyBtn = document.getElementById('sendThreadReplyBtn');
   const requestTimeline = document.getElementById('requestTimeline');
   const timelineRequestTitle = document.getElementById('timelineRequestTitle');
   const timelineStepsContainer = document.getElementById('timelineSteps');
@@ -23,6 +33,8 @@
   const composeRoutedToLabel = document.getElementById('composeRoutedToLabel');
   const composeSourceStationHint = document.getElementById('composeSourceStationHint');
   const composeCloudinaryUrl = document.getElementById('composeCloudinaryUrl');
+  const composeSelectedCloudFiles = document.getElementById('composeSelectedCloudFiles');
+  const composeFulfillRequestSummary = document.getElementById('composeFulfillRequestSummary');
   const composeOrgmailHint = document.getElementById('composeOrgmailHint');
   const composeOrgmailUploadRow = document.getElementById('composeOrgmailUploadRow');
   const composeOrgmailFile = document.getElementById('composeOrgmailFile');
@@ -30,6 +42,13 @@
   const composeBodyEditor = document.getElementById('composeBodyEditor');
   const composeBody = document.getElementById('composeBody');
   const composeCloudSection = document.getElementById('composeCloudSection');
+  const composeRefFields = document.getElementById('composeRefFields');
+  const composeRefIncidentDateFrom = document.getElementById('composeRefIncidentDateFrom');
+  const composeRefIncidentDateTo = document.getElementById('composeRefIncidentDateTo');
+  const composeRefRespondersList = document.getElementById('composeRefRespondersList');
+  const composeRefAllResponders = document.getElementById('composeRefAllResponders');
+  const composeRefLocation = document.getElementById('composeRefLocation');
+  const composeRefCaseId = document.getElementById('composeRefCaseId');
   const composeLocalAttachmentsField = document.getElementById('composeLocalAttachmentsField');
   const composeAttachFilesBtn = document.getElementById('composeAttachFilesBtn');
   const composeLocalAttachments = document.getElementById('composeLocalAttachments');
@@ -58,14 +77,15 @@
   const filePickerSelected = document.getElementById('filePickerSelected');
   const filePickerSelectedInfo = document.getElementById('filePickerSelectedInfo');
   const filePickerRefreshBtn = document.getElementById('filePickerRefreshBtn');
+  const filePickerBackBtn = document.getElementById('filePickerBackBtn');
   const filePickerSelectBtn = document.getElementById('filePickerSelectBtn');
 
-  if (!contextElement || !mailList || !threadPanel || !threadContent || !threadEmpty || !threadTitle || !threadActions || !requestTimeline || !timelineRequestTitle || !timelineStepsContainer || !timelineNote || !composeModal || !openComposeBtn || !closeComposeBtn || !refreshBtn || !searchInput || !stationFilterSelect || !sortSelect || !composeForm || !composeSubject || !composeStationSelect || !composeBodyEditor || !composeMessage || !sendBtn || !saveDraftBtn || !inboxCount || !unreadCount || !sentCount || !draftCount || !mailFolderTitle || !mailActiveFilter) {
+  if (!contextElement || !mailList || !threadModal || !threadContent || !threadEmpty || !threadTitle || !threadActions || !requestTimeline || !timelineRequestTitle || !timelineStepsContainer || !timelineNote || !composeModal || !openComposeBtn || !closeComposeBtn || !closeThreadBtn || !refreshBtn || !searchInput || !stationFilterSelect || !sortSelect || !composeForm || !composeSubject || !composeStationSelect || !composeBodyEditor || !composeMessage || !sendBtn || !saveDraftBtn || !inboxCount || !unreadCount || !sentCount || !draftCount || !mailFolderTitle || !mailActiveFilter) {
     return;
   }
 
   function mountMailModalsToBody() {
-    [composeModal, cloudinaryFilePicker].forEach(function (el) {
+    [composeModal, threadModal, cloudinaryFilePicker].forEach(function (el) {
       if (el && el.parentElement !== document.body) {
         document.body.appendChild(el);
       }
@@ -74,8 +94,132 @@
 
   function syncMailModalScrollLock() {
     const composeOpen = !composeModal.hidden;
+    const threadOpen = threadModal && !threadModal.hidden;
     const pickerOpen = cloudinaryFilePicker && !cloudinaryFilePicker.hidden;
-    document.body.classList.toggle('mail-modal-open', composeOpen || pickerOpen);
+    document.body.classList.toggle('mail-modal-open', composeOpen || threadOpen || pickerOpen);
+  }
+
+  function openThreadModal() {
+    if (!threadModal) {
+      return;
+    }
+    threadModal.hidden = false;
+    syncMailModalScrollLock();
+  }
+
+  function hideThreadModalForCompose() {
+    if (!threadModal) {
+      return;
+    }
+    threadModal.hidden = true;
+    syncMailModalScrollLock();
+  }
+
+  function closeThreadModal() {
+    if (!threadModal) {
+      return;
+    }
+    closeThreadReply();
+    threadModal.hidden = true;
+    state.activeThread = null;
+    state.threadDetail = null;
+    syncMailModalScrollLock();
+    renderList();
+  }
+
+  function getThreadReplyBodyHtml() {
+    return threadReplyBodyEditor ? String(threadReplyBodyEditor.innerHTML || '').trim() : '';
+  }
+
+  function clearThreadReplyBody() {
+    if (threadReplyBodyEditor) {
+      threadReplyBodyEditor.innerHTML = '';
+    }
+  }
+
+  function isThreadReplyBodyEmpty() {
+    const text = getThreadReplyBodyHtml()
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<\/(p|div|li)>/gi, '\n')
+      .replace(/<[^>]+>/g, '')
+      .replace(/&nbsp;/gi, ' ')
+      .trim();
+    return text === '';
+  }
+
+  function closeThreadReply() {
+    if (threadReplyComposer) {
+      threadReplyComposer.hidden = true;
+    }
+    if (threadActionButtons) {
+      threadActionButtons.hidden = false;
+    }
+    clearThreadReplyBody();
+    state.threadReplyDetail = null;
+  }
+
+  function openThreadReply(detail) {
+    const requestRoute = (detail && detail.requestRoute) ? detail.requestRoute : {};
+    state.threadReplyDetail = detail;
+    if (threadReplyToLabel) {
+      const who = String(requestRoute.requestUsername || 'requester');
+      const station = requestRoute.originStationName ? (' · ' + String(requestRoute.originStationName)) : '';
+      threadReplyToLabel.textContent = 'To: ' + who + station;
+    }
+    clearThreadReplyBody();
+    if (threadReplyComposer) {
+      threadReplyComposer.hidden = false;
+    }
+    if (threadActionButtons) {
+      threadActionButtons.hidden = true;
+    }
+    if (threadReplyBodyEditor) {
+      threadReplyBodyEditor.focus();
+    }
+  }
+
+  async function submitThreadReply() {
+    const detail = state.threadReplyDetail || state.threadDetail;
+    if (!detail || !detail.requestRoute || !detail.requestRoute.routeId) {
+      throw new Error('Unable to locate this request.');
+    }
+    if (isThreadReplyBodyEmpty()) {
+      throw new Error('Write your reply before sending.');
+    }
+
+    await submitRouteAction('request-target-edit', {
+      routeId: Number(detail.requestRoute.routeId || 0),
+      body: getThreadReplyBodyHtml()
+    });
+
+    closeThreadReply();
+    setMessage('Reply sent to the requester.', false);
+    await openThread(detail.thread.threadId);
+    await fetchBootstrap();
+    await fetchList();
+  }
+
+  function syncThreadFooterVisibility(hasActions) {
+    if (!threadActions) {
+      return;
+    }
+    const replyOpen = threadReplyComposer && !threadReplyComposer.hidden;
+    threadActions.hidden = !hasActions && !replyOpen;
+  }
+
+  function formatRequestStatus(status) {
+    const value = String(status || '').toLowerCase();
+    const labels = {
+      pending_origin_review: 'Pending review',
+      approved: 'Approved',
+      rejected: 'Rejected',
+      forwarded_to_target: 'Awaiting MCFS review',
+      routed_to_user: 'Assigned to user',
+      file_returned_to_coml: 'File ready',
+      returned_to_origin: 'Returned to requester station',
+      completed: 'Completed'
+    };
+    return labels[value] || value.replace(/_/g, ' ');
   }
 
   const apiUrl = String((JSON.parse(contextElement.textContent || '{}') || {}).mailApiUrl || '/firenet/NEWFIRENET/backend/controllers/station_mails.php');
@@ -99,15 +243,22 @@
     requestTracking: [],
     activeThread: null,
     threadDetail: null,
+    threadReplyDetail: null,
+    reopenThreadAfterCompose: false,
     composeReplyMode: false,
+    composeCentralFulfillMode: false,
     composeReplyThreadId: 0,
+    composeFulfillRouteId: 0,
     composeReplyOriginStationId: 0,
+    composeSelectedCloudFiles: [],
     localAttachments: [],
     // File picker state
     filePickerLoading: false,
     filePickerFiles: [],
     filePickerFolder: '',
-    filePickerSelectedFile: null
+    filePickerSelectedFile: null,
+    filePickerSelectedFiles: [],
+    filePickerVirtualPath: ''
   };
 
   function escapeHtml(value) {
@@ -171,6 +322,100 @@
       composeLocalAttachments.value = '';
     }
     renderComposeAttachments();
+  }
+
+  function clearSelectedCloudFiles() {
+    state.composeSelectedCloudFiles = [];
+    if (composeCloudinaryUrl) {
+      composeCloudinaryUrl.value = '';
+    }
+    renderSelectedCloudFiles();
+  }
+
+  function renderSelectedCloudFiles() {
+    if (!composeSelectedCloudFiles) {
+      return;
+    }
+    const files = Array.isArray(state.composeSelectedCloudFiles) ? state.composeSelectedCloudFiles : [];
+    if (!files.length) {
+      composeSelectedCloudFiles.hidden = true;
+      composeSelectedCloudFiles.innerHTML = '';
+      return;
+    }
+
+    composeSelectedCloudFiles.hidden = false;
+    composeSelectedCloudFiles.innerHTML = '<div class="mail-selected-cloud-files-head">' +
+      '<span class="mail-selected-cloud-files-title">Selected file' + (files.length > 1 ? 's' : '') + '</span>' +
+      '<button type="button" class="secondary-btn" id="clearSelectedCloudFilesBtn">Clear</button>' +
+      '</div>' +
+      '<div class="mail-selected-cloud-files-list">' +
+      files.map(function (file, index) {
+        return '<div class="mail-selected-cloud-file-chip">' +
+          '<span>' + escapeHtml(file.filename || ('File ' + (index + 1))) + '</span>' +
+          '<button type="button" data-remove-cloud-file="' + index + '" aria-label="Remove file">×</button>' +
+        '</div>';
+      }).join('') +
+      '</div>';
+
+    const clearBtn = document.getElementById('clearSelectedCloudFilesBtn');
+    if (clearBtn) {
+      clearBtn.addEventListener('click', function () {
+        clearSelectedCloudFiles();
+      });
+    }
+    Array.from(composeSelectedCloudFiles.querySelectorAll('[data-remove-cloud-file]')).forEach(function (button) {
+      button.addEventListener('click', function () {
+        const index = Number(button.getAttribute('data-remove-cloud-file') || -1);
+        if (index < 0) {
+          return;
+        }
+        state.composeSelectedCloudFiles.splice(index, 1);
+        if (composeCloudinaryUrl) {
+          composeCloudinaryUrl.value = state.composeSelectedCloudFiles.map(function (file) { return file.url; }).join('\n');
+        }
+        renderSelectedCloudFiles();
+      });
+    });
+  }
+
+  function clearReferenceFields() {
+    if (composeRefIncidentDateFrom) composeRefIncidentDateFrom.value = '';
+    if (composeRefIncidentDateTo) composeRefIncidentDateTo.value = '';
+    respondingCheckboxes().forEach(function (checkbox) {
+      checkbox.checked = false;
+    });
+    if (composeRefAllResponders) composeRefAllResponders.checked = false;
+    if (composeRefLocation) composeRefLocation.value = '';
+    if (composeRefCaseId) composeRefCaseId.value = '';
+    updateRespondersUi();
+  }
+
+  function respondingCheckboxes() {
+    if (!composeRefRespondersList) {
+      return [];
+    }
+    return Array.prototype.slice.call(composeRefRespondersList.querySelectorAll('.mail-compose-responder-check'));
+  }
+
+  function updateRespondersUi() {
+    if (!composeRefRespondersList || !composeRefAllResponders) {
+      return;
+    }
+    const all = composeRefAllResponders.checked;
+    composeRefRespondersList.classList.toggle('is-disabled', all);
+    if (all) {
+      respondingCheckboxes().forEach(function (checkbox) {
+        checkbox.checked = false;
+      });
+    }
+  }
+
+  function selectedRespondingStationIds() {
+    return respondingCheckboxes().filter(function (checkbox) {
+      return checkbox.checked && checkbox.value !== '';
+    }).map(function (checkbox) {
+      return checkbox.value;
+    });
   }
 
   function renderComposeAttachments() {
@@ -244,6 +489,83 @@
     return String(currentUser.stationId || '');
   }
 
+  function isCentralStation() {
+    const om = getOperationalOrgmailMeta();
+    if (om.isCentralStation) {
+      return true;
+    }
+    const currentUser = state.bootstrap && state.bootstrap.currentUser ? state.bootstrap.currentUser : {};
+    return Boolean(currentUser.isCentralStation);
+  }
+
+  function isCentralReviewer() {
+    return isComlUser() && isCentralStation();
+  }
+
+  function folderTitles() {
+    if (isCentralReviewer()) {
+      return { inbox: 'Incoming requests', sent: 'Sent', drafts: 'Drafts' };
+    }
+    return { inbox: 'Updates', sent: 'My requests', drafts: 'Drafts' };
+  }
+
+  function folderEmptyMessage() {
+    if (state.folder === 'sent') {
+      return isCentralStation() ? 'No sent requests yet.' : 'You have not submitted any file requests yet.';
+    }
+    if (state.folder === 'drafts') {
+      return 'No draft requests.';
+    }
+    if (isCentralReviewer()) {
+      return 'No incoming requests awaiting MCFS review.';
+    }
+    return 'No updates from central yet.';
+  }
+
+  function applyOperationalModeUi() {
+    const central = isCentralStation();
+    const reviewer = isCentralReviewer();
+    const heroNote = document.querySelector('.mail-hero-operational .muted-text');
+    const inboxFolderBtn = document.querySelector('.mail-folder-btn[data-folder="inbox"]');
+    const filtersCard = stationFilterSelect ? stationFilterSelect.closest('.mail-card') : null;
+    const statLabels = document.querySelectorAll('.mail-stat-card span');
+
+    if (heroNote) {
+      heroNote.textContent = reviewer
+        ? 'Review incoming file requests from all stations. MCFS locates and releases reports from central records.'
+        : 'Submit file requests to Makati Central Fire Station. Only central ComL approves and fulfills requests.';
+    }
+
+    if (inboxFolderBtn) {
+      inboxFolderBtn.textContent = reviewer ? 'Inbox' : 'Updates';
+    }
+
+    if (filtersCard) {
+      filtersCard.hidden = !reviewer;
+    }
+
+    if (statLabels.length >= 4) {
+      statLabels[0].textContent = reviewer ? 'Incoming' : 'Updates';
+      statLabels[1].textContent = 'Unread';
+      statLabels[2].textContent = reviewer ? 'Sent' : 'My requests';
+      statLabels[3].textContent = 'Drafts';
+    }
+
+    mailActiveFilter.textContent = reviewer
+      ? 'Showing requests awaiting MCFS review'
+      : 'Showing your submitted file requests';
+
+    if (!central && !state._operationalModeInitialized && state.folder === 'inbox') {
+      state.folder = 'sent';
+      document.querySelectorAll('.mail-folder-btn').forEach(function (button) {
+        button.classList.toggle('active', button.getAttribute('data-folder') === 'sent');
+      });
+    }
+    state._operationalModeInitialized = true;
+
+    mailFolderTitle.textContent = folderTitles()[state.folder] || 'Requests';
+  }
+
   function getDefaultSourceStationId() {
     return getCurrentStationId();
   }
@@ -281,7 +603,9 @@
     const selected = getSelectedSourceStation();
     const om = getOperationalOrgmailMeta();
     const code = selected && selected.stationCode ? String(selected.stationCode) : String(om.stationCode || '');
-    const folderLabel = code !== '' ? ('firenet/orgmail/' + code) : String(om.stationFolder || 'your station folder');
+    const folderLabel = state.composeCentralFulfillMode
+      ? (code !== '' ? ('firenet/reports/' + code) : 'firenet/reports')
+      : (code !== '' ? ('firenet/orgmail/' + code) : String(om.stationFolder || 'your station folder'));
 
     if (composeSourceStationHint) {
       composeSourceStationHint.textContent = selected && selected.stationName
@@ -290,7 +614,9 @@
     }
 
     if (composeOrgmailHint) {
-      if (state.composeReplyMode) {
+      if (state.composeCentralFulfillMode) {
+        composeOrgmailHint.textContent = 'Browse files in ' + folderLabel + ' or upload directly to ' + storageProviderLabel() + ' before sending them to the requester.';
+      } else if (state.composeReplyMode) {
         composeOrgmailHint.textContent = 'Attach a file from ' + folderLabel + ' or upload to ' + storageProviderLabel() + ', then return it to the origin ComL.';
       } else if (om.uploadsEnabled) {
         composeOrgmailHint.textContent = 'Browse files in ' + folderLabel + ' or upload directly to ' + storageProviderLabel() + '.';
@@ -313,6 +639,16 @@
       return '<option value="' + escapeHtml(String(entry.stationId)) + '"' + selected + '>' + escapeHtml(entry.stationName) + '</option>';
     }).join('');
 
+    if (composeRefRespondersList) {
+      composeRefRespondersList.innerHTML = stations.map(function (entry) {
+        const id = escapeHtml(String(entry.stationId));
+        return '<label class="mail-compose-responder-item">' +
+          '<input type="checkbox" class="mail-compose-responder-check" value="' + id + '">' +
+          '<span>' + escapeHtml(entry.stationName) + '</span>' +
+        '</label>';
+      }).join('');
+    }
+
     setDefaultSourceStation();
     updateRoutedToLabel();
   }
@@ -322,7 +658,7 @@
     state.requestTracking = Array.isArray(state.bootstrap.requestTracking) ? state.bootstrap.requestTracking : [];
     updateCounts(state.bootstrap);
     renderStationOptions();
-    mailActiveFilter.textContent = 'Showing operational mail';
+    applyOperationalModeUi();
     if (composeOrgmailUploadRow) {
       composeOrgmailUploadRow.hidden = !getOperationalOrgmailMeta().uploadsEnabled;
     }
@@ -335,9 +671,11 @@
   }
 
   function visibleItems() {
-    const sourceItems = state.bootstrap && state.bootstrap.currentUser && state.bootstrap.currentUser.isComl ? state.requestTracking : state.items;
+    const reviewer = isCentralReviewer();
+    const useTracking = reviewer && state.folder === 'inbox';
+    const sourceItems = useTracking ? state.requestTracking : state.items;
     return (Array.isArray(sourceItems) ? sourceItems : []).filter(function (item) {
-      if (state.bootstrap && state.bootstrap.currentUser && state.bootstrap.currentUser.isComl) {
+      if (reviewer || isCentralStation()) {
         return true;
       }
       return item.mailType === 'request' && item.requestFiles;
@@ -363,25 +701,24 @@
   function renderList() {
     const items = visibleItems();
     if (items.length === 0) {
-      mailList.innerHTML = '<div class="mail-empty-list">No operational requests found.</div>';
+      mailList.innerHTML = '<div class="mail-empty-list">' + escapeHtml(folderEmptyMessage()) + '</div>';
       return;
     }
 
     mailList.innerHTML = items.map(function (item) {
       const unreadClass = item.readAt ? '' : ' unread';
       const selectedClass = state.activeThread && state.activeThread.threadId === item.threadId ? ' is-active' : '';
-      const status = item.requestRoute ? escapeHtml((item.requestRoute.status || '').replace(/_/g, ' ')) : escapeHtml(String(item.status || 'Open'));
+      const status = item.requestRoute ? formatRequestStatus(item.requestRoute.status) : formatRequestStatus(item.status || 'Open');
       const senderLabel = item.senderStationName || item.originStationName || '';
       const senderUserLabel = item.senderUsername || item.requestUsername || '';
       const stationPath = item.originStationName && item.targetStationName ? escapeHtml(item.originStationName + ' → ' + item.targetStationName) : '';
       const infoLabel = stationPath || senderLabel || senderUserLabel ? stationPath || escapeHtml(senderLabel + (senderLabel && senderUserLabel ? ' / ' : '') + senderUserLabel) : 'Operational request';
       const snippet = item.snippet || item.body || '';
       return '<article class="mail-list-item' + unreadClass + selectedClass + '" data-thread-id="' + escapeHtml(String(item.threadId)) + '">' +
-        '<div class="mail-list-title"><strong>' + escapeHtml(item.subject || '(No subject)') + '</strong><span>' + escapeHtml(formatDate(item.sentAt || item.createdAt)) + '</span></div>' +
+        '<div class="mail-list-title"><strong>' + escapeHtml(item.subject || '(No subject)') + '</strong><span>' + escapeHtml(formatDate(item.sentAt || item.createdAt || item.updatedAt)) + '</span></div>' +
         '<div class="mail-list-meta"><span>' + infoLabel + '</span>' +
-        '<span class="mail-badge">' + status + '</span></div>' +
+        '<span class="mail-badge mail-badge--status">' + escapeHtml(status) + '</span></div>' +
         '<p class="mail-list-snippet">' + escapeHtml(snippet) + '</p>' +
-        '<button type="button" class="mail-request-reply-btn" data-reply-thread-id="' + escapeHtml(String(item.threadId)) + '">Reply</button>' +
       '</article>';
     }).join('');
 
@@ -427,26 +764,111 @@
     });
   }
 
-  function renderThread(detail) {
-    state.threadDetail = detail;
-    const thread = detail.thread || {};
-    const messages = Array.isArray(detail.messages) ? detail.messages : [];
-    threadTitle.textContent = thread.subject || 'Request detail';
-    renderRequestTimeline(detail);
-    if (messages.length === 0) {
-      const assignedUserInfo = detail.requestRoute && detail.requestRoute.assignedUsername ? '<p>Assigned user: ' + escapeHtml(detail.requestRoute.assignedUsername || '') + '</p>' : '';
-      const routeInfo = detail.requestRoute ? '<div class="mail-thread-message"><strong>Request route</strong><p>Status: ' + escapeHtml((detail.requestRoute.status || '').replace(/_/g, ' ')) + '</p><p>From: ' + escapeHtml(detail.requestRoute.originStationName || '') + '</p><p>To: ' + escapeHtml(detail.requestRoute.targetStationName || '') + '</p>' + assignedUserInfo + '</div>' : '';
-      threadContent.innerHTML = routeInfo + '<div class="mail-empty-list">No messages available for this request yet.</div>';
-      threadContent.hidden = false;
-      threadEmpty.hidden = true;
-      threadActions.innerHTML = renderThreadActions(detail);
-      threadActions.hidden = threadActions.innerHTML === '';
-      bindThreadActionButtons(detail);
+  function renderRequestReferenceBlock(rr) {
+    if (!rr) {
+      return '';
+    }
+    const items = [];
+
+    function addItem(label, valueHtml, wide) {
+      if (!valueHtml) {
+        return;
+      }
+      items.push(
+        '<div class="mail-request-ref-item' + (wide ? ' mail-request-ref-item--wide' : '') + '">' +
+          '<span>' + escapeHtml(label) + '</span>' +
+          '<div class="mail-request-ref-value">' + valueHtml + '</div>' +
+        '</div>'
+      );
+    }
+
+    if (rr.refIncidentDate) {
+      const dateLabel = rr.refIncidentDateTo
+        ? (escapeHtml(rr.refIncidentDate) + ' – ' + escapeHtml(rr.refIncidentDateTo))
+        : escapeHtml(rr.refIncidentDate);
+      addItem('Incident date' + (rr.refIncidentDateTo ? ' range' : ''), '<strong>' + dateLabel + '</strong>');
+    }
+
+    if (rr.refAllRespondingStations) {
+      addItem('Responding stations', '<strong>All stations that responded</strong>', true);
+    } else if (Array.isArray(rr.refRespondingStations) && rr.refRespondingStations.length) {
+      const chips = rr.refRespondingStations.map(function (station) {
+        return '<span class="mail-request-ref-chip">' + escapeHtml(station.stationName || '') + '</span>';
+      }).join('');
+      addItem(
+        'Responding station' + (rr.refRespondingStations.length > 1 ? 's' : ''),
+        '<div class="mail-request-ref-chips">' + chips + '</div>',
+        true
+      );
+    } else if (rr.refRespondingStationName) {
+      addItem('Responding station', '<strong>' + escapeHtml(rr.refRespondingStationName) + '</strong>', true);
+    }
+
+    if (rr.refLocation) {
+      addItem('Location / address', '<strong>' + escapeHtml(rr.refLocation) + '</strong>', true);
+    }
+    if (rr.refCaseId) {
+      addItem('Case / incident ID', '<strong>' + escapeHtml(rr.refCaseId) + '</strong>');
+    }
+
+    if (!items.length) {
+      return '';
+    }
+
+    return '<section class="mail-request-ref">' +
+      '<h3 class="mail-request-ref-title">Reference details</h3>' +
+      '<div class="mail-request-ref-grid">' + items.join('') + '</div>' +
+    '</section>';
+  }
+
+  function renderFulfillSummary(detail) {
+    if (!composeFulfillRequestSummary) {
+      return;
+    }
+    if (!state.composeCentralFulfillMode || !detail || !detail.requestRoute) {
+      composeFulfillRequestSummary.hidden = true;
+      composeFulfillRequestSummary.innerHTML = '';
       return;
     }
 
-    const assignedUserInfo = detail.requestRoute && detail.requestRoute.assignedUsername ? '<p>Assigned user: ' + escapeHtml(detail.requestRoute.assignedUsername || '') + '</p>' : '';
     const rr = detail.requestRoute || {};
+    const bullets = [];
+    if (rr.refIncidentDate) {
+      bullets.push('Check reports around ' + escapeHtml(rr.refIncidentDate) + (rr.refIncidentDateTo ? (' to ' + escapeHtml(rr.refIncidentDateTo)) : '') + '.');
+    }
+    if (Array.isArray(rr.refRespondingStations) && rr.refRespondingStations.length) {
+      bullets.push('Requested station reports: ' + rr.refRespondingStations.map(function (station) {
+        return escapeHtml(station.stationName || '');
+      }).join(', ') + '.');
+    } else if (rr.refAllRespondingStations) {
+      bullets.push('Requester asked for reports from all responding stations.');
+    }
+    if (rr.refLocation) {
+      bullets.push('Location reference: ' + escapeHtml(rr.refLocation) + '.');
+    }
+    if (rr.refCaseId) {
+      bullets.push('Case / incident ID: ' + escapeHtml(rr.refCaseId) + '.');
+    }
+
+    const note = bullets.length
+      ? '<ul class="file-picker-selected-list">' + bullets.map(function (item) { return '<li>' + item + '</li>'; }).join('') + '</ul>'
+      : '<p class="mail-fulfill-summary-note">Review the thread details, then select the matching report file(s) from the reports folder.</p>';
+
+    composeFulfillRequestSummary.hidden = false;
+    composeFulfillRequestSummary.innerHTML =
+      '<div class="mail-fulfill-summary-head">' +
+        '<div>' +
+          '<p class="mail-fulfill-summary-title">What to send</p>' +
+          '<p class="mail-fulfill-summary-note">Use these request clues to match the correct report file(s) before sending.</p>' +
+        '</div>' +
+      '</div>' +
+      note;
+  }
+
+  function renderThreadSummary(detail) {
+    const rr = detail.requestRoute || {};
+    const metaBlock = renderRequestMetaBlock(rr);
+    const refBlock = renderRequestReferenceBlock(rr);
     const confParts = [];
     if (rr.isConfidential) {
       confParts.push('<span class="mail-badge">Confidential</span>');
@@ -457,8 +879,26 @@
     if (rr.releasedAccessMode) {
       confParts.push('<span class="mail-badge">' + escapeHtml(String(rr.releasedAccessMode).replace(/_/g, ' ')) + '</span>');
     }
-    const routeInfo = detail.requestRoute ? '<div class="mail-thread-message"><strong>Request route</strong><p>Status: ' + escapeHtml((detail.requestRoute.status || '').replace(/_/g, ' ')) + '</p><p>From: ' + escapeHtml(detail.requestRoute.originStationName || '') + '</p><p>To: ' + escapeHtml(detail.requestRoute.targetStationName || '') + '</p>' + confParts.join(' ') + assignedUserInfo + '</div>' : '';
-    threadContent.innerHTML = routeInfo + messages.map(function (message) {
+    const confBlock = confParts.length
+      ? '<div class="mail-thread-summary-badges">' + confParts.join(' ') + '</div>'
+      : '';
+    const html = metaBlock + confBlock + refBlock;
+    if (threadRequestSummary) {
+      threadRequestSummary.innerHTML = html;
+      threadRequestSummary.hidden = html === '';
+    }
+  }
+
+  function renderThreadMessages(detail) {
+    const messages = Array.isArray(detail.messages) ? detail.messages : [];
+    if (messages.length === 0) {
+      threadContent.innerHTML = '';
+      threadContent.hidden = true;
+      threadEmpty.hidden = false;
+      return;
+    }
+
+    threadContent.innerHTML = messages.map(function (message) {
       const attachments = Array.isArray(message.attachments) ? message.attachments.map(function (attachment) {
         const aid = String(attachment.attachmentId || '');
         const href = escapeHtml(attachment.downloadUrl || '#');
@@ -476,12 +916,44 @@
         (attachments ? '<div class="mail-attachments">' + attachments + '</div>' : '') +
       '</article>';
     }).join('');
-
     threadContent.hidden = false;
     threadEmpty.hidden = true;
-    threadActions.innerHTML = renderThreadActions(detail);
-    threadActions.hidden = threadActions.innerHTML === '';
+  }
+
+  function renderRequestMetaBlock(rr) {
+    if (!rr || !rr.routeId) {
+      return '';
+    }
+    const status = formatRequestStatus(rr.status);
+    const cards = [
+      '<div class="mail-request-meta-card"><span>Status</span><strong>' + escapeHtml(status) + '</strong></div>',
+      '<div class="mail-request-meta-card"><span>From station</span><strong>' + escapeHtml(rr.originStationName || '—') + '</strong></div>',
+      '<div class="mail-request-meta-card"><span>Requested by</span><strong>' + escapeHtml(rr.requestUsername || '—') + '</strong></div>'
+    ];
+    if (rr.assignedUsername && !isCentralReviewer()) {
+      cards.push('<div class="mail-request-meta-card"><span>Assigned to</span><strong>' + escapeHtml(rr.assignedUsername) + '</strong></div>');
+    }
+    return '<div class="mail-request-meta">' + cards.join('') + '</div>';
+  }
+
+  function renderThread(detail) {
+    state.threadDetail = detail;
+    closeThreadReply();
+    const thread = detail.thread || {};
+    threadTitle.textContent = thread.subject || 'Request detail';
+    const kicker = document.getElementById('threadModalKicker');
+    if (kicker) {
+      kicker.textContent = isCentralReviewer() ? 'Incoming request' : 'Your request';
+    }
+    renderRequestTimeline(detail);
+    renderThreadSummary(detail);
+    renderThreadMessages(detail);
+    if (threadActionButtons) {
+      threadActionButtons.innerHTML = renderThreadActions(detail);
+    }
+    syncThreadFooterVisibility(Boolean(threadActionButtons && threadActionButtons.innerHTML !== ''));
     bindThreadActionButtons(detail);
+    openThreadModal();
   }
 
   function isComlUser() {
@@ -489,71 +961,78 @@
   }
 
   function requestTimelineSteps() {
+    if (!isCentralReviewer()) {
+      return [
+        {
+          title: 'Submitted',
+          note: 'Your request was sent to Makati Central Fire Station.',
+          feature: 'Request submitted to central ComL.'
+        },
+        {
+          title: 'Central review',
+          note: 'MCFS ComL is locating the requested report(s) from central records.',
+          feature: 'Central ComL reviews your reference details and finds the file(s).'
+        },
+        {
+          title: 'Delivered',
+          note: 'The requested file has been released back to you.',
+          feature: 'Central ComL completes the request and sends the file.'
+        }
+      ];
+    }
+
     return [
       {
-        title: 'Request submitted',
-        note: 'The original request is created and sent to the origin station ComL.',
-        feature: 'Create request and assign it to the origin station ComL for review.'
+        title: 'Received',
+        note: 'A station submitted a file request to MCFS.',
+        feature: 'Request received at central ComL.'
       },
       {
-        title: 'Origin review',
-        note: 'Origin station ComL reviews the request and decides whether to approve it.',
-        feature: 'Origin ComL checks the request details and verifies the request can be forwarded.'
+        title: 'Under review',
+        note: 'Review the reference details and locate the requested report(s).',
+        feature: 'MCFS ComL evaluates the request.'
       },
       {
-        title: 'Origin approved',
-        note: 'The origin station ComL has approved the request for forwarding.',
-        feature: 'Mark the request approved and prepare it for target station delivery.'
+        title: 'Processing',
+        note: 'Locate the report in central records and attach it for the requester.',
+        feature: 'MCFS ComL attaches the file and sends it to the requesting station user.'
       },
       {
-        title: 'Sent to target ComL',
-        note: 'The request is forwarded to the target station ComL for their action.',
-        feature: 'Forward the approved request to the target station ComL to continue processing.'
-      },
-      {
-        title: 'Target review',
-        note: 'Target station ComL is reviewing the request after receiving it.',
-        feature: 'Target ComL evaluates the request before routing it to the correct user.'
-      },
-      {
-        title: 'User attachment',
-        note: 'Target ComL routes the request to the designated user to attach the required file.',
-        feature: 'Assign the file upload task to the user who will attach the requested document.'
-      },
-      {
-        title: 'File returned to ComL',
-        note: 'The user has attached the file and returned the request back to target ComL.',
-        feature: 'Receive the attached file through the request and prepare it for return routing.'
-      },
-      {
-        title: 'Returned to origin',
-        note: 'Target ComL sends the file back to the origin station ComL.',
-        feature: 'Return the attached file to the origin station ComL for final routing.'
-      },
-      {
-        title: 'Delivered to requester',
-        note: 'Origin station ComL routes the completed file to the original requester.',
-        feature: 'Deliver the final file package to the original requestor through the origin ComL.'
+        title: 'Delivered',
+        note: 'The file has been sent back to the requesting station.',
+        feature: 'Request completed.'
       }
     ];
   }
 
   function requestTimelineActiveIndex(status) {
+    if (!isCentralReviewer()) {
+      switch (String(status || '').toLowerCase()) {
+        case 'forwarded_to_target':
+        case 'routed_to_user':
+        case 'file_returned_to_coml':
+        case 'returned_to_origin':
+          return 1;
+        case 'completed':
+          return 2;
+        case 'rejected':
+          return 1;
+        default:
+          return 0;
+      }
+    }
+
     switch (String(status || '').toLowerCase()) {
       case 'pending_origin_review':
+      case 'forwarded_to_target':
         return 1;
       case 'approved':
-        return 2;
-      case 'forwarded_to_target':
-        return 4;
       case 'routed_to_user':
-        return 5;
       case 'file_returned_to_coml':
-        return 6;
       case 'returned_to_origin':
-        return 7;
+        return 2;
       case 'completed':
-        return 8;
+        return 3;
       case 'rejected':
         return 1;
       default:
@@ -610,141 +1089,57 @@
   function renderThreadActions(detail) {
     const requestRoute = detail.requestRoute || {};
     const currentUser = (state.bootstrap && state.bootstrap.currentUser) || {};
-    const canAssignedReply = canAssignedRequestUserReply(detail);
-    const canReviewOrigin = Boolean(
-      isComlUser() &&
-      requestRoute.routeId &&
-      requestRoute.status === 'pending_origin_review' &&
-      Number(requestRoute.originStationId || 0) === Number(currentUser.stationId || 0)
-    );
-    const canReviewTarget = Boolean(
-      isComlUser() &&
-      requestRoute.routeId &&
-      requestRoute.status === 'forwarded_to_target' &&
-      Number(requestRoute.targetStationId || 0) === Number(currentUser.stationId || 0)
-    );
-    const canAssignTarget = Boolean(
-      isComlUser() &&
-      requestRoute.routeId &&
-      ['forwarded_to_target', 'routed_to_user', 'file_returned_to_coml'].includes(String(requestRoute.status || '')) &&
-      Number(requestRoute.targetStationId || 0) === Number(currentUser.stationId || 0)
-    );
-    const canReturnToOrigin = Boolean(
-      isComlUser() &&
-      requestRoute.routeId &&
-      requestRoute.status === 'file_returned_to_coml' &&
-      Number(requestRoute.targetStationId || 0) === Number(currentUser.stationId || 0)
-    );
-    const canAssignOrigin = Boolean(
-      isComlUser() &&
-      requestRoute.routeId &&
-      String(requestRoute.status || '') === 'returned_to_origin' &&
-      Number(requestRoute.originStationId || 0) === Number(currentUser.stationId || 0)
-    );
+    const routeStatus = String(requestRoute.status || '');
+    const atTargetStation = Number(requestRoute.targetStationId || 0) === Number(currentUser.stationId || 0);
 
-    if (canReviewOrigin) {
-      return '<div class="mail-form-actions"><button type="button" class="secondary-btn" id="rejectRequestBtn">Reject</button><button type="button" class="primary-btn" id="approveRequestBtn">Approve</button></div>';
-    }
+    if (isCentralReviewer() && requestRoute.routeId && atTargetStation) {
+      let html = '';
+      const canFulfillCentral = ['forwarded_to_target', 'routed_to_user', 'file_returned_to_coml', 'returned_to_origin'].includes(routeStatus);
+      const canReviewTarget = routeStatus === 'forwarded_to_target';
 
-    let html = '';
-    const assignableUsers = Array.isArray((state.bootstrap || {}).stationUsers)
-      ? (state.bootstrap.stationUsers || [])
-      : [];
+      if (canReviewTarget && requestRoute.isConfidential && !requestRoute.targetConfidentialConfirmed) {
+        html += '<div class="mail-thread-action-row"><button type="button" class="primary-btn" id="targetConfirmConfidentialBtn">Confirm confidentiality</button></div>';
+      }
 
-    if (canReviewTarget && requestRoute.isConfidential && !requestRoute.targetConfidentialConfirmed) {
-      html += '<div class="mail-form-actions"><button type="button" class="primary-btn" id="targetConfirmConfidentialBtn">Confirm confidentiality (Target ComL)</button></div>';
-    }
+      if (canReviewTarget) {
+        html += '<div class="mail-thread-action-row mail-thread-action-row--secondary">' +
+          '<button type="button" class="secondary-btn" id="targetRejectRequestBtn">Reject</button>' +
+          '<button type="button" class="secondary-btn" id="threadReplyBtn">Reply</button>' +
+        '</div>';
+      }
 
-    if (canReviewTarget) {
-      html += '<div class="mail-form-actions"><button type="button" class="secondary-btn" id="targetRejectRequestBtn">Reject</button><button type="button" class="secondary-btn" id="targetEditRequestBtn">Edit request</button></div>';
-    }
+      if (canFulfillCentral) {
+        html += '<div class="mail-thread-action-row mail-thread-action-row--primary">' +
+          '<button type="button" class="primary-btn" id="centralFulfillBtn">Attach file and send to requester</button>' +
+        '</div>';
+      }
 
-    if (canAssignTarget) {
-      html += '<div class="mail-form-actions"><label for="assignTargetUserSelect">Assign request to target station user</label><select id="assignTargetUserSelect">' +
-        '<option value="">Select user</option>' +
-        assignableUsers.map(function (user) {
-          const label = String(user.username || 'User') + (user.positionName ? (' (' + String(user.positionName) + ')') : '');
-          return '<option value="' + escapeHtml(String(user.userId || '')) + '">' + escapeHtml(label) + '</option>';
-        }).join('') +
-        '</select><button type="button" class="primary-btn" id="assignTargetUserBtn">Assign User</button></div>';
-    }
-
-    if (canReturnToOrigin) {
-      html += '<div class="mail-form-actions"><button type="button" class="secondary-btn" id="markFileReturnedBtn">Mark file returned</button><button type="button" class="primary-btn" id="returnToOriginBtn">Return to origin</button></div>';
-    }
-
-    if (canAssignOrigin) {
-      html += '<div class="mail-form-actions"><p class="form-note">After target ComL returns the file, validate it and release it to the original requester.</p><button type="button" class="primary-btn" id="assignOriginUserBtn">Release to requester</button></div>';
-    }
-
-    if (html !== '') {
       return html;
     }
 
-    if (isComlUser()) {
-      return '<div class="mail-form-actions"><p class="form-note">This request is visible to ComL. Review actions appear when the request is pending on your station, or you can assign it to a station user once it arrives.</p></div>';
+    const canAssignedReply = canAssignedRequestUserReply(detail);
+    if (canAssignedReply) {
+      return '<div class="mail-form-actions"><button type="button" class="primary-btn" id="replyAssignedBtn">Attach file and reply</button></div>';
     }
 
     return '';
   }
 
   function bindThreadActionButtons(detail) {
-    const approveRequestBtn = document.getElementById('approveRequestBtn');
-    const rejectRequestBtn = document.getElementById('rejectRequestBtn');
     const targetRejectRequestBtn = document.getElementById('targetRejectRequestBtn');
-    const targetEditRequestBtn = document.getElementById('targetEditRequestBtn');
-    const assignTargetUserBtn = document.getElementById('assignTargetUserBtn');
-    const markFileReturnedBtn = document.getElementById('markFileReturnedBtn');
-    const returnToOriginBtn = document.getElementById('returnToOriginBtn');
-    const assignOriginUserBtn = document.getElementById('assignOriginUserBtn');
+    const threadReplyBtn = document.getElementById('threadReplyBtn');
     const targetConfirmConfidentialBtn = document.getElementById('targetConfirmConfidentialBtn');
+    const centralFulfillBtn = document.getElementById('centralFulfillBtn');
     const replyAssignedBtn = document.getElementById('replyAssignedBtn');
-    const threadPanel = document.getElementById('threadPanel');
 
-    if (threadPanel && threadPanel.dataset.replyAffordanceBound !== '1') {
-      threadPanel.dataset.replyAffordanceBound = '1';
-      threadPanel.style.position = 'relative';
-      threadPanel.style.overflow = 'visible';
-    }
-
-    if (approveRequestBtn) {
-      approveRequestBtn.addEventListener('click', function () {
-        approveRequest(detail);
-      });
-    }
-    if (rejectRequestBtn) {
-      rejectRequestBtn.addEventListener('click', function () {
-        rejectRequest(detail);
-      });
-    }
     if (targetRejectRequestBtn) {
       targetRejectRequestBtn.addEventListener('click', function () {
         rejectTargetRequest(detail);
       });
     }
-    if (targetEditRequestBtn) {
-      targetEditRequestBtn.addEventListener('click', function () {
-        editTargetRequest(detail);
-      });
-    }
-    if (assignTargetUserBtn) {
-      assignTargetUserBtn.addEventListener('click', function () {
-        assignRequestToTargetUser(detail);
-      });
-    }
-    if (markFileReturnedBtn) {
-      markFileReturnedBtn.addEventListener('click', function () {
-        markFileReturned(detail);
-      });
-    }
-    if (returnToOriginBtn) {
-      returnToOriginBtn.addEventListener('click', function () {
-        returnToOrigin(detail);
-      });
-    }
-    if (assignOriginUserBtn) {
-      assignOriginUserBtn.addEventListener('click', function () {
-        assignRequestToOriginUser(detail);
+    if (threadReplyBtn) {
+      threadReplyBtn.addEventListener('click', function () {
+        openThreadReply(detail);
       });
     }
     if (targetConfirmConfidentialBtn) {
@@ -752,66 +1147,50 @@
         confirmTargetConfidential(detail);
       });
     }
+    if (centralFulfillBtn) {
+      centralFulfillBtn.addEventListener('click', function () {
+        openCentralFulfill(detail);
+      });
+    }
     if (replyAssignedBtn) {
-      replyAssignedBtn.hidden = !canAssignedReply;
-      replyAssignedBtn.textContent = 'Reply';
-      replyAssignedBtn.style.position = 'absolute';
-      replyAssignedBtn.style.top = '50%';
-      replyAssignedBtn.style.right = '-14px';
-      replyAssignedBtn.style.transform = 'translate(100%, -50%) translateX(10px)';
-      replyAssignedBtn.style.opacity = '0';
-      replyAssignedBtn.style.pointerEvents = 'none';
-      replyAssignedBtn.style.zIndex = '3';
-      replyAssignedBtn.style.whiteSpace = 'nowrap';
-      replyAssignedBtn.style.transition = 'opacity 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease';
-      replyAssignedBtn.style.writingMode = 'horizontal-tb';
-      replyAssignedBtn.style.textOrientation = 'mixed';
-      replyAssignedBtn.style.letterSpacing = '0.06em';
-      replyAssignedBtn.style.textTransform = 'uppercase';
-      replyAssignedBtn.style.boxShadow = '0 12px 24px rgba(166, 29, 42, 0.22)';
-
-      function showReplyButton() {
-        if (!canAssignedReply || replyAssignedBtn.hidden) {
-          return;
-        }
-        replyAssignedBtn.style.opacity = '1';
-        replyAssignedBtn.style.pointerEvents = 'auto';
-        replyAssignedBtn.style.transform = 'translate(100%, -50%) translateX(0)';
-      }
-
-      function hideReplyButton() {
-        if (!canAssignedReply || replyAssignedBtn.hidden) {
-          return;
-        }
-        replyAssignedBtn.style.opacity = '0';
-        replyAssignedBtn.style.pointerEvents = 'none';
-        replyAssignedBtn.style.transform = 'translate(100%, -50%) translateX(10px)';
-      }
-
-      if (threadPanel && threadPanel.dataset.replyHoverBound !== '1') {
-        threadPanel.dataset.replyHoverBound = '1';
-        threadPanel.addEventListener('mouseenter', showReplyButton);
-        threadPanel.addEventListener('mouseleave', hideReplyButton);
-        threadPanel.addEventListener('focusin', showReplyButton);
-        threadPanel.addEventListener('focusout', function () {
-          window.setTimeout(function () {
-            if (threadPanel && !threadPanel.contains(document.activeElement)) {
-              hideReplyButton();
-            }
-          }, 0);
-        });
-      }
-
-      if (canAssignedReply) {
-        showReplyButton();
-      } else {
-        hideReplyButton();
-      }
-
       replyAssignedBtn.addEventListener('click', function () {
         openAssignedReply(detail);
       });
     }
+  }
+
+  function openCentralFulfill(detail) {
+    const requestRoute = detail.requestRoute || {};
+    const thread = detail.thread || {};
+
+    if (!isCentralReviewer() || !requestRoute.routeId) {
+      setMessage('Only central ComL can fulfill this request.', true);
+      return;
+    }
+
+    state.composeCentralFulfillMode = true;
+    state.composeReplyMode = false;
+    state.composeReplyThreadId = Number(thread.threadId || 0);
+    state.composeFulfillRouteId = Number(requestRoute.routeId || 0);
+    state.composeReplyOriginStationId = 0;
+    state.reopenThreadAfterCompose = true;
+
+    composeForm.reset();
+    const baseSubject = String(thread.subject || requestRoute.editedSubject || 'Operational request');
+    composeSubject.value = /^re:\s*/i.test(baseSubject) ? baseSubject : ('Re: ' + baseSubject);
+    setComposeBodyHtml('');
+    if (composeStationSelect) {
+      composeStationSelect.value = String(getCurrentStationId());
+    }
+    if (composeCloudinaryUrl) {
+      composeCloudinaryUrl.value = '';
+    }
+    clearSelectedCloudFiles();
+    setMessage('', false);
+    updateComposeMode();
+    renderFulfillSummary(detail);
+    hideThreadModalForCompose();
+    openCompose();
   }
 
   function openAssignedReply(detail) {
@@ -1033,29 +1412,6 @@
     });
   }
 
-  function editTargetRequest(detail) {
-    const note = window.prompt('Enter note for target station request edit:', '');
-    if (note === null || note.trim() === '') {
-      setMessage('Edit note cannot be empty.', true);
-      return;
-    }
-
-    submitRouteAction('request-target-edit', {
-      routeId: Number(detail.requestRoute.routeId || 0),
-      note: note.trim()
-    }).then(function () {
-      return openThread(detail.thread.threadId);
-    }).then(function () {
-      return fetchBootstrap();
-    }).then(function () {
-      return fetchList();
-    }).then(function () {
-      setMessage('Target ComL edit has been saved.', false);
-    }).catch(function (error) {
-      setMessage(error.message, true);
-    });
-  }
-
   function markFileReturned(detail) {
     const note = window.prompt('Enter note for file return to target ComL:', '');
     if (note === null) {
@@ -1142,7 +1498,7 @@
   }
 
   function openCompose() {
-    if (!state.composeReplyMode) {
+    if (!state.composeReplyMode && !state.composeCentralFulfillMode) {
       setDefaultSourceStation();
       updateRoutedToLabel();
     }
@@ -1150,7 +1506,7 @@
     syncMailModalScrollLock();
     setMessage('', false);
     updateComposeMode();
-    if (!state.composeReplyMode) {
+    if (!state.composeReplyMode && !state.composeCentralFulfillMode) {
       updateSourceStationUi();
     }
     if (composeBodyEditor) {
@@ -1165,11 +1521,21 @@
     composeForm.reset();
     clearComposeBody();
     clearLocalAttachments();
+    clearReferenceFields();
     state.composeReplyMode = false;
+    state.composeCentralFulfillMode = false;
     state.composeReplyThreadId = 0;
+    state.composeFulfillRouteId = 0;
     state.composeReplyOriginStationId = 0;
+    clearSelectedCloudFiles();
+    renderFulfillSummary(null);
+    const shouldReopenThread = state.reopenThreadAfterCompose && state.threadDetail && state.threadDetail.thread;
+    state.reopenThreadAfterCompose = false;
     setDefaultSourceStation();
     updateComposeMode();
+    if (shouldReopenThread) {
+      openThreadModal();
+    }
   }
 
   function canAssignedRequestUserReply(detail) {
@@ -1187,6 +1553,7 @@
 
     return Boolean(
       !isComlUser() &&
+      !isCentralStation() &&
       assignedUserId > 0 &&
       assignedUserId === currentUserId &&
       targetStationId === currentStationId &&
@@ -1199,9 +1566,12 @@
     cloudinaryFilePicker.hidden = false;
     syncMailModalScrollLock();
     state.filePickerSelectedFile = null;
+    state.filePickerSelectedFiles = [];
+    state.filePickerVirtualPath = '';
     filePickerSelectedInfo.textContent = '';
     filePickerSelected.hidden = true;
     filePickerSelectBtn.disabled = true;
+    filePickerSelectBtn.textContent = state.composeCentralFulfillMode ? 'Attach selected files' : 'Select file';
     loadCloudinaryFiles();
   }
 
@@ -1209,6 +1579,8 @@
     cloudinaryFilePicker.hidden = true;
     syncMailModalScrollLock();
     state.filePickerSelectedFile = null;
+    state.filePickerSelectedFiles = [];
+    state.filePickerVirtualPath = '';
   }
 
   function showFilePickerLoading() {
@@ -1235,10 +1607,11 @@
 
     const om = getOperationalOrgmailMeta();
     const useR2 = om.provider === 'r2';
+    const area = state.composeCentralFulfillMode ? 'reports' : 'orgmail';
     const sourceStationId = String(composeStationSelect ? composeStationSelect.value : getCurrentStationId());
     const url = new URL(useR2 ? storageBrowserUrl : legacyStorageBrowserUrl, window.location.origin);
     url.searchParams.set('action', 'list');
-    url.searchParams.set('area', 'orgmail');
+    url.searchParams.set('area', area);
     if (useR2 && sourceStationId !== '') {
       url.searchParams.set('stationId', sourceStationId);
     }
@@ -1273,12 +1646,23 @@
 
   function renderFilePickerList() {
     if (state.filePickerFiles.length === 0) {
-      filePickerList.innerHTML = '<div class="file-picker-empty"><p>No files or reports found in your station.</p></div>';
+      const emptyLabel = state.composeCentralFulfillMode
+        ? 'No files were found in the MCFS reports folder yet.'
+        : 'No files or reports found in your station.';
+      filePickerList.innerHTML = '<div class="file-picker-empty"><p>' + escapeHtml(emptyLabel) + '</p></div>';
+      return;
+    }
+
+    const isCentralReportsRoot = state.composeCentralFulfillMode && /\/reports$/i.test(String(state.filePickerFolder || ''));
+    if (isCentralReportsRoot) {
+      renderCentralReportsFolderView();
       return;
     }
 
     filePickerList.innerHTML = state.filePickerFiles.map(function(file) {
-      const selected = state.filePickerSelectedFile && state.filePickerSelectedFile.public_id === file.public_id ? ' selected' : '';
+      const selected = state.composeCentralFulfillMode
+        ? (state.filePickerSelectedFiles.some(function (entry) { return entry.public_id === file.public_id; }) ? ' selected' : '')
+        : (state.filePickerSelectedFile && state.filePickerSelectedFile.public_id === file.public_id ? ' selected' : '');
       const isIncident = file.resource_type === 'incident';
 
       if (isIncident) {
@@ -1317,17 +1701,139 @@
     bindFilePickerItems();
   }
 
+  function renderCentralReportsFolderView() {
+    const rootPrefix = String(state.filePickerFolder || '').replace(/\/+$/, '');
+    const currentPath = String(state.filePickerVirtualPath || '').replace(/^\/+|\/+$/g, '');
+    const basePrefix = currentPath ? (rootPrefix + '/' + currentPath) : rootPrefix;
+    const folders = [];
+    const files = [];
+    const seenFolders = {};
+
+    state.filePickerFiles.forEach(function (file) {
+      const fullKey = String(file.public_id || '');
+      const rootWithSlash = rootPrefix + '/';
+      if (fullKey.indexOf(rootWithSlash) !== 0) {
+        return;
+      }
+      const relative = fullKey.slice(rootWithSlash.length);
+      if (!relative) {
+        return;
+      }
+      if (currentPath) {
+        const folderPrefix = currentPath + '/';
+        if (relative.indexOf(folderPrefix) !== 0) {
+          return;
+        }
+      }
+
+      const relativeWithinCurrent = currentPath ? relative.slice((currentPath + '/').length) : relative;
+      if (!relativeWithinCurrent) {
+        return;
+      }
+
+      const slashIndex = relativeWithinCurrent.indexOf('/');
+      if (slashIndex >= 0) {
+        const folderName = relativeWithinCurrent.slice(0, slashIndex);
+        const folderPath = currentPath ? (currentPath + '/' + folderName) : folderName;
+        if (!seenFolders[folderPath]) {
+          seenFolders[folderPath] = true;
+          folders.push({
+            type: 'folder',
+            folderName: folderName,
+            folderPath: folderPath
+          });
+        }
+      } else {
+        files.push(file);
+      }
+    });
+
+    const displayFolder = currentPath ? (rootPrefix + '/' + currentPath) : rootPrefix;
+    filePickerFolder.textContent = displayFolder;
+    filePickerCount.textContent = String(folders.length + files.length) + ' item' + (folders.length + files.length !== 1 ? 's' : '');
+    if (filePickerBackBtn) {
+      filePickerBackBtn.hidden = currentPath === '';
+    }
+
+    const folderHtml = folders.sort(function (a, b) {
+      return a.folderName.localeCompare(b.folderName);
+    }).map(function (folder) {
+      return '<div class="file-picker-item file-picker-item-folder" data-folder-path="' + escapeHtml(folder.folderPath) + '">' +
+        '<div class="file-picker-item-placeholder"><span><i class="bi bi-folder2-open" aria-hidden="true"></i></span></div>' +
+        '<div class="file-picker-item-name">' + escapeHtml(folder.folderName) + '/</div>' +
+        '<div class="file-picker-item-meta"><span>Folder</span></div>' +
+      '</div>';
+    }).join('');
+
+    const fileHtml = files.map(function (file) {
+      const selected = state.filePickerSelectedFiles.some(function (entry) { return entry.public_id === file.public_id; }) ? ' selected' : '';
+      const sizeKb = Math.round((file.bytes || 0) / 1024);
+      const sizeLabel = sizeKb > 1024 ? (sizeKb / 1024).toFixed(1) + ' MB' : sizeKb + ' KB';
+      const format = (file.format || '').toLowerCase();
+      let label = 'FILE';
+      if (format === 'pdf') label = 'PDF';
+      else if (format === 'xlsx' || format === 'xls') label = 'XLSX';
+      else if (format === 'txt') label = 'TXT';
+      return '<div class="file-picker-item' + selected + '" data-file-id="' + escapeHtml(file.public_id) + '">' +
+        '<div class="file-picker-item-placeholder"><span>' + label + '</span></div>' +
+        '<div class="file-picker-item-name">' + escapeHtml(file.filename) + '</div>' +
+        '<div class="file-picker-item-meta"><span>' + sizeLabel + '</span><span>' + (file.created_at ? new Date(file.created_at).toLocaleDateString() : 'Unknown date') + '</span></div>' +
+      '</div>';
+    }).join('');
+
+    filePickerList.innerHTML = folderHtml + fileHtml || '<div class="file-picker-empty"><p>No folders or files found here.</p></div>';
+    bindFilePickerItems();
+  }
+
   function bindFilePickerItems() {
+    Array.from(filePickerList.querySelectorAll('[data-folder-path]')).forEach(function (item) {
+      item.addEventListener('click', function () {
+        state.filePickerVirtualPath = String(item.getAttribute('data-folder-path') || '');
+        renderFilePickerList();
+      });
+    });
     Array.from(filePickerList.querySelectorAll('.file-picker-item')).forEach(function(item) {
+      if (item.hasAttribute('data-folder-path')) {
+        return;
+      }
       item.addEventListener('click', function() {
         const fileId = item.getAttribute('data-file-id');
-        state.filePickerSelectedFile = state.filePickerFiles.find(function(f) {
+        const clickedFile = state.filePickerFiles.find(function(f) {
           return f.public_id === fileId;
         });
 
-        if (state.filePickerSelectedFile) {
+        if (!clickedFile) {
+          return;
+        }
+
+        if (state.composeCentralFulfillMode) {
+          const existingIndex = state.filePickerSelectedFiles.findIndex(function (entry) {
+            return entry.public_id === clickedFile.public_id;
+          });
+          if (existingIndex >= 0) {
+            state.filePickerSelectedFiles.splice(existingIndex, 1);
+          } else {
+            state.filePickerSelectedFiles.push(clickedFile);
+          }
           renderFilePickerList();
-          filePickerSelectedInfo.innerHTML = 
+          if (state.filePickerSelectedFiles.length) {
+            filePickerSelectedInfo.innerHTML = '<strong>' + String(state.filePickerSelectedFiles.length) + ' file' + (state.filePickerSelectedFiles.length > 1 ? 's' : '') + ' selected</strong>' +
+              '<ul class="file-picker-selected-list">' +
+              state.filePickerSelectedFiles.map(function (file) {
+                return '<li>' + escapeHtml(file.filename || 'File') + '</li>';
+              }).join('') +
+              '</ul>';
+            filePickerSelected.hidden = false;
+            filePickerSelectBtn.disabled = false;
+          } else {
+            filePickerSelectedInfo.textContent = '';
+            filePickerSelected.hidden = true;
+            filePickerSelectBtn.disabled = true;
+          }
+        } else {
+          state.filePickerSelectedFile = clickedFile;
+          renderFilePickerList();
+          filePickerSelectedInfo.innerHTML =
             '<strong>' + escapeHtml(state.filePickerSelectedFile.filename) + '</strong><br>' +
             '<small>' + escapeHtml(state.filePickerSelectedFile.url) + '</small>';
           filePickerSelected.hidden = false;
@@ -1338,6 +1844,29 @@
   }
 
   function selectCloudinaryFile() {
+    if (state.composeCentralFulfillMode) {
+      if (!state.filePickerSelectedFiles.length) {
+        setMessage('Please select at least one valid file', true);
+        return;
+      }
+      state.composeSelectedCloudFiles = state.filePickerSelectedFiles.map(function (file) {
+        return {
+          public_id: file.public_id,
+          filename: file.filename,
+          url: file.url
+        };
+      });
+      if (composeCloudinaryUrl) {
+        composeCloudinaryUrl.value = state.composeSelectedCloudFiles.map(function (file) { return file.url; }).join('\n');
+      }
+      renderSelectedCloudFiles();
+      closeFilePicker();
+      if (composeModal && !composeModal.hidden && composeBodyEditor) {
+        composeBodyEditor.focus();
+      }
+      return;
+    }
+
     if (!state.filePickerSelectedFile) {
       setMessage('Please select a valid file', true);
       return;
@@ -1353,6 +1882,9 @@
       composeCloudinaryUrl.value = url;
     }
     closeFilePicker();
+    if (composeModal && !composeModal.hidden && composeBodyEditor) {
+      composeBodyEditor.focus();
+    }
   }
 
   function updateComposeMode() {
@@ -1360,36 +1892,70 @@
     const modalTitle = composeModal.querySelector('h2');
     const stationLabel = composeStationSelect ? composeStationSelect.closest('label') : null;
     const routedToField = composeRoutedToLabel ? composeRoutedToLabel.closest('.form-field') : null;
-    const isReplyMode = Boolean(state.composeReplyMode);
+    const isFulfillMode = Boolean(state.composeCentralFulfillMode);
+    const isReplyMode = Boolean(state.composeReplyMode) && !isFulfillMode;
+    const usesCloudAttachment = isReplyMode || isFulfillMode;
+    const uploadField = composeOrgmailUploadRow || null;
+    const shareLinkField = generateShareLinkBtn ? generateShareLinkBtn.closest('.form-field--inline-action') : null;
 
     if (modalKicker) {
-      modalKicker.textContent = isReplyMode ? 'Operational Reply' : 'New request';
+      modalKicker.textContent = isFulfillMode ? 'Fulfill request' : (isReplyMode ? 'Operational Reply' : 'New request');
     }
     if (modalTitle) {
-      modalTitle.textContent = isReplyMode ? 'Attach file and return to ComL' : 'Create operational request';
+      modalTitle.textContent = isFulfillMode
+        ? 'Attach file and send to requester'
+        : (isReplyMode ? 'Attach file and return to ComL' : 'Create operational request');
     }
     if (stationLabel) {
-      stationLabel.hidden = isReplyMode;
+      stationLabel.hidden = usesCloudAttachment;
+      stationLabel.style.display = usesCloudAttachment ? 'none' : '';
     }
     if (routedToField) {
-      routedToField.hidden = isReplyMode;
+      routedToField.hidden = usesCloudAttachment;
+      routedToField.style.display = usesCloudAttachment ? 'none' : '';
     }
     if (composeCloudSection) {
-      composeCloudSection.hidden = !isReplyMode;
+      composeCloudSection.hidden = !usesCloudAttachment;
+      composeCloudSection.style.display = usesCloudAttachment ? '' : 'none';
     }
     if (composeLocalAttachmentsField) {
-      composeLocalAttachmentsField.hidden = isReplyMode;
+      composeLocalAttachmentsField.hidden = usesCloudAttachment;
+      composeLocalAttachmentsField.style.display = usesCloudAttachment ? 'none' : '';
+    }
+    if (composeRefFields) {
+      composeRefFields.hidden = usesCloudAttachment;
+      composeRefFields.style.display = usesCloudAttachment ? 'none' : '';
+    }
+    if (uploadField) {
+      uploadField.hidden = isFulfillMode;
+      uploadField.style.display = isFulfillMode ? 'none' : '';
+    }
+    if (shareLinkField) {
+      shareLinkField.hidden = isFulfillMode;
+      shareLinkField.style.display = isFulfillMode ? 'none' : '';
     }
     if (composeBodyEditor) {
-      composeBodyEditor.dataset.placeholder = isReplyMode ? 'Add a note with the file you are returning…' : 'Write your request…';
+      composeBodyEditor.dataset.placeholder = isFulfillMode
+        ? 'Add a note for the requester (optional)…'
+        : (isReplyMode ? 'Add a note with the file you are returning…' : 'Write your request…');
     }
     if (saveDraftBtn) {
-      saveDraftBtn.hidden = isReplyMode;
+      saveDraftBtn.hidden = usesCloudAttachment;
     }
     if (sendBtn) {
-      sendBtn.textContent = isReplyMode ? 'Return to target ComL' : 'Send request';
+      sendBtn.textContent = isFulfillMode
+        ? 'Send file to requester'
+        : (isReplyMode ? 'Return to target ComL' : 'Send request');
     }
-    if (composeOrgmailHint && isReplyMode) {
+    if (composeRoutedToLabel) {
+      composeRoutedToLabel.textContent = isFulfillMode
+        ? 'Requester'
+        : ((getCentralStation() && getCentralStation().stationName) ? getCentralStation().stationName : 'Makati Central Fire Station');
+    }
+    if (composeSelectedCloudFiles) {
+      composeSelectedCloudFiles.hidden = !isFulfillMode || state.composeSelectedCloudFiles.length === 0;
+    }
+    if (composeOrgmailHint && usesCloudAttachment) {
       updateSourceStationUi();
     }
   }
@@ -1410,7 +1976,66 @@
     return String(url).toLowerCase().indexOf('/' + String(stationCode) + '/') !== -1;
   }
 
+  async function submitCentralFulfill() {
+    const subject = String(composeSubject.value || '').trim();
+    const body = getComposeBodyHtml();
+    const cloudinaryUrls = state.composeSelectedCloudFiles.map(function (file) { return String(file.url || '').trim(); }).filter(Boolean);
+    const cloudinaryUrl = composeCloudinaryUrl ? String(composeCloudinaryUrl.value || '').trim() : '';
+    const routeId = Number(state.composeFulfillRouteId || 0);
+    const threadId = Number(state.composeReplyThreadId || 0);
+
+    if (subject === '') {
+      throw new Error('Please add a subject.');
+    }
+    if (!cloudinaryUrls.length && cloudinaryUrl === '') {
+      throw new Error('Attach at least one requested file from cloud storage before sending to the requester.');
+    }
+    if (cloudinaryUrls.some(function (url) { return !validateUrl(url); }) || (cloudinaryUrls.length === 0 && !validateUrl(cloudinaryUrl))) {
+      throw new Error('Please provide a valid cloud storage file URL.');
+    }
+    if (routeId < 1 || threadId < 1) {
+      throw new Error('Unable to locate this request route.');
+    }
+
+    const formData = new FormData();
+    formData.append('action', 'request-central-fulfill');
+    formData.append('routeId', String(routeId));
+    formData.append('threadId', String(threadId));
+    formData.append('note', body);
+    if (cloudinaryUrls.length) {
+      cloudinaryUrls.forEach(function (url) {
+        formData.append('cloudinaryUrls[]', url);
+      });
+    } else {
+      formData.append('cloudinaryUrl', cloudinaryUrl);
+    }
+
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      body: formData,
+      credentials: 'same-origin'
+    });
+    const payload = await response.json();
+    if (!response.ok || !payload || payload.ok !== true) {
+      throw new Error((payload && payload.message) || 'Unable to send the file to the requester.');
+    }
+    state.reopenThreadAfterCompose = false;
+    setMessage(payload.message || 'File sent to the requester.', false);
+    closeCompose();
+    closeThreadModal();
+    await fetchBootstrap();
+    await fetchList();
+  }
+
   async function submitRequest(isDraft) {
+    if (state.composeCentralFulfillMode) {
+      if (isDraft) {
+        throw new Error('Drafts are not available when fulfilling a request.');
+      }
+      await submitCentralFulfill();
+      return;
+    }
+
     const subject = String(composeSubject.value || '').trim();
     const body = getComposeBodyHtml();
     const sourceStationId = Number(composeStationSelect.value || 0);
@@ -1452,6 +2077,25 @@
     if (!state.composeReplyMode) {
       formData.append('recipientStationIds[]', String(centralStationId));
       formData.append('sourceStationId', String(sourceStationId > 0 ? sourceStationId : getCurrentStationId()));
+      if (composeRefIncidentDateFrom && composeRefIncidentDateFrom.value) {
+        formData.append('refIncidentDateFrom', composeRefIncidentDateFrom.value);
+      }
+      if (composeRefIncidentDateTo && composeRefIncidentDateTo.value) {
+        formData.append('refIncidentDateTo', composeRefIncidentDateTo.value);
+      }
+      if (composeRefAllResponders && composeRefAllResponders.checked) {
+        formData.append('refAllRespondingStations', '1');
+      } else {
+        selectedRespondingStationIds().forEach(function (stationId) {
+          formData.append('refRespondingStationIds[]', stationId);
+        });
+      }
+      if (composeRefLocation && composeRefLocation.value.trim()) {
+        formData.append('refLocation', composeRefLocation.value.trim());
+      }
+      if (composeRefCaseId && composeRefCaseId.value.trim()) {
+        formData.append('refCaseId', composeRefCaseId.value.trim());
+      }
       state.localAttachments.forEach(function (file) {
         formData.append('attachments[]', file);
       });
@@ -1477,11 +2121,14 @@
 
   openComposeBtn.addEventListener('click', function () {
     state.composeReplyMode = false;
+    state.composeCentralFulfillMode = false;
     state.composeReplyThreadId = 0;
+    state.composeFulfillRouteId = 0;
     state.composeReplyOriginStationId = 0;
     composeForm.reset();
     clearComposeBody();
     clearLocalAttachments();
+    clearReferenceFields();
     setDefaultSourceStation();
     if (composeCloudinaryUrl) {
       composeCloudinaryUrl.value = '';
@@ -1510,6 +2157,7 @@
       const folder = btn.getAttribute('data-folder');
       state.folder = folder;
       state.activeThread = null;
+      closeThreadModal();
 
       // Update active button
       document.querySelectorAll('.mail-folder-btn').forEach(function(b) {
@@ -1518,20 +2166,53 @@
       btn.classList.add('active');
 
       // Update title
-      const titles = {
-        'inbox': 'Pending',
-        'sent': 'Sent',
-        'drafts': 'Drafts'
-      };
+      const titles = folderTitles();
       mailFolderTitle.textContent = titles[folder] || 'Requests';
+      applyOperationalModeUi();
 
       // Fetch and render
       fetchList().catch(function (error) { setMessage(error.message, true); });
-      threadEmpty.hidden = false;
-      threadContent.hidden = true;
-      threadTitle.textContent = 'Select a request';
     });
   });
+
+  if (closeThreadBtn) {
+    closeThreadBtn.addEventListener('click', closeThreadModal);
+  }
+  if (closeThreadReplyBtn) {
+    closeThreadReplyBtn.addEventListener('click', closeThreadReply);
+  }
+  if (cancelThreadReplyBtn) {
+    cancelThreadReplyBtn.addEventListener('click', closeThreadReply);
+  }
+  if (sendThreadReplyBtn) {
+    sendThreadReplyBtn.addEventListener('click', function () {
+      submitThreadReply().catch(function (error) {
+        setMessage(error.message, true);
+      });
+    });
+  }
+  if (threadModal) {
+    threadModal.querySelectorAll('.mail-compose-tool[data-editor="threadReply"]').forEach(function (button) {
+      button.addEventListener('mousedown', function (event) {
+        event.preventDefault();
+      });
+      button.addEventListener('click', function () {
+        const command = button.getAttribute('data-cmd');
+        if (!command || !threadReplyBodyEditor) {
+          return;
+        }
+        threadReplyBodyEditor.focus();
+        document.execCommand(command, false, null);
+      });
+    });
+  }
+  if (threadModal) {
+    threadModal.addEventListener('click', function (event) {
+      if (event.target && event.target.closest('[data-close-thread="true"]')) {
+        closeThreadModal();
+      }
+    });
+  }
 
   composeForm.addEventListener('submit', function (event) {
     event.preventDefault();
@@ -1569,6 +2250,10 @@
       }
     });
   });
+
+  if (composeRefAllResponders) {
+    composeRefAllResponders.addEventListener('change', updateRespondersUi);
+  }
 
   if (composeAttachFilesBtn && composeLocalAttachments) {
     composeAttachFilesBtn.addEventListener('click', function () {
@@ -1620,6 +2305,18 @@
 
   if (filePickerRefreshBtn) {
     filePickerRefreshBtn.addEventListener('click', loadCloudinaryFiles);
+  }
+
+  if (filePickerBackBtn) {
+    filePickerBackBtn.addEventListener('click', function () {
+      const current = String(state.filePickerVirtualPath || '');
+      if (!current) {
+        return;
+      }
+      const next = current.split('/').slice(0, -1).join('/');
+      state.filePickerVirtualPath = next;
+      renderFilePickerList();
+    });
   }
 
   if (filePickerSelectBtn) {
@@ -1741,6 +2438,10 @@
       closeFilePicker();
       return;
     }
+    if (threadModal && !threadModal.hidden) {
+      closeThreadModal();
+      return;
+    }
     if (!composeModal.hidden) {
       closeCompose();
     }
@@ -1748,6 +2449,9 @@
 
   async function init() {
     composeModal.hidden = true;
+    if (threadModal) {
+      threadModal.hidden = true;
+    }
     syncMailModalScrollLock();
     try {
       setMessage('Loading operational mail...', false);
