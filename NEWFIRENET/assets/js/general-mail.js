@@ -100,7 +100,6 @@
   const requestTimelineNote = document.getElementById('requestTimelineNote');
   const requestThreadSummary = document.getElementById('requestThreadSummary');
   const requestThreadContent = document.getElementById('requestThreadContent');
-  const requestThreadEmpty = document.getElementById('requestThreadEmpty');
 
   if (!contextElement || !mailList || !threadPanel || !threadContent || !threadEmpty || !threadTitle || !composeModal || !openComposeBtn || !closeComposeBtn || !refreshBtn || !searchInput || !stationFilterSelect || !sortSelect || !unreadOnlyToggle || !composeForm || !composeSubject || !composeStationSelect || !composeUserSelect || !composeImportance || !composeThreadId || !composeParentMailId || !composeBody || !composeAttachments || !composeMessage || !saveDraftBtn || !inboxCount || !unreadCount || !sentCount || !draftCount || !mailFolderTitle || !mailActiveFilter) {
     return;
@@ -300,9 +299,65 @@
       routed_to_user: 'Assigned to user',
       file_returned_to_coml: 'File ready',
       returned_to_origin: 'Returned to requester station',
-      completed: 'Completed'
+      completed: 'Delivered'
     };
     return labels[value] || value.replace(/_/g, ' ');
+  }
+
+  function requestTrackingMap() {
+    const map = new Map();
+    const items = Array.isArray(state.bootstrap && state.bootstrap.requestTracking) ? state.bootstrap.requestTracking : [];
+    items.forEach(function (entry) {
+      const threadId = Number(entry.threadId || 0);
+      if (threadId > 0) {
+        map.set(threadId, String(entry.status || '').toLowerCase());
+      }
+    });
+    return map;
+  }
+
+  function inferRequestStatusFromSnippet(snippet, threadId, tracking) {
+    const tracked = tracking.get(threadId);
+    if (tracked) {
+      return tracked;
+    }
+    const text = String(snippet || '').toLowerCase();
+    if (text.indexOf('rejected the request') !== -1 || text.indexOf('was rejected') !== -1) {
+      return 'rejected';
+    }
+    if (text.indexOf('request completed') !== -1 || text.indexOf('file sent to the requester') !== -1) {
+      return 'completed';
+    }
+    return '';
+  }
+
+  function requestOutcomeMeta(status) {
+    const value = String(status || '').toLowerCase();
+    if (value === 'rejected') {
+      return { tone: 'rejected', label: 'Rejected', icon: 'bi-x-circle-fill', rowClass: 'is-request-rejected' };
+    }
+    if (value === 'completed') {
+      return { tone: 'completed', label: 'Delivered', icon: 'bi-check-circle-fill', rowClass: 'is-request-completed' };
+    }
+    return null;
+  }
+
+  function renderRequestOutcomeBadge(status) {
+    const meta = requestOutcomeMeta(status);
+    if (!meta) {
+      return '';
+    }
+    return '<span class="mail-request-outcome-badge mail-request-outcome-badge--' + meta.tone + '">' +
+      '<i class="bi ' + meta.icon + '" aria-hidden="true"></i><span>' + escapeHtml(meta.label) + '</span>' +
+    '</span>';
+  }
+
+  function renderRequestStatusValue(status) {
+    const meta = requestOutcomeMeta(status);
+    if (meta) {
+      return renderRequestOutcomeBadge(status);
+    }
+    return '<strong>' + escapeHtml(formatRequestStatus(status)) + '</strong>';
   }
 
   function openRequestThreadModal() {
@@ -366,14 +421,35 @@
   function renderRequestMetaBlock(rr) {
     if (!rr || !rr.routeId) return '';
     const cards = [
-      '<div class="mail-request-meta-card"><span>Status</span><strong>' + escapeHtml(formatRequestStatus(rr.status)) + '</strong></div>',
+      '<div class="mail-request-meta-card"><span>Status</span>' + renderRequestStatusValue(rr.status) + '</div>',
       '<div class="mail-request-meta-card"><span>From station</span><strong>' + escapeHtml(rr.originStationName || '—') + '</strong></div>',
       '<div class="mail-request-meta-card"><span>Requested by</span><strong>' + escapeHtml(rr.requestUsername || '—') + '</strong></div>'
     ];
+    const rejectReason = String(rr.targetReviewNotes || rr.originReviewNotes || '').trim();
+    if (String(rr.status || '').toLowerCase() === 'rejected' && rejectReason) {
+      cards.push('<div class="mail-request-meta-card mail-request-meta-card--wide"><span>Rejection reason</span><strong>' + escapeHtml(rejectReason) + '</strong></div>');
+    }
     return '<div class="mail-request-meta">' + cards.join('') + '</div>';
   }
 
-  function getRequestTimelineSteps() {
+  function getRequestTimelineSteps(status) {
+    const rejected = String(status || '').toLowerCase() === 'rejected';
+    if (rejected) {
+      return [
+        {
+          title: 'Submitted',
+          note: 'Your request was sent to Makati Central Fire Station.'
+        },
+        {
+          title: 'Central review',
+          note: 'MCFS ComL reviewed your reference details.'
+        },
+        {
+          title: 'Rejected',
+          note: 'This request was declined by MCFS ComL.'
+        }
+      ];
+    }
     return [
       {
         title: 'Submitted',
@@ -390,19 +466,66 @@
     ];
   }
 
-  function requestTimelineActiveIndex(status) {
-    switch (String(status || '').toLowerCase()) {
+  function requestTimelineActiveIndex(status, steps) {
+    const value = String(status || '').toLowerCase();
+    const lastIndex = Math.max(0, (steps || []).length - 1);
+    if (value === 'rejected') {
+      return lastIndex;
+    }
+    switch (value) {
       case 'forwarded_to_target':
       case 'routed_to_user':
       case 'file_returned_to_coml':
       case 'returned_to_origin':
-      case 'rejected':
         return 1;
       case 'completed':
-        return 2;
+        return lastIndex;
       default:
         return 0;
     }
+  }
+
+  function resolveRequestDescription(detail) {
+    const rr = (detail && detail.requestRoute) || {};
+    const edited = String(rr.editedBody || '').trim();
+    if (edited) {
+      return edited;
+    }
+    const messages = Array.isArray(detail && detail.messages) ? detail.messages : [];
+    const requestMessage = messages.find(function (message) {
+      return message.mailType === 'request' && message.requestFiles;
+    }) || messages.find(function (message) {
+      return message.mailType === 'request';
+    }) || messages[0];
+    if (requestMessage) {
+      const body = String(requestMessage.body || '').trim();
+      if (body) {
+        return body;
+      }
+    }
+    return '';
+  }
+
+  function messageDisplayBody(message, detail) {
+    const body = String((message && message.body) || '').trim();
+    if (body) {
+      return body;
+    }
+    if (message && message.mailType === 'request') {
+      return resolveRequestDescription(detail);
+    }
+    return '';
+  }
+
+  function renderRequestDescriptionBlock(detail) {
+    const text = resolveRequestDescription(detail);
+    if (!text) {
+      return '';
+    }
+    return '<section class="mail-request-description">' +
+      '<h3 class="mail-request-ref-title">Request description</h3>' +
+      formatMessageBody(text) +
+    '</section>';
   }
 
   function renderRequestTimeline(detail) {
@@ -414,40 +537,50 @@
       requestThreadTimeline.hidden = true;
       return;
     }
-    const steps = getRequestTimelineSteps();
-    const activeIndex = requestTimelineActiveIndex(route.status);
-    if (state.requestTimelineSelectedIndex < 0 || state.requestTimelineSelectedIndex >= steps.length) {
-      state.requestTimelineSelectedIndex = activeIndex;
-    }
+    const steps = getRequestTimelineSteps(route.status);
+    const activeIndex = requestTimelineActiveIndex(route.status, steps);
+    const rejected = String(route.status || '').toLowerCase() === 'rejected';
+    state.requestTimelineSelectedIndex = activeIndex;
     requestTimelineRequestTitle.textContent = (detail.thread && detail.thread.subject) || 'Operational request timeline';
     requestTimelineSteps.innerHTML = steps.map(function (step, index) {
-      const completed = index <= activeIndex;
+      const isRejectedStep = rejected && index === steps.length - 1;
+      const completed = isRejectedStep ? false : (rejected ? index < activeIndex : index <= activeIndex);
       const active = index === state.requestTimelineSelectedIndex;
-      return '<button type="button" class="timeline-step' + (completed ? ' completed' : '') + (active ? ' active' : '') + '" data-step-index="' + index + '">' +
+      return '<button type="button" class="timeline-step' +
+        (completed ? ' completed' : '') +
+        (isRejectedStep ? ' rejected' : '') +
+        (active ? ' active' : '') +
+        '" data-step-index="' + index + '">' +
         '<span class="timeline-marker">' + (index + 1) + '</span>' +
         '<span class="timeline-step-title">' + escapeHtml(step.title) + '</span>' +
       '</button>';
     }).join('');
     const selectedStep = steps[state.requestTimelineSelectedIndex];
-    requestTimelineNote.textContent = selectedStep ? selectedStep.note : '';
+    let noteText = selectedStep ? selectedStep.note : '';
+    if (rejected && state.requestTimelineSelectedIndex === steps.length - 1) {
+      const reason = String(route.targetReviewNotes || route.originReviewNotes || '').trim();
+      if (reason) {
+        noteText = 'Reason: ' + reason;
+      }
+    }
+    requestTimelineNote.textContent = noteText;
     requestThreadTimeline.hidden = false;
   }
 
   function renderRequestThreadSummary(detail) {
     if (!requestThreadSummary) return;
     const rr = detail.requestRoute || {};
-    const html = renderRequestMetaBlock(rr) + renderRequestReferenceBlock(rr);
+    const html = renderRequestMetaBlock(rr) + renderRequestDescriptionBlock(detail) + renderRequestReferenceBlock(rr);
     requestThreadSummary.innerHTML = html;
     requestThreadSummary.hidden = html === '';
   }
 
   function renderRequestThreadMessages(detail) {
-    if (!requestThreadContent || !requestThreadEmpty) return;
+    if (!requestThreadContent) return;
     const messages = Array.isArray(detail.messages) ? detail.messages : [];
     if (messages.length === 0) {
       requestThreadContent.innerHTML = '';
       requestThreadContent.hidden = true;
-      requestThreadEmpty.hidden = false;
       return;
     }
     requestThreadContent.innerHTML = messages.map(function (message) {
@@ -455,15 +588,20 @@
         return '<a class="mail-attachment-link" href="' + escapeHtml(attachment.downloadUrl || '#') + '" target="_blank" rel="noreferrer">' + escapeHtml(attachment.originalFileName) + '</a>';
       }).join('') : '';
       const requestTags = message.mailType === 'request' ? '<span class="mail-badge">Request</span>' : '';
-      return '<article class="mail-thread-message">' +
-        '<div class="mail-thread-message-head"><strong>' + escapeHtml(message.senderStationName || '') + '</strong><span>' + escapeHtml(formatDate(message.sentAt || message.createdAt)) + '</span></div>' +
+      const mineClass = isCurrentUserMessage(message) ? ' is-mine' : '';
+      return '<article class="mail-thread-message' + mineClass + '">' +
+        '<div class="mail-thread-message-head">' +
+          '<div class="mail-thread-message-from">' + renderThreadMeBadge(message) +
+            '<strong>' + escapeHtml(message.senderStationName || '') + ' / ' + escapeHtml(message.senderUsername || '') + '</strong>' +
+          '</div>' +
+          '<span>' + escapeHtml(formatDate(message.sentAt || message.createdAt)) + '</span>' +
+        '</div>' +
         '<div class="mail-thread-message-meta"><span>' + escapeHtml(message.senderUsername || '') + '</span>' + requestTags + '</div>' +
-        formatMessageBody(message.body) +
+        formatMessageBody(messageDisplayBody(message, detail)) +
         (attachments ? '<div class="mail-attachments">' + attachments + '</div>' : '') +
       '</article>';
     }).join('');
     requestThreadContent.hidden = false;
-    requestThreadEmpty.hidden = true;
   }
 
   function renderRequestThreadModal(detail) {
@@ -475,7 +613,7 @@
     if (requestThreadModalKicker) {
       requestThreadModalKicker.textContent = 'Your request';
     }
-    state.requestTimelineSelectedIndex = requestTimelineActiveIndex((detail.requestRoute || {}).status);
+    state.requestTimelineSelectedIndex = requestTimelineActiveIndex((detail.requestRoute || {}).status, getRequestTimelineSteps((detail.requestRoute || {}).status));
     renderRequestTimeline(detail);
     renderRequestThreadSummary(detail);
     renderRequestThreadMessages(detail);
@@ -604,6 +742,21 @@
 
   function currentUserId() {
     return Number((state.bootstrap && state.bootstrap.currentUser && state.bootstrap.currentUser.userId) || 0);
+  }
+
+  function isCurrentUserMessage(message) {
+    const senderId = Number(message && message.senderUserId);
+    const me = currentUserId();
+    return me > 0 && senderId > 0 && senderId === me;
+  }
+
+  function renderThreadMeBadge(message) {
+    if (!isCurrentUserMessage(message)) {
+      return '';
+    }
+    return '<span class="mail-thread-me-badge" title="Your message" aria-label="Your message">' +
+      '<i class="bi bi-person-check-fill" aria-hidden="true"></i><span>Me</span>' +
+    '</span>';
   }
 
   function isComposeRecipientSelected(userId) {
@@ -770,6 +923,7 @@
           if (f === 'unread' && item.readAt) return false;
           if (f === 'attachments' && (!item.attachmentCount || item.attachmentCount < 1)) return false;
           if (f === 'high' && (item.importance !== 'high' && item.importance !== 'urgent')) return false;
+          if (f === 'request' && item.mailType !== 'request') return false;
           if (f === 'station' && state.bootstrap && state.bootstrap.currentUser && Number(item.senderStationId) !== Number(state.bootstrap.currentUser.stationId)) return false;
         }
       }
@@ -954,21 +1108,30 @@
       mailList.innerHTML = '<div class="mail-empty-list">No general mail messages found.</div>';
       return;
     }
+    const tracking = requestTrackingMap();
     mailList.innerHTML = items.map(function (item) {
       const unreadClass = item.readAt ? '' : ' unread';
       const selectedClass = state.activeThread && state.activeThread.threadId === item.threadId ? ' is-active' : '';
       const snippet = escapeHtml(item.snippet || item.body || '');
       const isOperational = item.mailType === 'request' && item.requestFiles;
+      const threadId = Number(item.threadId || 0);
+      const requestStatus = inferRequestStatusFromSnippet(item.snippet || item.body || '', threadId, tracking);
+      const outcome = requestOutcomeMeta(requestStatus);
+      const outcomeClass = outcome ? (' ' + outcome.rowClass) : '';
+      const outcomeBadge = outcome ? renderRequestOutcomeBadge(requestStatus) : '';
       const count = Number(item.messageCount || 1);
       const countHtml = count > 1
         ? '<span class="mail-thread-count" title="' + escapeHtml(String(count) + ' messages in this conversation') + '">' + escapeHtml(String(count)) + '</span>'
         : '';
-      return '<article class="mail-list-item' + unreadClass + selectedClass + '" data-thread-id="' + escapeHtml(String(item.threadId)) + '" data-thread-mailid="' + escapeHtml(String(item.mailId)) + '">' +
+      const typeBadge = isOperational
+        ? '<span class="mail-badge">request</span>'
+        : '<span class="mail-badge">' + escapeHtml(item.mailType || 'message') + '</span>';
+      return '<article class="mail-list-item' + unreadClass + selectedClass + outcomeClass + '" data-thread-id="' + escapeHtml(String(item.threadId)) + '" data-thread-mailid="' + escapeHtml(String(item.mailId)) + '">' +
         '<input type="checkbox" class="select-checkbox" data-thread-id="' + escapeHtml(String(item.threadId)) + '">' +
-        '<div class="mail-list-title"><span class="mail-list-item-subject"><strong>' + escapeHtml(item.subject || '(No subject)') + '</strong>' + countHtml + '</span><span>' + escapeHtml(formatDate(item.sentAt || item.createdAt)) + '</span></div>' +
+        '<div class="mail-list-title"><span class="mail-list-item-subject"><strong>' + escapeHtml(item.subject || '(No subject)') + '</strong>' + countHtml + outcomeBadge + '</span><span>' + escapeHtml(formatDate(item.sentAt || item.createdAt)) + '</span></div>' +
         '<div class="mail-list-meta"><span>' + escapeHtml(item.senderStationName || '') + ' / ' + escapeHtml(item.senderUsername || '') + '</span>' +
-        '<span class="mail-badge">' + escapeHtml(isOperational ? 'request' : (item.mailType || 'message')) + '</span></div>' +
-        '<p class="mail-list-snippet">' + snippet + '</p>' +
+        typeBadge + '</div>' +
+        '<p class="mail-list-snippet' + (outcome ? ' mail-list-snippet--' + outcome.tone : '') + '">' + snippet + '</p>' +
       '</article>';
     }).join('');
   }
@@ -1008,7 +1171,7 @@
 
     if (threadRequestSummaryInline) {
       if (hasRequestRoute) {
-        const html = renderRequestMetaBlock(detail.requestRoute) + renderRequestReferenceBlock(detail.requestRoute);
+        const html = renderRequestMetaBlock(detail.requestRoute) + renderRequestDescriptionBlock(detail) + renderRequestReferenceBlock(detail.requestRoute);
         threadRequestSummaryInline.innerHTML = html;
         threadRequestSummaryInline.hidden = html === '';
       } else {
@@ -1031,11 +1194,17 @@
       const isLatest = index === messages.length - 1;
       const collapsedClass = (!isLatest && messages.length > 2) ? ' is-collapsed' : '';
       const latestClass = isLatest ? ' is-latest' : '';
-      return '<article class="mail-thread-message' + collapsedClass + latestClass + '" data-mail-id="' + escapeHtml(String(message.mailId)) + '">' +
-        '<div class="mail-thread-message-head"><strong>' + escapeHtml(message.senderStationName || '') + ' / ' + escapeHtml(message.senderUsername || '') + '</strong><span>' + escapeHtml(formatDate(message.sentAt || message.createdAt)) + '</span></div>' +
+      const mineClass = isCurrentUserMessage(message) ? ' is-mine' : '';
+      return '<article class="mail-thread-message' + collapsedClass + latestClass + mineClass + '" data-mail-id="' + escapeHtml(String(message.mailId)) + '">' +
+        '<div class="mail-thread-message-head">' +
+          '<div class="mail-thread-message-from">' + renderThreadMeBadge(message) +
+            '<strong>' + escapeHtml(message.senderStationName || '') + ' / ' + escapeHtml(message.senderUsername || '') + '</strong>' +
+          '</div>' +
+          '<span>' + escapeHtml(formatDate(message.sentAt || message.createdAt)) + '</span>' +
+        '</div>' +
         '<div class="mail-thread-message-meta"><span>' + escapeHtml(message.importance || 'normal') + '</span>' +
         (message.mailType === 'request' ? '<span class="mail-badge">Request</span>' : '') + '</div>' +
-        formatMessageBody(message.body) +
+        formatMessageBody(messageDisplayBody(message, detail)) +
         (attachments ? '<div class="mail-attachments">' + attachments + '</div>' : '') +
         (isLatest && !(hasRequestRoute && !isCentralStation())
           ? '<div class="thread-message-actions">' +
@@ -1103,6 +1272,16 @@
     }
     state.activeThread = payload.data.thread || null;
     state.activeRequestDetail = payload.data;
+    const hasRequestRoute = Boolean(payload.data.requestRoute && payload.data.requestRoute.routeId);
+    if (hasRequestRoute && !isCentralStation()) {
+      if (state.conversationOpen) {
+        showListView(false);
+      }
+      closeRequestThreadModal();
+      renderRequestThreadModal(payload.data);
+      renderList();
+      return;
+    }
     closeRequestThreadModal();
     showConversationView();
     renderThread(payload.data);

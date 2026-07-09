@@ -15,43 +15,34 @@
       </div>
     </header>
 
-    <section class="mail-stats-grid" aria-label="Request summary">
-      <article class="mail-stat-card">
-        <strong id="inboxCount">0</strong>
-        <span>Requests</span>
+    <section class="mail-stats-grid ops-ticket-stats" aria-label="Ticket summary" id="opsTicketStats">
+      <article class="mail-stat-card ops-stat-card--queue">
+        <strong id="ticketQueueCount">0</strong>
+        <span>Queue</span>
       </article>
-      <article class="mail-stat-card">
-        <strong id="unreadCount">0</strong>
-        <span>Unread</span>
+      <article class="mail-stat-card ops-stat-card--claimed">
+        <strong id="ticketClaimedCount">0</strong>
+        <span>In progress</span>
       </article>
-      <article class="mail-stat-card">
-        <strong id="sentCount">0</strong>
-        <span>Sent</span>
+      <article class="mail-stat-card ops-stat-card--completed">
+        <strong id="ticketCompletedCount">0</strong>
+        <span>Completed</span>
       </article>
-      <article class="mail-stat-card">
-        <strong id="draftCount">0</strong>
+      <article class="mail-stat-card ops-stat-card--drafts" id="opsDraftStatCard">
+        <strong id="ticketDraftCount">0</strong>
         <span>Drafts</span>
       </article>
     </section>
 
-    <div class="mail-panel-grid">
-      <aside class="mail-side">
-        <div class="mail-card">
-          <h2>Folders</h2>
-          <div class="mail-folder-list">
-            <button type="button" class="mail-folder-btn active" data-folder="inbox">Inbox</button>
-            <button type="button" class="mail-folder-btn" data-folder="sent">Sent</button>
-            <button type="button" class="mail-folder-btn" data-folder="drafts">Drafts</button>
-          </div>
-        </div>
-
+    <div class="mail-panel-grid ops-mail-layout">
+      <aside class="mail-side ops-mail-filters" id="opsMailFilters">
         <div class="mail-card">
           <h2>Filters</h2>
           <label class="form-field">
             Search
             <input type="search" id="searchInput" placeholder="Subject, station, body…">
           </label>
-          <label class="form-field">
+          <label class="form-field" id="stationFilterField">
             Target station
             <select id="stationFilterSelect"></select>
           </label>
@@ -68,14 +59,27 @@
 
       <main class="mail-main mail-main--list-only">
         <section class="mail-list-panel mail-card">
-          <div class="mail-panel-header">
+          <div class="mail-panel-header ops-ticket-panel-header">
             <div>
               <p class="mail-kicker">Requests</p>
-              <h2 id="mailFolderTitle">Requests</h2>
+              <h2 id="mailFolderTitle">Ticket queue</h2>
             </div>
-            <p class="mail-filter-note" id="mailActiveFilter">Showing operational mail</p>
+            <p class="mail-filter-note" id="mailActiveFilter">Unclaimed requests awaiting a ComL handler</p>
           </div>
-          <div id="mailList" class="mail-list"></div>
+
+          <div class="ops-ticket-tabs" id="opsTicketTabsCentral" role="tablist" aria-label="Ticket views">
+            <button type="button" class="ops-ticket-tab is-active" data-ticket-tab="queue" role="tab" aria-selected="true">Queue</button>
+            <button type="button" class="ops-ticket-tab" data-ticket-tab="claimed" role="tab" aria-selected="false">In progress</button>
+            <button type="button" class="ops-ticket-tab" data-ticket-tab="completed" role="tab" aria-selected="false">Completed</button>
+          </div>
+
+          <div class="ops-ticket-tabs" id="opsTicketTabsRequester" role="tablist" aria-label="Request views" hidden>
+            <button type="button" class="ops-ticket-tab is-active" data-ticket-tab="updates" role="tab" aria-selected="true">Updates</button>
+            <button type="button" class="ops-ticket-tab" data-ticket-tab="sent" role="tab" aria-selected="false">My requests</button>
+            <button type="button" class="ops-ticket-tab" data-ticket-tab="drafts" role="tab" aria-selected="false">Drafts</button>
+          </div>
+
+          <div id="mailList" class="mail-list ops-ticket-list"></div>
         </section>
       </main>
     </div>
@@ -226,7 +230,6 @@
       <div class="mail-thread-messages-panel">
         <div class="mail-thread-messages-label" id="threadMessagesLabel">Conversation</div>
         <div class="mail-thread-content" id="threadContent" hidden></div>
-        <div class="mail-thread-empty" id="threadEmpty" hidden>No messages in this request yet.</div>
       </div>
     </div>
     <footer class="mail-thread-modal-footer" id="threadActions" hidden>
@@ -254,6 +257,32 @@
       </div>
       <div id="threadActionButtons" class="mail-thread-action-buttons"></div>
     </footer>
+  </div>
+</div>
+
+<div id="rejectRequestModal" class="mail-modal mail-reject-modal" hidden>
+  <div class="mail-modal-backdrop" data-close-reject="true"></div>
+  <div class="mail-modal-dialog mail-reject-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="rejectRequestTitle">
+    <header class="mail-modal-header mail-reject-modal-header">
+      <div>
+        <p class="mail-kicker">Reject request</p>
+        <h2 id="rejectRequestTitle">Reject this request</h2>
+      </div>
+      <button type="button" class="icon-button" id="closeRejectModalBtn" aria-label="Close">×</button>
+    </header>
+    <form id="rejectRequestForm" class="mail-form mail-reject-form" novalidate>
+      <p class="mail-reject-subject" id="rejectRequestSubject"></p>
+      <p class="form-note mail-reject-lead">The requester will be notified. Please provide a clear reason for the rejection.</p>
+      <label class="form-field">
+        Rejection reason
+        <textarea id="rejectRequestReason" rows="5" maxlength="2000" required placeholder="Explain why this request cannot be fulfilled…"></textarea>
+      </label>
+      <p class="form-note" id="rejectRequestMessage"></p>
+      <div class="mail-form-actions mail-reject-form-actions">
+        <button type="button" class="secondary-btn" id="cancelRejectBtn">Cancel</button>
+        <button type="submit" class="primary-btn mail-reject-submit-btn" id="confirmRejectBtn">Confirm rejection</button>
+      </div>
+    </form>
   </div>
 </div>
 

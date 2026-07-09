@@ -39,29 +39,63 @@
   const analyticsMapMeta = document.getElementById('analyticsMapMeta');
   const analyticsLiveIncidentSelect = document.getElementById('analyticsLiveIncidentSelect');
   const analyticsRouteEtaList = document.getElementById('analyticsRouteEtaList');
+  const analyticsDispatchLead = document.getElementById('analyticsDispatchLead');
+  const analyticsDispatchLeadMeta = document.getElementById('analyticsDispatchLeadMeta');
+  const analyticsDispatchActiveStations = document.getElementById('analyticsDispatchActiveStations');
+  const analyticsDispatchZeroCoverage = document.getElementById('analyticsDispatchZeroCoverage');
+  const analyticsDispatchFallbackToday = document.getElementById('analyticsDispatchFallbackToday');
+  const analyticsDispatchTable = document.getElementById('analyticsDispatchTable');
+  const analyticsHotspotList = document.getElementById('analyticsHotspotList');
+  const analyticsAorDensityList = document.getElementById('analyticsAorDensityList');
+  const analyticsHydrantRiskLead = document.getElementById('analyticsHydrantRiskLead');
+  const analyticsHydrantRiskMeta = document.getElementById('analyticsHydrantRiskMeta');
+  const analyticsHydrantRiskAreas = document.getElementById('analyticsHydrantRiskAreas');
+  const analyticsAlarmBreakdownChart = document.getElementById('analyticsAlarmBreakdownChart');
+  const analyticsStatusBreakdownChart = document.getElementById('analyticsStatusBreakdownChart');
+  const analyticsReportTypeChart = document.getElementById('analyticsReportTypeChart');
+  const analyticsCurrentWeekCount = document.getElementById('analyticsCurrentWeekCount');
+  const analyticsPreviousWeekCount = document.getElementById('analyticsPreviousWeekCount');
+  const analyticsCurrentMonthCount = document.getElementById('analyticsCurrentMonthCount');
+  const analyticsPreviousMonthCount = document.getElementById('analyticsPreviousMonthCount');
+  const analyticsCurrentWeekMeta = document.getElementById('analyticsCurrentWeekMeta');
+  const analyticsCurrentMonthMeta = document.getElementById('analyticsCurrentMonthMeta');
+  const analyticsDailyTrendChart = document.getElementById('analyticsDailyTrendChart');
+  const analyticsHourlyTrendChart = document.getElementById('analyticsHourlyTrendChart');
+  const analyticsDateRange = document.getElementById('analyticsDateRange');
+  const analyticsToggleStationNames = document.getElementById('analyticsToggleStationNames');
+  const analyticsToggleStationAor = document.getElementById('analyticsToggleStationAor');
   const layerFilterButtons = Array.from(document.querySelectorAll('[data-layer-filter]'));
 
   let analyticsMapInstance = null;
   let heatmapLayer = null;
   let stationMarkers = [];
+  let stationAorCircles = [];
+  let stationLabelOverlays = [];
   let hydrantMarkers = [];
   let routePolylines = [];
   let routeMarkers = [];
   let selectedLiveIncidentId = null;
   let routeRenderSequence = 0;
   let activeLayerFilter = 'all';
+  let showStationNames = true;
+  let showStationAor = true;
+  let trendCharts = {};
+
+  const stationColorPalette = ['#1e6bd6', '#0f766e', '#7c3aed', '#d97706', '#bc1f2d', '#0f172a'];
 
   if (analyticsWelcome) {
     const scopeText = context.incidentScopeLabel || 'Current incidents';
-    analyticsWelcome.textContent = 'Signed in as ' + (context.user || 'Unknown User') + '. This page shows ' + scopeText.toLowerCase() + ' across Makati.';
-  }
-
-  if (analyticsRoleTitle) {
-    analyticsRoleTitle.textContent = context.roleTitle || 'User';
+    const roleLine = context.roleSummary ? ' ' + context.roleSummary : '';
+    analyticsWelcome.textContent = 'Signed in as ' + (context.user || 'Unknown User') + '. Viewing ' + scopeText.toLowerCase() + ' across Makati.' + roleLine;
   }
 
   if (analyticsRoleSummary) {
     analyticsRoleSummary.textContent = context.roleSummary || '';
+    analyticsRoleSummary.hidden = true;
+  }
+
+  if (analyticsRoleTitle) {
+    analyticsRoleTitle.textContent = context.roleTitle || 'User';
   }
 
   if (analyticsStationId) {
@@ -110,6 +144,12 @@
     analyticsLatestMeta.textContent = context.latestIncidentMeta || 'Analytics will update when new incidents are recorded.';
   }
 
+  const liveBar = document.querySelector('.ana-live-bar');
+  const activeCount = Number(context.activeIncidentCount || 0);
+  if (liveBar) {
+    liveBar.classList.toggle('ana-live-bar--idle', activeCount <= 0);
+  }
+
   if (analyticsStationCount) {
     analyticsStationCount.textContent = String((Array.isArray(context.stationGeo) ? context.stationGeo.length : context.stationCount) || 0);
   }
@@ -128,13 +168,433 @@
     const liveIncidentCount = Array.isArray(context.liveIncidents) ? context.liveIncidents.length : 0;
     const hydrantCount = Array.isArray(context.hydrantGeo) ? context.hydrantGeo.length : (context.hydrantCount || 0);
     const scopeLabel = context.incidentScopeLabel || 'Current incidents';
-    const hydrantLabel = context.hydrantSourceLabel || 'OpenStreetMap public hydrants';
-    analyticsMapMeta.textContent = scopeLabel + ' | ' + String(stationCount) + ' stations, ' + String(incidentCount) + ' incident heat points, ' + String(hydrantCount) + ' hydrants, and ' + String(liveIncidentCount) + ' live incidents. Source: ' + hydrantLabel + '.';
+    analyticsMapMeta.textContent = scopeLabel + ' · ' + String(stationCount) + ' stations · ' + String(incidentCount) + ' heat points · ' + String(hydrantCount) + ' hydrants · ' + String(liveIncidentCount) + ' live.';
   }
+
+  function getIncidentScope() {
+    if (analyticsScopeHistory && analyticsScopeHistory.checked) {
+      return 'history';
+    }
+    return 'current';
+  }
+
+  function syncIncidentScopeUi() {
+    const isHistory = getIncidentScope() === 'history';
+
+    if (analyticsDateRange) {
+      analyticsDateRange.hidden = !isHistory;
+    }
+
+    if (analyticsIncidentFrom) {
+      analyticsIncidentFrom.disabled = !isHistory;
+    }
+
+    if (analyticsIncidentTo) {
+      analyticsIncidentTo.disabled = !isHistory;
+    }
+  }
+
+  syncIncidentScopeUi();
 
   if (analyticsMapSource) {
     analyticsMapSource.textContent = context.hydrantNotice || 'Hydrants will use the public OpenStreetMap layer when available.';
   }
+
+  function escapeHtml(value) {
+    return String(value || '').replace(/[&<>"']/g, function (char) {
+      return ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;'
+      })[char];
+    });
+  }
+
+  function renderDispatchLoadBalance() {
+    const summary = context.dispatchLoadSummary && typeof context.dispatchLoadSummary === 'object' ? context.dispatchLoadSummary : {};
+    const topStations = Array.isArray(summary.topStations) ? summary.topStations : [];
+    const busiestStationName = String(summary.busiestStationName || 'No active dispatch load');
+    const busiestAssignments = Number(summary.busiestStationActiveAssignments || 0);
+    const stationsHandlingCount = Number(summary.stationsHandlingCount || 0);
+    const zeroAvailabilityCount = Number(summary.zeroAvailabilityCount || 0);
+    const fallbackDispatchCountToday = Number(summary.fallbackDispatchCountToday || 0);
+
+    if (analyticsDispatchLead) {
+      analyticsDispatchLead.textContent = busiestStationName;
+    }
+    if (analyticsDispatchLeadMeta) {
+      analyticsDispatchLeadMeta.textContent = busiestAssignments > 0
+        ? `${busiestAssignments} active assignment(s) at peak station right now.`
+        : 'Waiting for live assignments.';
+    }
+    if (analyticsDispatchActiveStations) {
+      analyticsDispatchActiveStations.textContent = String(stationsHandlingCount);
+    }
+    if (analyticsDispatchZeroCoverage) {
+      analyticsDispatchZeroCoverage.textContent = String(zeroAvailabilityCount);
+    }
+    if (analyticsDispatchFallbackToday) {
+      analyticsDispatchFallbackToday.textContent = String(fallbackDispatchCountToday);
+    }
+    if (!analyticsDispatchTable) {
+      return;
+    }
+    if (topStations.length === 0) {
+      analyticsDispatchTable.innerHTML = '<p class="ana-load-empty">No station dispatch workload available yet.</p>';
+      return;
+    }
+
+    analyticsDispatchTable.innerHTML = topStations.map(function (station, index) {
+      const stationName = escapeHtml(station.stationName || 'Station');
+      const stationCode = station.stationCode ? ' (' + escapeHtml(station.stationCode) + ')' : '';
+      const activeAssignmentCount = Number(station.activeAssignmentCount || 0);
+      const incidentsHandledToday = Number(station.incidentsHandledToday || 0);
+      const fallbackCount = Number(station.fallbackDispatchCountToday || 0);
+      const sub = `${incidentsHandledToday} handled today${fallbackCount > 0 ? ` · ${fallbackCount} fallback` : ''}`;
+      return '<div class="ana-load-row">'
+        + `<span class="ana-load-rank">${index + 1}</span>`
+        + '<div class="ana-load-main">'
+        + `<span class="ana-load-name">${stationName}${stationCode}</span>`
+        + `<span class="ana-load-sub">${escapeHtml(sub)}</span>`
+        + '</div>'
+        + `<span class="ana-load-badge">${activeAssignmentCount} active</span>`
+        + `<span class="ana-load-count">${fallbackCount > 0 ? fallbackCount + ' fb' : 'steady'}</span>`
+        + '</div>';
+    }).join('');
+  }
+
+  renderDispatchLoadBalance();
+
+  function renderGeoInsights() {
+    const geoInsights = context.geoInsights && typeof context.geoInsights === 'object' ? context.geoInsights : {};
+    const topHotspots = Array.isArray(geoInsights.topHotspots) ? geoInsights.topHotspots : [];
+    const aorDensity = Array.isArray(geoInsights.aorDensity) ? geoInsights.aorDensity : [];
+    const hydrantRiskSummary = geoInsights.hydrantRiskSummary && typeof geoInsights.hydrantRiskSummary === 'object'
+      ? geoInsights.hydrantRiskSummary
+      : { riskIncidentCount: 0, inactiveHydrantsNearIncidents: 0, topRiskAreas: [] };
+    const topRiskAreas = Array.isArray(hydrantRiskSummary.topRiskAreas) ? hydrantRiskSummary.topRiskAreas : [];
+
+    if (analyticsHotspotList) {
+      analyticsHotspotList.innerHTML = topHotspots.length > 0
+        ? topHotspots.map(function (row, index) {
+            return '<div class="ana-geo-row">'
+              + `<span class="ana-geo-rank">${index + 1}</span>`
+              + '<div class="ana-geo-main">'
+              + `<span class="ana-geo-name">${escapeHtml(row.label || 'Area')}</span>`
+              + `<span class="ana-geo-sub">${escapeHtml(String(row.activeCount || 0) + ' active · ' + String(row.alarmWeight || 0) + ' alarm weight')}</span>`
+              + '</div>'
+              + `<span class="ana-geo-count">${Number(row.incidentCount || 0)} incidents</span>`
+              + '</div>';
+          }).join('')
+        : '<p class="ana-load-empty">No hotspot summary available yet.</p>';
+    }
+
+    if (analyticsAorDensityList) {
+      analyticsAorDensityList.innerHTML = aorDensity.length > 0
+        ? aorDensity.map(function (row, index) {
+            const stationCode = row.stationCode ? ' (' + row.stationCode + ')' : '';
+            return '<div class="ana-geo-row">'
+              + `<span class="ana-geo-rank">${index + 1}</span>`
+              + '<div class="ana-geo-main">'
+              + `<span class="ana-geo-name">${escapeHtml((row.stationName || 'Station') + stationCode)}</span>`
+              + `<span class="ana-geo-sub">${escapeHtml(String(row.activeCount || 0) + ' active inside ' + Number(row.radiusKm || 0).toFixed(1) + ' km AOR')}</span>`
+              + '</div>'
+              + `<span class="ana-geo-count">${Number(row.incidentCount || 0)} total</span>`
+              + '</div>';
+          }).join('')
+        : '<p class="ana-load-empty">No AOR density summary available yet.</p>';
+    }
+
+    if (analyticsHydrantRiskLead) {
+      analyticsHydrantRiskLead.textContent = String(Number(hydrantRiskSummary.riskIncidentCount || 0)) + ' affected incidents';
+    }
+    if (analyticsHydrantRiskMeta) {
+      analyticsHydrantRiskMeta.textContent = String(Number(hydrantRiskSummary.inactiveHydrantsNearIncidents || 0)) + ' inactive or maintenance hydrants are near current incident zones.';
+    }
+    if (analyticsHydrantRiskAreas) {
+      analyticsHydrantRiskAreas.innerHTML = topRiskAreas.length > 0
+        ? topRiskAreas.map(function (row, index) {
+            return '<div class="ana-geo-row">'
+              + `<span class="ana-geo-rank">${index + 1}</span>`
+              + '<div class="ana-geo-main">'
+              + `<span class="ana-geo-name">${escapeHtml(row.label || 'Area')}</span>`
+              + '<span class="ana-geo-sub">Nearby hydrant availability needs attention</span>'
+              + '</div>'
+              + `<span class="ana-geo-count">${Number(row.incidentCount || 0)} match(es)</span>`
+              + '</div>';
+          }).join('')
+        : '<p class="ana-load-empty">No hydrant risk areas found.</p>';
+    }
+  }
+
+  renderGeoInsights();
+
+  function formatTrendDelta(currentValue, previousValue) {
+    const current = Number(currentValue || 0);
+    const previous = Number(previousValue || 0);
+    if (previous <= 0 && current <= 0) {
+      return 'No change';
+    }
+    if (previous <= 0 && current > 0) {
+      return 'Up from zero';
+    }
+    const delta = current - previous;
+    const deltaPct = Math.round((delta / previous) * 100);
+    if (delta === 0) {
+      return 'No change';
+    }
+    return (delta > 0 ? 'Up ' : 'Down ') + Math.abs(deltaPct) + '%';
+  }
+
+  function renderTimeSeriesComparisons() {
+    const timeSeries = context.timeSeries && typeof context.timeSeries === 'object' ? context.timeSeries : {};
+    const comparison = timeSeries.comparison && typeof timeSeries.comparison === 'object' ? timeSeries.comparison : {};
+    const currentWeekCount = Number(comparison.currentWeekCount || 0);
+    const previousWeekCount = Number(comparison.previousWeekCount || 0);
+    const currentMonthCount = Number(comparison.currentMonthCount || 0);
+    const previousMonthCount = Number(comparison.previousMonthCount || 0);
+
+    if (analyticsCurrentWeekCount) {
+      analyticsCurrentWeekCount.textContent = String(currentWeekCount);
+    }
+    if (analyticsPreviousWeekCount) {
+      analyticsPreviousWeekCount.textContent = String(previousWeekCount);
+    }
+    if (analyticsCurrentMonthCount) {
+      analyticsCurrentMonthCount.textContent = String(currentMonthCount);
+    }
+    if (analyticsPreviousMonthCount) {
+      analyticsPreviousMonthCount.textContent = String(previousMonthCount);
+    }
+    if (analyticsCurrentWeekMeta) {
+      analyticsCurrentWeekMeta.textContent = formatTrendDelta(currentWeekCount, previousWeekCount) + ' vs previous week';
+    }
+    if (analyticsCurrentMonthMeta) {
+      analyticsCurrentMonthMeta.textContent = formatTrendDelta(currentMonthCount, previousMonthCount) + ' vs previous month';
+    }
+  }
+
+  renderTimeSeriesComparisons();
+
+  function destroyTrendChart(key) {
+    if (trendCharts[key]) {
+      trendCharts[key].destroy();
+      trendCharts[key] = null;
+    }
+  }
+
+  function buildTrendChart(canvas, key, type, labels, data, datasetOptions) {
+    if (!canvas || typeof Chart === 'undefined') {
+      return;
+    }
+    destroyTrendChart(key);
+    trendCharts[key] = new Chart(canvas.getContext('2d'), {
+      type: type,
+      data: {
+        labels: labels,
+        datasets: [
+          Object.assign({
+            data: data,
+            borderWidth: 2
+          }, datasetOptions || {})
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: '#111827',
+            titleFont: { size: 12 },
+            bodyFont: { size: 13 },
+            padding: 10,
+            cornerRadius: 8
+          }
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            ticks: { color: '#94a3b8', font: { size: 11 }, precision: 0 },
+            grid: { color: 'rgba(148, 163, 184, 0.16)' }
+          },
+          x: {
+            ticks: { color: '#94a3b8', font: { size: 10 }, maxRotation: type === 'bar' ? 45 : 0 },
+            grid: { display: false }
+          }
+        }
+      }
+    });
+  }
+
+  function renderClassificationCharts() {
+    const classification = context.classificationBreakdown && typeof context.classificationBreakdown === 'object'
+      ? context.classificationBreakdown
+      : { alarmLevels: [], incidentStatuses: [], reportTypes: [] };
+
+    const alarmLevels = Array.isArray(classification.alarmLevels) ? classification.alarmLevels : [];
+    const incidentStatuses = Array.isArray(classification.incidentStatuses) ? classification.incidentStatuses : [];
+    const reportTypes = Array.isArray(classification.reportTypes) ? classification.reportTypes : [];
+
+    buildTrendChart(
+      analyticsAlarmBreakdownChart,
+      'alarmBreakdown',
+      'bar',
+      alarmLevels.length ? alarmLevels.map(function (item) { return item.label; }) : ['Alarm 1'],
+      alarmLevels.length ? alarmLevels.map(function (item) { return Number(item.count || 0); }) : [0],
+      {
+        label: 'Alarm levels',
+        backgroundColor: 'rgba(248, 113, 113, 0.8)',
+        borderRadius: 6,
+        borderSkipped: false
+      }
+    );
+
+    buildTrendChart(
+      analyticsStatusBreakdownChart,
+      'statusBreakdown',
+      'doughnut',
+      incidentStatuses.length ? incidentStatuses.map(function (item) { return item.label; }) : ['Active'],
+      incidentStatuses.length ? incidentStatuses.map(function (item) { return Number(item.count || 0); }) : [0],
+      {
+        label: 'Status',
+        backgroundColor: ['#60a5fa', '#fbbf24', '#34d399'],
+        borderColor: '#0f172a',
+        borderWidth: 2
+      }
+    );
+
+    buildTrendChart(
+      analyticsReportTypeChart,
+      'reportTypeBreakdown',
+      'bar',
+      reportTypes.length ? reportTypes.map(function (item) { return item.label; }) : ['Incident Report'],
+      reportTypes.length ? reportTypes.map(function (item) { return Number(item.count || 0); }) : [0],
+      {
+        label: 'Report categories',
+        backgroundColor: 'rgba(96, 165, 250, 0.78)',
+        borderRadius: 6,
+        borderSkipped: false
+      }
+    );
+  }
+
+  function renderTimeSeriesCharts() {
+    const timeSeries = context.timeSeries && typeof context.timeSeries === 'object' ? context.timeSeries : {};
+    const dailyLabels = Array.isArray(timeSeries.dailyLabels) && timeSeries.dailyLabels.length ? timeSeries.dailyLabels : ['No data'];
+    const dailyCounts = Array.isArray(timeSeries.dailyCounts) && timeSeries.dailyCounts.length ? timeSeries.dailyCounts : [0];
+    const hourlyLabels = Array.isArray(timeSeries.hourlyLabels) && timeSeries.hourlyLabels.length ? timeSeries.hourlyLabels : ['00:00'];
+    const hourlyCounts = Array.isArray(timeSeries.hourlyCounts) && timeSeries.hourlyCounts.length ? timeSeries.hourlyCounts : [0];
+
+    buildTrendChart(analyticsDailyTrendChart, 'dailyTrend', 'line', dailyLabels, dailyCounts, {
+      label: 'Incidents',
+      borderColor: '#f87171',
+      backgroundColor: 'rgba(248, 113, 113, 0.16)',
+      fill: true,
+      tension: 0.35,
+      pointRadius: 3,
+      pointBackgroundColor: '#fecaca',
+      pointBorderColor: '#7f1d1d',
+      pointBorderWidth: 1.5
+    });
+
+    buildTrendChart(analyticsHourlyTrendChart, 'hourlyTrend', 'bar', hourlyLabels, hourlyCounts, {
+      label: 'Hourly incidents',
+      backgroundColor: 'rgba(96, 165, 250, 0.75)',
+      borderRadius: 6,
+      borderSkipped: false
+    });
+  }
+
+  function buildStationColor(index) {
+    return stationColorPalette[index % stationColorPalette.length];
+  }
+
+  function extendBoundsForRadius(bounds, center, radiusMeters) {
+    const latRadians = center.lat * Math.PI / 180;
+    const latOffset = radiusMeters / 111320;
+    const lngOffset = radiusMeters / (111320 * Math.cos(latRadians || 1));
+
+    bounds.extend({ lat: center.lat + latOffset, lng: center.lng + lngOffset });
+    bounds.extend({ lat: center.lat + latOffset, lng: center.lng - lngOffset });
+    bounds.extend({ lat: center.lat - latOffset, lng: center.lng + lngOffset });
+    bounds.extend({ lat: center.lat - latOffset, lng: center.lng - lngOffset });
+  }
+
+  function createStationLabelOverlay(map, position, text, stationCode) {
+    if (!isGoogleMapsReady()) {
+      return null;
+    }
+
+    const labelText = stationCode ? String(text) + ' (' + String(stationCode) + ')' : String(text);
+
+    function StationLabelOverlay() {
+      this.position = position;
+      this.text = labelText;
+      this.div = null;
+    }
+
+    StationLabelOverlay.prototype = Object.create(window.google.maps.OverlayView.prototype);
+    StationLabelOverlay.prototype.constructor = StationLabelOverlay;
+
+    StationLabelOverlay.prototype.onAdd = function () {
+      const div = document.createElement('div');
+      div.className = 'ana-station-label';
+      div.textContent = this.text;
+      div.setAttribute('role', 'presentation');
+      this.div = div;
+      const panes = this.getPanes();
+      if (panes && panes.overlayLayer) {
+        panes.overlayLayer.appendChild(div);
+      }
+    };
+
+    StationLabelOverlay.prototype.draw = function () {
+      if (!this.div) {
+        return;
+      }
+
+      const projection = this.getProjection();
+      if (!projection) {
+        return;
+      }
+
+      const point = projection.fromLatLngToDivPixel(this.position);
+      if (!point) {
+        return;
+      }
+
+      this.div.style.left = point.x + 'px';
+      this.div.style.top = point.y + 'px';
+    };
+
+    StationLabelOverlay.prototype.onRemove = function () {
+      if (this.div && this.div.parentNode) {
+        this.div.parentNode.removeChild(this.div);
+      }
+      this.div = null;
+    };
+
+    const overlay = new StationLabelOverlay();
+    overlay.setMap(map);
+    return overlay;
+  }
+
+  function syncStationDisplayButtons() {
+    if (analyticsToggleStationNames) {
+      analyticsToggleStationNames.classList.toggle('is-active', showStationNames);
+      analyticsToggleStationNames.setAttribute('aria-pressed', showStationNames ? 'true' : 'false');
+    }
+
+    if (analyticsToggleStationAor) {
+      analyticsToggleStationAor.classList.toggle('is-active', showStationAor);
+      analyticsToggleStationAor.setAttribute('aria-pressed', showStationAor ? 'true' : 'false');
+    }
+  }
+
+  syncStationDisplayButtons();
 
   function updateMapStatus(message) {
     if (analyticsMapStatus) {
@@ -249,12 +709,12 @@
     }
 
     if (!selectedIncident) {
-      analyticsRouteEtaList.innerHTML = '<div class="analytics-route-eta-item"><div class="analytics-route-eta-meta">No live incident is currently available for route ETA.</div></div>';
+      analyticsRouteEtaList.innerHTML = '<div class="ana-route-eta-item"><div class="ana-route-eta-meta">No live incident is currently available for route ETA.</div></div>';
       return;
     }
 
     if (!items || items.length === 0) {
-      analyticsRouteEtaList.innerHTML = '<div class="analytics-route-eta-item"><div class="analytics-route-eta-meta">No responding station route is available for this incident yet.</div></div>';
+      analyticsRouteEtaList.innerHTML = '<div class="ana-route-eta-item"><div class="ana-route-eta-meta">No responding station route is available for this incident yet.</div></div>';
       return;
     }
 
@@ -265,12 +725,12 @@
       const etaLabel = /^eta\b/i.test(String(etaLabelRaw)) ? String(etaLabelRaw) : ('ETA ' + String(etaLabelRaw));
       const distanceLabel = item.distanceText || formatDistanceMeters(item.distanceMeters);
       const dispatchLabel = item.dispatchOrder ? 'Dispatch #' + String(item.dispatchOrder) : 'Assigned';
-      return '<div class="analytics-route-eta-item">'
-        + '<div class="analytics-route-eta-top">'
-        + '<span class="analytics-route-eta-name">' + String(index + 1) + '. ' + stationName + stationCode + '</span>'
-        + '<span class="analytics-route-eta-chip">' + etaLabel + '</span>'
+      return '<div class="ana-route-eta-item">'
+        + '<div class="ana-route-eta-top">'
+        + '<span class="ana-route-eta-name">' + String(index + 1) + '. ' + stationName + stationCode + '</span>'
+        + '<span class="ana-route-eta-chip">' + etaLabel + '</span>'
         + '</div>'
-        + '<div class="analytics-route-eta-meta">' + dispatchLabel + ' | ' + distanceLabel + '</div>'
+        + '<div class="ana-route-eta-meta">' + dispatchLabel + ' · ' + distanceLabel + '</div>'
         + '</div>';
     }).join('');
 
@@ -292,7 +752,7 @@
 
   function normalizeLayerFilter(value) {
     const normalized = String(value || '').toLowerCase();
-    if (normalized === 'heatmap' || normalized === 'hydrants') {
+    if (normalized === 'stations' || normalized === 'heatmap' || normalized === 'hydrants') {
       return normalized;
     }
     return 'all';
@@ -309,6 +769,7 @@
   function setLayerFilter(value) {
     activeLayerFilter = normalizeLayerFilter(value);
     syncLayerFilterButtons();
+    syncStationDisplayAvailability();
     renderAnalyticsMap();
   }
 
@@ -357,6 +818,16 @@
     });
     stationMarkers = [];
 
+    stationAorCircles.forEach(function (circle) {
+      circle.setMap(null);
+    });
+    stationAorCircles = [];
+
+    stationLabelOverlays.forEach(function (overlay) {
+      overlay.setMap(null);
+    });
+    stationLabelOverlays = [];
+
     hydrantMarkers.forEach(function (marker) {
       marker.setMap(null);
     });
@@ -376,15 +847,15 @@
   const modernMapStyle = [
     {
       elementType: 'geometry',
-      stylers: [{ color: '#edf2f7' }]
+      stylers: [{ color: '#1e2838' }]
     },
     {
       elementType: 'labels.text.fill',
-      stylers: [{ color: '#516176' }]
+      stylers: [{ color: '#9aa8bc' }]
     },
     {
       elementType: 'labels.text.stroke',
-      stylers: [{ color: '#edf2f7' }]
+      stylers: [{ color: '#1e2838' }]
     },
     {
       featureType: 'poi',
@@ -397,22 +868,22 @@
     {
       featureType: 'road',
       elementType: 'geometry',
-      stylers: [{ color: '#ffffff' }]
+      stylers: [{ color: '#2a3548' }]
     },
     {
       featureType: 'road.highway',
       elementType: 'geometry.fill',
-      stylers: [{ color: '#d5dde7' }]
+      stylers: [{ color: '#3a4a62' }]
     },
     {
       featureType: 'water',
       elementType: 'geometry',
-      stylers: [{ color: '#c9e2f4' }]
+      stylers: [{ color: '#152535' }]
     },
     {
       featureType: 'administrative',
       elementType: 'geometry.stroke',
-      stylers: [{ color: '#cad5e2' }]
+      stylers: [{ color: '#3d4f68' }]
     }
   ];
 
@@ -614,7 +1085,7 @@
         fullscreenControl: false,
         clickableIcons: false,
         mapTypeId: 'roadmap',
-        backgroundColor: '#edf2f7',
+        backgroundColor: '#1a2332',
         styles: modernMapStyle,
         gestureHandling: 'greedy',
         minZoom: 10,
@@ -626,15 +1097,15 @@
 
     const map = analyticsMapInstance;
     clearMapArtifacts();
-    const showStations = activeLayerFilter === 'all';
-    const showHeatmap = activeLayerFilter !== 'hydrants';
-    const showHydrants = activeLayerFilter !== 'heatmap';
+    const showStations = activeLayerFilter === 'all' || activeLayerFilter === 'stations';
+    const showHeatmap = activeLayerFilter === 'all' || activeLayerFilter === 'heatmap';
+    const showHydrants = activeLayerFilter === 'all' || activeLayerFilter === 'hydrants';
 
     const bounds = new window.google.maps.LatLngBounds();
     let hasPoints = false;
 
     if (showStations) {
-      stations.forEach(function (station) {
+      stations.forEach(function (station, index) {
         const latitude = Number(station.latitude || 0);
         const longitude = Number(station.longitude || 0);
         if (!Number.isFinite(latitude) || !Number.isFinite(longitude) || (latitude === 0 && longitude === 0)) {
@@ -642,16 +1113,64 @@
         }
 
         const position = { lat: latitude, lng: longitude };
+        const stationColor = buildStationColor(index);
+        const stationName = String(station.stationName || station.stationCode || 'Station');
+        const stationCode = String(station.stationCode || '');
+        const aorRadiusKm = Number(station.aorRadiusKm || 2.5);
+        const aorRadiusMeters = Math.max(100, aorRadiusKm * 1000);
+        const aorCenterLat = Number(station.aorCenterLat || latitude);
+        const aorCenterLng = Number(station.aorCenterLng || longitude);
+        const aorCenter = {
+          lat: Number.isFinite(aorCenterLat) ? aorCenterLat : latitude,
+          lng: Number.isFinite(aorCenterLng) ? aorCenterLng : longitude
+        };
+        const aorZoneName = String(station.aorZoneName || stationName + ' AOR');
+
         hasPoints = true;
         bounds.extend(position);
+
+        if (showStationAor) {
+          extendBoundsForRadius(bounds, aorCenter, aorRadiusMeters);
+
+          const aorCircle = new window.google.maps.Circle({
+            map: map,
+            center: aorCenter,
+            radius: aorRadiusMeters,
+            strokeColor: stationColor,
+            strokeOpacity: 0.85,
+            strokeWeight: 2,
+            fillColor: stationColor,
+            fillOpacity: 0.12,
+            clickable: false,
+            zIndex: 1
+          });
+          stationAorCircles.push(aorCircle);
+        }
+
+        const markerTitle = showStationAor
+          ? stationName + ' · AOR ' + aorRadiusKm.toFixed(1) + ' km'
+          : stationName;
 
         const marker = new window.google.maps.Marker({
           position: position,
           map: map,
-          title: String(station.stationName || station.stationCode || 'Station'),
-          icon: buildStationSymbol('#1e6bd6')
+          title: markerTitle,
+          icon: buildStationSymbol(stationColor),
+          zIndex: 20
         });
         stationMarkers.push(marker);
+
+        if (showStationNames) {
+          const labelPosition = new window.google.maps.LatLng(position.lat, position.lng);
+          const labelOverlay = createStationLabelOverlay(map, labelPosition, stationName, stationCode);
+          if (labelOverlay) {
+            stationLabelOverlays.push(labelOverlay);
+          }
+        }
+
+        if (showStationAor && aorZoneName) {
+          marker.setTitle(markerTitle + ' · ' + aorZoneName);
+        }
       });
     }
 
@@ -706,14 +1225,62 @@
       });
     }
 
-    renderLiveRoutes(map, bounds);
+    if (activeLayerFilter === 'all' || activeLayerFilter === 'heatmap') {
+      renderLiveRoutes(map, bounds);
+    } else {
+      renderRouteEtaList([], null);
+    }
 
     if (hasPoints) {
       map.fitBounds(bounds, 36);
     }
 
-    const layerLabel = activeLayerFilter === 'hydrants' ? 'Hydrants only' : activeLayerFilter === 'heatmap' ? 'Heatmap only' : 'All useful layers';
-    updateMapStatus(layerLabel + ' loaded with ' + String(showStations ? stations.length : 0) + ' stations, ' + String(showHeatmap ? heatmapData.length : 0) + ' incident heat points, and ' + String(showHydrants ? hydrants.length : 0) + ' hydrants. Select a live incident to view station route ETAs.');
+    const layerLabels = {
+      all: 'All layers',
+      stations: 'Stations only',
+      heatmap: 'Heatmap only',
+      hydrants: 'Hydrants only'
+    };
+    const layerLabel = layerLabels[activeLayerFilter] || 'All layers';
+    let statusMessage = layerLabel + ' loaded with ' + String(showStations ? stations.length : 0) + ' stations';
+    if (showStations && showStationAor) {
+      statusMessage += ' (AOR shown)';
+    }
+    if (showStations && showStationNames) {
+      statusMessage += ' (names shown)';
+    }
+    statusMessage += ', ' + String(showHeatmap ? heatmapData.length : 0) + ' incident heat points, and ' + String(showHydrants ? hydrants.length : 0) + ' hydrants.';
+    if (activeLayerFilter === 'all' || activeLayerFilter === 'heatmap') {
+      statusMessage += ' Select a live incident to view station route ETAs.';
+    }
+    updateMapStatus(statusMessage);
+  }
+
+  function syncStationDisplayAvailability() {
+    const stationsVisible = activeLayerFilter === 'all' || activeLayerFilter === 'stations';
+    [analyticsToggleStationNames, analyticsToggleStationAor].forEach(function (button) {
+      if (!button) {
+        return;
+      }
+      button.disabled = !stationsVisible;
+      button.classList.toggle('is-disabled', !stationsVisible);
+    });
+  }
+
+  function toggleStationNames() {
+    showStationNames = !showStationNames;
+    syncStationDisplayButtons();
+    if (activeLayerFilter === 'all' || activeLayerFilter === 'stations') {
+      renderAnalyticsMap();
+    }
+  }
+
+  function toggleStationAor() {
+    showStationAor = !showStationAor;
+    syncStationDisplayButtons();
+    if (activeLayerFilter === 'all' || activeLayerFilter === 'stations') {
+      renderAnalyticsMap();
+    }
   }
 
   function waitForGoogleMapsAndRender() {
@@ -724,14 +1291,33 @@
     }
   }
 
+  function waitForChartJsAndRender(maxAttempts) {
+    const remaining = typeof maxAttempts === 'number' ? maxAttempts : 100;
+    if (typeof Chart !== 'undefined') {
+      renderTimeSeriesCharts();
+      renderClassificationCharts();
+      return;
+    }
+    if (remaining > 0) {
+      setTimeout(function () {
+        waitForChartJsAndRender(remaining - 1);
+      }, 100);
+    }
+  }
+
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', waitForGoogleMapsAndRender);
+    document.addEventListener('DOMContentLoaded', function () {
+      waitForGoogleMapsAndRender();
+      waitForChartJsAndRender();
+    });
   } else {
     waitForGoogleMapsAndRender();
+    waitForChartJsAndRender();
   }
 
   syncLiveIncidentSelector();
   syncLayerFilterButtons();
+  syncStationDisplayAvailability();
 
   if (analyticsLiveIncidentSelect) {
     analyticsLiveIncidentSelect.addEventListener('change', function () {
@@ -745,4 +1331,20 @@
       setLayerFilter(button.getAttribute('data-layer-filter'));
     });
   });
+
+  if (analyticsScopeCurrent) {
+    analyticsScopeCurrent.addEventListener('change', syncIncidentScopeUi);
+  }
+
+  if (analyticsScopeHistory) {
+    analyticsScopeHistory.addEventListener('change', syncIncidentScopeUi);
+  }
+
+  if (analyticsToggleStationNames) {
+    analyticsToggleStationNames.addEventListener('click', toggleStationNames);
+  }
+
+  if (analyticsToggleStationAor) {
+    analyticsToggleStationAor.addEventListener('click', toggleStationAor);
+  }
 })();

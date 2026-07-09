@@ -1,8 +1,10 @@
 (function () {
-  const contextElement = document.getElementById('usersContext');
+  const contextElement = document.getElementById('adminSettingsContext');
   const usersTableBody = document.getElementById('usersTableBody');
   const usersWelcomeText = document.getElementById('usersWelcomeText');
+  const usersHeroTitle = document.getElementById('usersHeroTitle');
   const openUserModalBtn = document.getElementById('openUserModalBtn');
+  const openSubstationModalBtn = document.getElementById('openSubstationModalBtn');
   const refreshUsersBtn = document.getElementById('refreshUsersBtn');
   const userModal = document.getElementById('userModal');
   const closeUserModalBtn = document.getElementById('closeUserModalBtn');
@@ -39,7 +41,15 @@
   const openEditFromActionsBtn = document.getElementById('openEditFromActionsBtn');
   const openWarningFromActionsBtn = document.getElementById('openWarningFromActionsBtn');
   const toggleStatusBtn = document.getElementById('toggleStatusBtn');
+  const deleteUserBtn = document.getElementById('deleteUserBtn');
   const userActionsFormMessage = document.getElementById('userActionsFormMessage');
+  const deleteUserModal = document.getElementById('deleteUserModal');
+  const closeDeleteUserModalBtn = document.getElementById('closeDeleteUserModalBtn');
+  const cancelDeleteUserBtn = document.getElementById('cancelDeleteUserBtn');
+  const confirmDeleteUserBtn = document.getElementById('confirmDeleteUserBtn');
+  const deleteUserName = document.getElementById('deleteUserName');
+  const deleteUserMeta = document.getElementById('deleteUserMeta');
+  const deleteUserMessage = document.getElementById('deleteUserMessage');
   const userFormMessage = document.getElementById('userFormMessage');
   const userTotalCount = document.getElementById('userTotalCount');
   const userAdminCount = document.getElementById('userAdminCount');
@@ -49,7 +59,11 @@
   const usersTotalMetaCount = document.getElementById('usersTotalMetaCount');
   const userSearchInput = document.getElementById('userSearchInput');
   const userStationFilter = document.getElementById('userStationFilter');
+  const userStationFilterWrap = document.getElementById('userStationFilterWrap');
   const userRoleFilter = document.getElementById('userRoleFilter');
+  const userWarningsFilter = document.getElementById('userWarningsFilter');
+  const usersTabButtons = Array.prototype.slice.call(document.querySelectorAll('[data-users-tab]'));
+  const usersTabPanels = Array.prototype.slice.call(document.querySelectorAll('[data-users-panel]'));
   const barangayPanel = document.getElementById('barangayPanel');
   const barangayForm = document.getElementById('barangayForm');
   const barangayNameInput = document.getElementById('barangayNameInput');
@@ -57,16 +71,25 @@
   const barangayLocationInput = document.getElementById('barangayLocationInput');
   const barangayLatitudeInput = document.getElementById('barangayLatitudeInput');
   const barangayLongitudeInput = document.getElementById('barangayLongitudeInput');
+  const barangayStatusInput = document.getElementById('barangayStatusInput');
+  const barangayAorRadiusInput = document.getElementById('barangayAorRadiusInput');
   const barangayMap = document.getElementById('barangayMap');
   const barangayMapMeta = document.getElementById('barangayMapMeta');
+  const barangayModal = document.getElementById('barangayModal');
+  const barangayModalTitle = document.getElementById('barangayModalTitle');
+  const closeBarangayModalBtn = document.getElementById('closeBarangayModalBtn');
   const createBarangayAdminInput = document.getElementById('createBarangayAdminInput');
   const barangayAdminFields = document.getElementById('barangayAdminFields');
   const barangayAdminUsernameInput = document.getElementById('barangayAdminUsernameInput');
   const barangayAdminEmailInput = document.getElementById('barangayAdminEmailInput');
   const barangayAdminPasswordInput = document.getElementById('barangayAdminPasswordInput');
   const barangayFormMessage = document.getElementById('barangayFormMessage');
+  const barangayStationIdInput = document.getElementById('barangayStationIdInput');
+  const resetBarangayBtn = document.getElementById('resetBarangayBtn');
+  const substationsTableBody = document.getElementById('substationsTableBody');
+  const substationTotalCount = document.getElementById('substationTotalCount');
 
-  // News manager (optional - only for pages/users.html)
+  // News manager (optional - only for admin settings page)
   const openNewsModalBtn = document.getElementById('openNewsModalBtn');
   const newsModal = document.getElementById('newsModal');
   const closeNewsModalBtn = document.getElementById('closeNewsModalBtn');
@@ -79,7 +102,7 @@
   const publishNewsBtn = document.getElementById('publishNewsBtn');
   const newsFormMessage = document.getElementById('newsFormMessage');
 
-  // Announcements manager (optional - only for pages/users.html)
+  // Announcements manager (optional - only for admin settings page)
   const openAnnouncementModalBtn = document.getElementById('openAnnouncementModalBtn');
   const announcementModal = document.getElementById('announcementModal');
   const closeAnnouncementModalBtn = document.getElementById('closeAnnouncementModalBtn');
@@ -113,9 +136,10 @@
     context = {};
   }
 
-  const apiUrl = String(context.usersApiUrl || '/firenet/NEWFIRENET/backend/controllers/users.php');
+  const apiUrl = String(context.adminSettingsApiUrl || '/firenet/NEWFIRENET/backend/controllers/users.php');
   const isAdminPage = String(context.role || 'user').toLowerCase() === 'admin';
   const isSuperadminPage = String(context.role || 'user').toLowerCase() === 'superadmin';
+  const usersTabStorageKey = 'firenet.usersActiveTab';
   const state = {
     bootstrap: null,
     users: [],
@@ -123,13 +147,114 @@
     stations: [],
     positions: [],
     search: '',
-    stationFilter: '',
-    roleFilter: ''
+    stationFilter: String(context.stationId || ''),
+    roleFilter: '',
+    warningsFilter: ''
   };
 
   let activeActionUser = null;
+  let pendingDeleteUser = null;
   let barangayMapInstance = null;
   let barangayMapMarker = null;
+  let barangayAorCircle = null;
+  let pendingBarangayStation = null;
+  let barangayAutosaveTimer = null;
+  let barangayGeocoder = null;
+  let barangayGeocodeTimer = null;
+  let barangayGeocodeSeq = 0;
+  let barangayIsPopulating = false;
+  let toastHost = null;
+
+  function ensureToastHost() {
+    if (toastHost) {
+      return toastHost;
+    }
+    toastHost = document.createElement('div');
+    toastHost.className = 'users-toast-host';
+    toastHost.setAttribute('aria-live', 'polite');
+    toastHost.setAttribute('aria-atomic', 'true');
+    document.body.appendChild(toastHost);
+    return toastHost;
+  }
+
+  function showToast(message, isError) {
+    const text = String(message || '').trim();
+    if (text === '') {
+      return;
+    }
+
+    const host = ensureToastHost();
+    const toast = document.createElement('div');
+    toast.className = 'users-toast' + (isError ? ' is-error' : ' is-success');
+    toast.textContent = text;
+    host.appendChild(toast);
+
+    window.setTimeout(function () {
+      toast.classList.add('is-leaving');
+      window.setTimeout(function () {
+        if (toast.parentNode) {
+          toast.parentNode.removeChild(toast);
+        }
+      }, 220);
+    }, 3200);
+  }
+
+  function readRequestedTab() {
+    try {
+      const params = new URLSearchParams(window.location.search || '');
+      const requested = String(params.get('tab') || '').toLowerCase();
+      return ['accounts', 'news', 'notices', 'substations'].indexOf(requested) >= 0 ? requested : '';
+    } catch (error) {
+      return '';
+    }
+  }
+
+  function setActiveTab(tabName) {
+    const nextTab = ['accounts', 'news', 'notices', 'substations'].indexOf(String(tabName || '')) >= 0 ? String(tabName) : 'accounts';
+
+    usersTabButtons.forEach(function (button) {
+      const isActive = button.getAttribute('data-users-tab') === nextTab;
+      button.classList.toggle('is-active', isActive);
+      button.setAttribute('aria-selected', isActive ? 'true' : 'false');
+    });
+
+    usersTabPanels.forEach(function (panel) {
+      panel.hidden = panel.getAttribute('data-users-panel') !== nextTab;
+    });
+
+    try {
+      localStorage.setItem(usersTabStorageKey, nextTab);
+    } catch (error) {
+      // ignore storage failures
+    }
+
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.set('tab', nextTab);
+      window.history.replaceState({}, '', url.toString());
+    } catch (error) {
+      // ignore URL update failures
+    }
+
+    if (usersHeroTitle) {
+      usersHeroTitle.textContent = nextTab === 'substations' ? 'Substations' : 'Admin Settings';
+    }
+    if (usersWelcomeText) {
+      if (nextTab === 'substations') {
+        usersWelcomeText.textContent = 'Create, edit, and review all substations and assigned coordinates across the district.';
+      } else if (isSuperadminPage) {
+        usersWelcomeText.textContent = 'Manage substations, assigned admins, personnel accounts, login updates, and public notices across all stations.';
+      } else {
+        usersWelcomeText.textContent = 'Manage users, publishing tools, and station activity for ' + String((state.bootstrap && state.bootstrap.currentStation && state.bootstrap.currentStation.stationName) || context.stationName || 'your station') + '.';
+      }
+    }
+    if (openUserModalBtn) {
+      openUserModalBtn.hidden = nextTab === 'substations';
+    }
+    if (openSubstationModalBtn) {
+      openSubstationModalBtn.hidden = nextTab !== 'substations' || !isSuperadminPage;
+    }
+  }
 
   function setBarangayMessage(text, isError) {
     if (!barangayFormMessage) {
@@ -154,6 +279,10 @@
 
     if (!window.google || !window.google.maps) {
       return false;
+    }
+
+    if (!barangayGeocoder && window.google.maps.Geocoder) {
+      barangayGeocoder = new window.google.maps.Geocoder();
     }
 
     barangayMapInstance = new window.google.maps.Map(barangayMap, {
@@ -184,7 +313,7 @@
       });
 
       if (barangayMapMeta) {
-        barangayMapMeta.textContent = 'Pinned at ' + Number(lat).toFixed(6) + ', ' + Number(lng).toFixed(6) + '.';
+        barangayMapMeta.textContent = 'Substation pinned at ' + Number(lat).toFixed(6) + ', ' + Number(lng).toFixed(6) + '.';
       }
     });
 
@@ -212,7 +341,7 @@
         if (initBarangayMap()) {
           window.clearInterval(timer);
           if (barangayMapMeta) {
-            barangayMapMeta.textContent = 'Click on the map to pin the new barangay location.';
+            barangayMapMeta.textContent = 'Click on the map to pin the new substation location.';
           }
           return;
         }
@@ -222,7 +351,7 @@
           barangayLatitudeInput.readOnly = false;
           barangayLongitudeInput.readOnly = false;
           if (barangayMapMeta) {
-            barangayMapMeta.textContent = 'Google Maps is unavailable. Enter latitude and longitude manually.';
+            barangayMapMeta.textContent = 'Google Maps is unavailable. Enter the substation latitude and longitude manually.';
           }
         }
       }, 400);
@@ -232,7 +361,7 @@
     barangayLatitudeInput.readOnly = false;
     barangayLongitudeInput.readOnly = false;
     if (barangayMapMeta) {
-      barangayMapMeta.textContent = 'Google Maps is unavailable. Enter latitude and longitude manually.';
+      barangayMapMeta.textContent = 'Google Maps is unavailable. Enter the substation latitude and longitude manually.';
     }
   }
 
@@ -241,6 +370,395 @@
       return;
     }
     barangayAdminFields.hidden = !createBarangayAdminInput.checked;
+  }
+
+  function resetBarangayForm() {
+    barangayIsPopulating = true;
+    if (barangayForm) {
+      barangayForm.reset();
+    }
+    if (barangayStationIdInput) {
+      barangayStationIdInput.value = '';
+    }
+    if (barangayStatusInput) {
+      barangayStatusInput.value = 'active';
+    }
+    if (barangayAorRadiusInput) {
+      barangayAorRadiusInput.value = '2.5';
+    }
+    if (createBarangayAdminInput) {
+      createBarangayAdminInput.checked = false;
+    }
+    toggleBarangayAdminFields();
+    if (barangayMapMarker) {
+      barangayMapMarker.setMap(null);
+      barangayMapMarker = null;
+    }
+    if (barangayAorCircle) {
+      barangayAorCircle.setMap(null);
+      barangayAorCircle = null;
+    }
+    pendingBarangayStation = null;
+    if (barangayMapMeta) {
+      barangayMapMeta.textContent = 'Click on the map to pin the new substation location.';
+    }
+    setBarangayMessage('Ready to create a new substation.', false);
+    if (barangayModalTitle) {
+      barangayModalTitle.textContent = 'Create Substation';
+    }
+    if (barangayAutosaveTimer) {
+      window.clearTimeout(barangayAutosaveTimer);
+      barangayAutosaveTimer = null;
+    }
+    barangayIsPopulating = false;
+  }
+
+  function openBarangayModal() {
+    if (!barangayModal) {
+      return;
+    }
+    barangayModal.hidden = false;
+    document.body.style.overflow = 'hidden';
+    activateBarangayMap();
+    if (barangayMapInstance && window.google && window.google.maps) {
+      window.setTimeout(function () {
+        window.google.maps.event.trigger(barangayMapInstance, 'resize');
+        if (pendingBarangayStation) {
+          renderBarangayMapSelection(pendingBarangayStation);
+        }
+      }, 80);
+    }
+  }
+
+  function closeBarangayModal() {
+    if (!barangayModal) {
+      return;
+    }
+    barangayModal.hidden = true;
+    document.body.style.overflow = '';
+  }
+
+  function renderBarangayMapSelection(station) {
+    if (!station || !barangayMapInstance || !window.google || !window.google.maps) {
+      return;
+    }
+
+    const stationLat = Number(station.latitude);
+    const stationLng = Number(station.longitude);
+    if (!Number.isFinite(stationLat) || !Number.isFinite(stationLng)) {
+      return;
+    }
+
+    const position = { lat: stationLat, lng: stationLng };
+    if (barangayMapMarker) {
+      barangayMapMarker.setMap(null);
+    }
+    if (barangayAorCircle) {
+      barangayAorCircle.setMap(null);
+      barangayAorCircle = null;
+    }
+
+    barangayMapMarker = new window.google.maps.Marker({
+      position: position,
+      map: barangayMapInstance,
+      title: String(station.stationName || 'Substation'),
+      animation: window.google.maps.Animation ? window.google.maps.Animation.DROP : undefined
+    });
+
+    const aorCenterLat = Number(station.aorCenterLat != null ? station.aorCenterLat : station.latitude);
+    const aorCenterLng = Number(station.aorCenterLng != null ? station.aorCenterLng : station.longitude);
+    const aorRadiusKm = Number(station.aorRadiusKm != null ? station.aorRadiusKm : 0);
+    if (Number.isFinite(aorCenterLat) && Number.isFinite(aorCenterLng) && Number.isFinite(aorRadiusKm) && aorRadiusKm > 0) {
+      barangayAorCircle = new window.google.maps.Circle({
+        map: barangayMapInstance,
+        center: { lat: aorCenterLat, lng: aorCenterLng },
+        radius: aorRadiusKm * 1000,
+        strokeColor: '#ff5f6d',
+        strokeOpacity: 0.95,
+        strokeWeight: 2,
+        fillColor: '#ff5f6d',
+        fillOpacity: 0.14
+      });
+      const bounds = new window.google.maps.LatLngBounds();
+      bounds.extend(position);
+      bounds.extend(new window.google.maps.LatLng(aorCenterLat, aorCenterLng));
+      const latOffset = aorRadiusKm / 111;
+      const lngOffset = aorRadiusKm / Math.max(0.2, 111 * Math.cos((aorCenterLat * Math.PI) / 180));
+      bounds.extend(new window.google.maps.LatLng(aorCenterLat + latOffset, aorCenterLng + lngOffset));
+      bounds.extend(new window.google.maps.LatLng(aorCenterLat - latOffset, aorCenterLng - lngOffset));
+      barangayMapInstance.fitBounds(bounds, 32);
+    } else {
+      barangayMapInstance.setCenter(position);
+      barangayMapInstance.setZoom(15);
+    }
+  }
+
+  function readBarangayDraft() {
+    return {
+      stationId: String(barangayStationIdInput ? barangayStationIdInput.value : '').trim(),
+      stationName: String(barangayNameInput ? barangayNameInput.value : '').trim(),
+      stationCode: String(barangayCodeInput ? barangayCodeInput.value : '').trim(),
+      location: String(barangayLocationInput ? barangayLocationInput.value : '').trim(),
+      latitude: barangayLatitudeInput ? Number(barangayLatitudeInput.value || 0) : 0,
+      longitude: barangayLongitudeInput ? Number(barangayLongitudeInput.value || 0) : 0,
+      status: String(barangayStatusInput ? barangayStatusInput.value : 'active').toLowerCase() === 'inactive' ? 'inactive' : 'active',
+      aorRadiusKm: barangayAorRadiusInput ? Number(barangayAorRadiusInput.value || 0) : 0
+    };
+  }
+
+  function buildBarangayGeocodeQuery() {
+    const address = String(barangayLocationInput ? barangayLocationInput.value : '').trim();
+    const stationName = String(barangayNameInput ? barangayNameInput.value : '').trim();
+    if (address === '') {
+      return '';
+    }
+    const parts = [];
+    if (stationName !== '') {
+      parts.push(stationName);
+    }
+    parts.push(address);
+    const joined = parts.join(', ');
+    if (/makati/i.test(joined)) {
+      return joined;
+    }
+    return joined + ', Makati City, Metro Manila, Philippines';
+  }
+
+  function buildBarangayGeocodeCandidates() {
+    const address = String(barangayLocationInput ? barangayLocationInput.value : '').trim();
+    const stationName = String(barangayNameInput ? barangayNameInput.value : '').trim();
+    if (address === '') {
+      return [];
+    }
+
+    const candidates = [];
+    function pushCandidate(parts) {
+      const text = parts.filter(Boolean).join(', ').replace(/\s{2,}/g, ' ').trim();
+      if (text !== '') {
+        candidates.push(text);
+      }
+    }
+
+    pushCandidate([address]);
+    pushCandidate([address, 'Makati City']);
+    pushCandidate([address, 'Makati City', 'Metro Manila']);
+    pushCandidate([address, 'Makati City', 'Metro Manila', 'Philippines']);
+
+    if (stationName !== '') {
+      pushCandidate([stationName, address]);
+      pushCandidate([stationName, address, 'Makati City']);
+      pushCandidate([stationName, address, 'Makati City', 'Metro Manila']);
+    }
+
+    return Array.from(new Set(candidates)).slice(0, 8);
+  }
+
+  function parseBarangayAddressParts() {
+    const raw = String(barangayLocationInput ? barangayLocationInput.value : '').trim();
+    const parts = raw.split(',').map(function (part) {
+      return String(part || '').trim();
+    }).filter(Boolean);
+
+    let streetName = parts[0] || raw;
+    let barangay = '';
+    let landmark = '';
+
+    parts.forEach(function (part, index) {
+      if (/^(?:barangay|brgy\.?|brgy)\b/i.test(part)) {
+        barangay = part.replace(/^(?:barangay|brgy\.?|brgy)\s*/i, '').trim();
+      } else if (index > 0) {
+        landmark = landmark ? (landmark + ', ' + part) : part;
+      }
+    });
+
+    if (barangay === '' && /(?:barangay|brgy\.?|brgy)\s+([a-z0-9\-\s]+)/i.test(raw)) {
+      const match = raw.match(/(?:barangay|brgy\.?|brgy)\s+([a-z0-9\-\s]+)/i);
+      barangay = match && match[1] ? String(match[1]).trim() : '';
+    }
+
+    return {
+      streetName: streetName,
+      barangay: barangay,
+      landmark: landmark
+    };
+  }
+
+  function updateBarangayInputsFromGeocode(lat, lng, formattedAddress) {
+    if (!barangayLatitudeInput || !barangayLongitudeInput) {
+      return;
+    }
+    barangayIsPopulating = true;
+    barangayLatitudeInput.value = Number(lat).toFixed(8);
+    barangayLongitudeInput.value = Number(lng).toFixed(8);
+    if (barangayLocationInput && formattedAddress && String(barangayLocationInput.value || '').trim() === '') {
+      barangayLocationInput.value = formattedAddress;
+    }
+    barangayIsPopulating = false;
+  }
+
+  function geocodeBarangayAddress() {
+    if (!context.googleMapsConfigured || !window.google || !window.google.maps || !barangayGeocoder) {
+      return;
+    }
+    const candidates = buildBarangayGeocodeCandidates();
+    if (candidates.length === 0) {
+      return;
+    }
+    const seq = ++barangayGeocodeSeq;
+    if (barangayMapMeta) {
+      barangayMapMeta.textContent = 'Locating address on the map...';
+    }
+
+    const addressParts = parseBarangayAddressParts();
+    const locateUrl = new URL('/firenet/NEWFIRENET/backend/controllers/reports.php', window.location.origin);
+    locateUrl.searchParams.set('action', 'locate');
+    locateUrl.searchParams.set('streetName', addressParts.streetName);
+    if (addressParts.barangay) {
+      locateUrl.searchParams.set('barangay', addressParts.barangay);
+    }
+    if (addressParts.landmark) {
+      locateUrl.searchParams.set('landmark', addressParts.landmark);
+    }
+    locateUrl.searchParams.set('alarmLevel', '1');
+
+    fetch(locateUrl.toString(), { method: 'GET', credentials: 'same-origin' })
+      .then(function (response) {
+        return response.text().then(function (text) {
+          return { ok: response.ok, text: text };
+        });
+      })
+      .then(function (result) {
+        if (seq !== barangayGeocodeSeq) {
+          return;
+        }
+        let payload = null;
+        try {
+          payload = result.text ? JSON.parse(result.text) : null;
+        } catch (error) {
+          payload = null;
+        }
+
+        const latitude = payload && payload.latitude != null ? Number(payload.latitude) : null;
+        const longitude = payload && payload.longitude != null ? Number(payload.longitude) : null;
+        const displayAddress = payload && payload.displayAddress ? String(payload.displayAddress) : '';
+        if (result.ok && payload && payload.ok === true && Number.isFinite(latitude) && Number.isFinite(longitude)) {
+          updateBarangayInputsFromGeocode(latitude, longitude, displayAddress);
+          updateBarangayMapPreviewFromInputs();
+          if (barangayMapMeta) {
+            barangayMapMeta.textContent = 'Address located near ' + Number(latitude).toFixed(6) + ', ' + Number(longitude).toFixed(6) + '.';
+          }
+          const stationId = String(barangayStationIdInput ? barangayStationIdInput.value : '').trim();
+          if (stationId !== '') {
+            queueBarangayAutosave();
+          }
+          return;
+        }
+
+        runCandidate(0);
+      })
+      .catch(function () {
+        if (seq !== barangayGeocodeSeq) {
+          return;
+        }
+        runCandidate(0);
+      });
+
+    function runCandidate(index) {
+      if (seq !== barangayGeocodeSeq) {
+        return;
+      }
+      if (index >= candidates.length) {
+        if (barangayMapMeta) {
+          barangayMapMeta.textContent = 'Address could not be located exactly. You can still click the map or enter coordinates manually.';
+        }
+        return;
+      }
+
+      const address = candidates[index];
+      const requests = [
+        {
+          address: address,
+          region: 'ph',
+          componentRestrictions: { country: 'PH' },
+          bounds: new window.google.maps.LatLngBounds(
+            new window.google.maps.LatLng(14.49, 120.98),
+            new window.google.maps.LatLng(14.62, 121.09)
+          )
+        },
+        { address: address, region: 'ph', componentRestrictions: { country: 'PH' } },
+        { address: address }
+      ];
+
+      function runRequest(requestIndex) {
+        if (requestIndex >= requests.length) {
+          runCandidate(index + 1);
+          return;
+        }
+
+        barangayGeocoder.geocode(requests[requestIndex], function (results, status) {
+          if (seq !== barangayGeocodeSeq) {
+            return;
+          }
+          if (status !== 'OK' || !Array.isArray(results) || results.length === 0 || !results[0].geometry || !results[0].geometry.location) {
+            runRequest(requestIndex + 1);
+            return;
+          }
+
+          const location = results[0].geometry.location;
+          const lat = location.lat();
+          const lng = location.lng();
+          updateBarangayInputsFromGeocode(lat, lng, String(results[0].formatted_address || address));
+          updateBarangayMapPreviewFromInputs();
+          if (barangayMapMeta) {
+            barangayMapMeta.textContent = 'Address located near ' + Number(lat).toFixed(6) + ', ' + Number(lng).toFixed(6) + '.';
+          }
+          const stationId = String(barangayStationIdInput ? barangayStationIdInput.value : '').trim();
+          if (stationId !== '') {
+            queueBarangayAutosave();
+          }
+        });
+      }
+
+      runRequest(0);
+    }
+  }
+
+  function queueBarangayGeocode() {
+    if (barangayIsPopulating) {
+      return;
+    }
+    if (barangayGeocodeTimer) {
+      window.clearTimeout(barangayGeocodeTimer);
+    }
+    barangayGeocodeTimer = window.setTimeout(function () {
+      geocodeBarangayAddress();
+    }, 650);
+  }
+
+  function updateBarangayMapPreviewFromInputs() {
+    if (barangayIsPopulating) {
+      return;
+    }
+    const draft = readBarangayDraft();
+    const safeRadius = Number.isFinite(draft.aorRadiusKm) && draft.aorRadiusKm > 0 ? draft.aorRadiusKm : 0;
+    pendingBarangayStation = {
+      stationId: draft.stationId,
+      stationName: draft.stationName,
+      stationCode: draft.stationCode,
+      location: draft.location,
+      latitude: draft.latitude,
+      longitude: draft.longitude,
+      status: draft.status,
+      aorCenterLat: draft.latitude,
+      aorCenterLng: draft.longitude,
+      aorRadiusKm: safeRadius
+    };
+    renderBarangayMapSelection(pendingBarangayStation);
+    if (barangayMapMeta) {
+      barangayMapMeta.textContent = safeRadius > 0
+        ? 'Live preview. Current AOR radius: ' + safeRadius.toFixed(2) + ' km.'
+        : 'Live preview. Add an AOR radius to draw the coverage circle.';
+    }
   }
 
   function escapeHtml(value) {
@@ -280,7 +798,7 @@
       return '<option value="' + escapeHtml(String(role.roleId)) + '">' + escapeHtml(role.roleName) + '</option>';
     }).join('');
     stationSelect.innerHTML = state.stations.map(function (station) {
-      return '<option value="' + escapeHtml(String(station.stationId)) + '">' + escapeHtml(station.stationName) + '</option>';
+      return '<option value="' + escapeHtml(String(station.stationId)) + '">' + escapeHtml(compactStationName(station.stationName)) + '</option>';
     }).join('');
 
     if (isAdminPage) {
@@ -293,12 +811,23 @@
     }).join('');
 
     userStationFilter.innerHTML = '<option value="">All stations</option>' + state.stations.map(function (station) {
-      return '<option value="' + escapeHtml(String(station.stationId)) + '">' + escapeHtml(station.stationName) + '</option>';
+      return '<option value="' + escapeHtml(String(station.stationId)) + '">' + escapeHtml(compactStationName(station.stationName)) + '</option>';
     }).join('');
+
+    if (state.stationFilter === '' && context.stationId) {
+      state.stationFilter = String(context.stationId);
+    }
+    if (userStationFilter) {
+      userStationFilter.value = state.stationFilter;
+    }
 
     userRoleFilter.innerHTML = '<option value="">All roles</option>' + state.roles.map(function (role) {
       return '<option value="' + escapeHtml(String(role.roleId)) + '">' + escapeHtml(role.roleName) + '</option>';
     }).join('');
+
+    if (userStationFilterWrap) {
+      userStationFilterWrap.hidden = isAdminPage;
+    }
   }
 
   function renderStats() {
@@ -334,6 +863,18 @@
     return word.charAt(0).toUpperCase() + word.slice(1);
   }
 
+  function compactStationName(value) {
+    const raw = String(value || '').trim();
+    if (raw === '') {
+      return '-';
+    }
+
+    let compact = raw.replace(/^New\s+/i, '');
+    compact = compact.replace(/\bFire Station\b/gi, 'FS');
+    compact = compact.replace(/\s{2,}/g, ' ').trim();
+    return compact;
+  }
+
   function warningCountClass(count) {
     const value = Number(count || 0);
     if (value === 0) {
@@ -351,12 +892,19 @@
   function filteredUsers() {
     return state.users.filter(function (user) {
       const search = state.search.toLowerCase();
+      const warningCount = Number(user.warningCount || 0);
       const matchesSearch = search === '' || [user.username, user.email, user.stationName, user.roleName].some(function (value) {
         return String(value || '').toLowerCase().includes(search);
       });
-      const matchesStation = state.stationFilter === '' || String(user.stationId) === state.stationFilter;
+      const matchesStation = state.stationFilter === '' || String(user.stationId) === String(state.stationFilter);
       const matchesRole = state.roleFilter === '' || String(user.roleId) === state.roleFilter;
-      return matchesSearch && matchesStation && matchesRole;
+      const matchesWarnings =
+        state.warningsFilter === '' ||
+        (state.warningsFilter === 'with-warnings' && warningCount > 0) ||
+        (state.warningsFilter === 'no-warnings' && warningCount === 0) ||
+        (state.warningsFilter === '2-plus' && warningCount >= 2) ||
+        (state.warningsFilter === '3-plus' && warningCount >= 3);
+      return matchesSearch && matchesStation && matchesRole && matchesWarnings;
     });
   }
 
@@ -374,6 +922,7 @@
       const statusClass = String(user.status || '') === 'active' ? 'is-active' : 'is-inactive';
       const roleClass = String(user.roleName || '').toLowerCase() === 'admin' ? 'is-admin' : 'is-user';
       const username = String(user.username || 'Unknown User');
+      const stationName = compactStationName(user.stationName || '-');
       return (
         '<tr>' +
           '<td class="users-col-account">' +
@@ -387,13 +936,97 @@
           '</td>' +
           '<td class="users-col-email"><span class="users-email-text">' + escapeHtml(user.email || '-') + '</span></td>' +
           '<td><span class="users-role-badge ' + roleClass + '">' + escapeHtml(humanizeWord(user.roleName || '')) + '</span></td>' +
-          '<td><span class="users-station-chip">' + escapeHtml(user.stationName || '-') + '</span></td>' +
+          '<td class="users-col-station"><div class="users-station-cell"><span class="users-station-chip">' + escapeHtml(stationName) + '</span></div></td>' +
           '<td><button type="button" class="users-warning-pill ' + warningCountClass(user.warningCount || 0) + '" data-user-actions="' + escapeHtml(String(user.userId)) + '" aria-label="Manage ' + escapeHtml(username) + ' account warnings">' + escapeHtml(String(Math.min(3, user.warningCount || 0))) + (user.warningCount > 3 ? '+': '') + '</button></td>' +
           '<td><span class="users-pill ' + statusClass + '">' + escapeHtml(humanizeWord(user.status || '')) + '</span></td>' +
-          '<td><div class="users-actions"><button type="button" class="secondary-btn users-edit-btn" data-edit-user="' + escapeHtml(String(user.userId)) + '">Edit User</button> <button type="button" class="secondary-btn users-warning-btn" data-warning-user="' + escapeHtml(String(user.userId)) + '">Warn / Memo</button></div></td>' +
+          '<td class="users-col-actions"><div class="users-actions"><button type="button" class="secondary-btn users-edit-btn" data-edit-user="' + escapeHtml(String(user.userId)) + '">Edit</button> <button type="button" class="secondary-btn users-warning-btn" data-warning-user="' + escapeHtml(String(user.userId)) + '">Warn</button> <button type="button" class="secondary-btn users-delete-btn" data-delete-user="' + escapeHtml(String(user.userId)) + '">Delete</button></div></td>' +
         '</tr>'
       );
     }).join('');
+  }
+
+  function renderSubstationTable() {
+    if (!substationsTableBody) {
+      return;
+    }
+    const stations = Array.isArray(state.stations) ? state.stations : [];
+    if (substationTotalCount) {
+      substationTotalCount.textContent = String(stations.length);
+    }
+    if (!stations.length) {
+      substationsTableBody.innerHTML = '<tr><td colspan="6" class="muted-text users-empty-row">No substations found.</td></tr>';
+      return;
+    }
+
+    substationsTableBody.innerHTML = stations.map(function (station) {
+      const status = String(station.status || 'active').toLowerCase() === 'inactive' ? 'inactive' : 'active';
+      const latitude = station.latitude == null ? '-' : Number(station.latitude).toFixed(5);
+      const longitude = station.longitude == null ? '-' : Number(station.longitude).toFixed(5);
+      return (
+        '<tr>' +
+          '<td><strong>' + escapeHtml(String(station.stationName || '-')) + '</strong></td>' +
+          '<td>' + escapeHtml(String(station.stationCode || '-')) + '</td>' +
+          '<td>' + escapeHtml(String(station.location || '-')) + '</td>' +
+          '<td><span class="users-mono">' + escapeHtml(latitude + ', ' + longitude) + '</span></td>' +
+          '<td><span class="users-pill ' + (status === 'active' ? 'is-active' : 'is-inactive') + '">' + escapeHtml(humanizeWord(status)) + '</span></td>' +
+          '<td><button type="button" class="secondary-btn users-inline-btn" data-edit-station="' + escapeHtml(String(station.stationId || '')) + '">Edit</button></td>' +
+        '</tr>'
+      );
+    }).join('');
+  }
+
+  function openBarangayEditor(station) {
+    if (!station) {
+      return;
+    }
+    barangayIsPopulating = true;
+    if (barangayStationIdInput) {
+      barangayStationIdInput.value = String(station.stationId || '');
+    }
+    if (barangayNameInput) {
+      barangayNameInput.value = String(station.stationName || '');
+    }
+    if (barangayCodeInput) {
+      barangayCodeInput.value = String(station.stationCode || '');
+    }
+    if (barangayLocationInput) {
+      barangayLocationInput.value = String(station.location || '');
+    }
+    if (barangayLatitudeInput) {
+      barangayLatitudeInput.value = station.latitude == null ? '' : String(station.latitude);
+    }
+    if (barangayLongitudeInput) {
+      barangayLongitudeInput.value = station.longitude == null ? '' : String(station.longitude);
+    }
+    if (barangayStatusInput) {
+      barangayStatusInput.value = String(station.status || 'active').toLowerCase() === 'inactive' ? 'inactive' : 'active';
+    }
+    if (barangayAorRadiusInput) {
+      barangayAorRadiusInput.value = station.aorRadiusKm != null && Number(station.aorRadiusKm) > 0 ? String(station.aorRadiusKm) : '2.5';
+    }
+    if (barangayModalTitle) {
+      barangayModalTitle.textContent = 'Edit Substation';
+    }
+    if (createBarangayAdminInput) {
+      createBarangayAdminInput.checked = false;
+    }
+    toggleBarangayAdminFields();
+    pendingBarangayStation = station;
+    if (barangayMapMeta) {
+      if (station.aorRadiusKm != null && Number(station.aorRadiusKm) > 0) {
+        barangayMapMeta.textContent = 'Editing existing substation location. Current AOR radius: ' + Number(station.aorRadiusKm).toFixed(2) + ' km.';
+      } else {
+        barangayMapMeta.textContent = 'Editing existing substation location.';
+      }
+    }
+    setBarangayMessage('Editing ' + String(station.stationName || 'substation') + '.', false);
+    barangayIsPopulating = false;
+    openBarangayModal();
+    if (barangayMapInstance && window.google && window.google.maps) {
+      window.setTimeout(function () {
+        renderBarangayMapSelection(station);
+      }, 120);
+    }
   }
 
   function populateForm(user) {
@@ -443,6 +1076,40 @@
     document.body.style.overflow = '';
     userActionsFormMessage.textContent = '';
     activeActionUser = null;
+  }
+
+  function setDeleteUserMessage(text, isError) {
+    if (!deleteUserMessage) {
+      return;
+    }
+    deleteUserMessage.textContent = text;
+    deleteUserMessage.style.color = isError ? '#ffb4bd' : '#9ee6ba';
+  }
+
+  function openDeleteUserModal(user) {
+    if (!deleteUserModal || !user) {
+      return;
+    }
+    pendingDeleteUser = user;
+    if (deleteUserName) {
+      deleteUserName.textContent = String(user.username || 'Unknown user');
+    }
+    if (deleteUserMeta) {
+      deleteUserMeta.textContent = 'ID #' + String(user.userId || '-') + ' • ' + String(user.email || 'No email');
+    }
+    setDeleteUserMessage('', false);
+    deleteUserModal.hidden = false;
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeDeleteUserModal() {
+    if (!deleteUserModal) {
+      return;
+    }
+    deleteUserModal.hidden = true;
+    document.body.style.overflow = '';
+    pendingDeleteUser = null;
+    setDeleteUserMessage('', false);
   }
 
   function setUserActionsMessage(text, isError) {
@@ -515,9 +1182,41 @@
 
       await loadBootstrap();
       closeUserActionsModal();
-      window.alert(payload.message || 'Account status updated successfully.');
+      setMessage(payload.message || 'Account status updated successfully.', false);
+      showToast(payload.message || 'Account status updated successfully.', false);
     } catch (error) {
       setUserActionsMessage('Unable to update account status.', true);
+    }
+  }
+
+  async function deleteUser(user) {
+    if (!user) {
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('action', 'delete');
+    formData.append('userId', String(user.userId || ''));
+
+    try {
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        body: formData,
+        credentials: 'same-origin'
+      });
+      const payload = await response.json();
+      if (!response.ok || !payload || payload.ok !== true) {
+        setUserActionsMessage((payload && payload.message) ? payload.message : 'Unable to delete user.', true);
+        return;
+      }
+
+      await loadBootstrap();
+      closeUserActionsModal();
+      setMessage(payload.message || 'User deleted successfully.', false);
+      showToast(payload.message || 'User deleted successfully.', false);
+    } catch (error) {
+      setUserActionsMessage('Unable to delete user.', true);
+      setDeleteUserMessage('Unable to delete user.', true);
     }
   }
 
@@ -715,13 +1414,15 @@
     state.positions = Array.isArray(payload.data.positions) ? payload.data.positions : [];
     state.users = Array.isArray(payload.data.users) ? payload.data.users : [];
     if (isSuperadminPage) {
-      usersWelcomeText.textContent = 'Managing users and admins across all barangays/stations.';
+      usersWelcomeText.textContent = 'Manage substations, assigned admins, personnel accounts, login updates, and public notices across all stations.';
     } else {
-      usersWelcomeText.textContent = 'Managing accounts from ' + String((payload.data.currentStation && payload.data.currentStation.stationName) || 'your station') + '.';
+      usersWelcomeText.textContent = 'Manage users, publishing tools, and station activity for ' + String((payload.data.currentStation && payload.data.currentStation.stationName) || 'your station') + '.';
     }
     renderOptions();
     renderStats();
     renderTable();
+    renderSubstationTable();
+    setActiveTab(readRequestedTab() || localStorage.getItem(usersTabStorageKey) || 'accounts');
   }
 
   async function saveBarangay() {
@@ -730,36 +1431,46 @@
     }
 
     const stationName = barangayNameInput.value.trim();
+    const stationId = String(barangayStationIdInput ? barangayStationIdInput.value : '').trim();
     const latitude = Number(barangayLatitudeInput.value || 0);
     const longitude = Number(barangayLongitudeInput.value || 0);
+    const aorRadiusKm = Number(barangayAorRadiusInput ? barangayAorRadiusInput.value || 0 : 0);
     const createAdmin = Boolean(createBarangayAdminInput && createBarangayAdminInput.checked);
 
     if (stationName.length < 2) {
-      throw new Error('Barangay name is required.');
+      throw new Error('Substation name is required.');
     }
 
     if (!Number.isFinite(latitude) || !Number.isFinite(longitude) || Math.abs(latitude) > 90 || Math.abs(longitude) > 180) {
       throw new Error('Please pin a valid location on the map.');
     }
+    if (!Number.isFinite(aorRadiusKm) || aorRadiusKm <= 0) {
+      throw new Error('Please enter a valid AOR radius in kilometers.');
+    }
 
-    if (createAdmin) {
+    if (createAdmin && !stationId) {
       const adminUsername = String(barangayAdminUsernameInput ? barangayAdminUsernameInput.value : '').trim();
       const adminEmail = String(barangayAdminEmailInput ? barangayAdminEmailInput.value : '').trim();
       const adminPassword = String(barangayAdminPasswordInput ? barangayAdminPasswordInput.value : '');
       if (adminUsername === '' || adminEmail === '' || adminPassword.trim() === '') {
-        throw new Error('Admin username, email, and password are required when creating barangay admin.');
+        throw new Error('Admin username, email, and password are required when creating a substation admin.');
       }
     }
 
     const formData = new FormData();
-    formData.append('action', 'create_station');
+    formData.append('action', stationId ? 'update_station' : 'create_station');
+    if (stationId) {
+      formData.append('stationId', stationId);
+    }
     formData.append('stationName', stationName);
     formData.append('stationCode', String(barangayCodeInput ? barangayCodeInput.value : '').trim());
     formData.append('location', String(barangayLocationInput ? barangayLocationInput.value : '').trim());
     formData.append('latitude', String(latitude));
     formData.append('longitude', String(longitude));
+    formData.append('stationStatus', String(barangayStatusInput ? barangayStatusInput.value : 'active'));
+    formData.append('aorRadiusKm', String(aorRadiusKm));
     formData.append('createAdmin', createAdmin ? '1' : '0');
-    if (createAdmin) {
+    if (!stationId && createAdmin) {
       formData.append('adminUsername', String(barangayAdminUsernameInput ? barangayAdminUsernameInput.value : '').trim());
       formData.append('adminEmail', String(barangayAdminEmailInput ? barangayAdminEmailInput.value : '').trim());
       formData.append('adminPassword', String(barangayAdminPasswordInput ? barangayAdminPasswordInput.value : ''));
@@ -772,30 +1483,71 @@
     });
     const payload = await response.json();
     if (!response.ok || !payload || payload.ok !== true) {
-      throw new Error((payload && payload.message) || 'Unable to create barangay.');
+      throw new Error((payload && payload.message) || (stationId ? 'Unable to update substation.' : 'Unable to create substation.'));
     }
 
-    if (barangayForm) {
-      barangayForm.reset();
-    }
-    toggleBarangayAdminFields();
-    setBarangayCoordinates(0, 0);
-    if (barangayLatitudeInput) {
-      barangayLatitudeInput.value = '';
-    }
-    if (barangayLongitudeInput) {
-      barangayLongitudeInput.value = '';
-    }
-    if (barangayMapMarker) {
-      barangayMapMarker.setMap(null);
-      barangayMapMarker = null;
-    }
-    if (barangayMapMeta) {
-      barangayMapMeta.textContent = 'Click on the map to pin the new barangay location.';
-    }
-
-    setBarangayMessage(payload.message || 'Barangay created successfully.', false);
+    resetBarangayForm();
+    closeBarangayModal();
+    showToast(payload.message || (stationId ? 'Substation updated successfully.' : 'Substation created successfully.'), false);
     await loadBootstrap();
+  }
+
+  async function autosaveBarangay() {
+    const draft = readBarangayDraft();
+    if (draft.stationId === '') {
+      return;
+    }
+    setBarangayMessage('Saving changes automatically...', false);
+    const formData = new FormData();
+    formData.append('action', 'update_station');
+    formData.append('stationId', draft.stationId);
+    formData.append('stationName', draft.stationName);
+    formData.append('stationCode', draft.stationCode);
+    formData.append('location', draft.location);
+    formData.append('latitude', String(draft.latitude));
+    formData.append('longitude', String(draft.longitude));
+    formData.append('stationStatus', draft.status);
+    formData.append('aorRadiusKm', String(draft.aorRadiusKm));
+
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      body: formData,
+      credentials: 'same-origin'
+    });
+    const payload = await response.json();
+    if (!response.ok || !payload || payload.ok !== true) {
+      throw new Error((payload && payload.message) || 'Unable to auto-save substation changes.');
+    }
+
+    const saved = payload.data || {};
+    state.stations = (Array.isArray(state.stations) ? state.stations : []).map(function (station) {
+      if (String(station.stationId || '') !== String(draft.stationId)) {
+        return station;
+      }
+      return Object.assign({}, station, saved);
+    });
+    pendingBarangayStation = Object.assign({}, pendingBarangayStation || {}, saved);
+    renderSubstationTable();
+    setBarangayMessage('Changes saved automatically.', false);
+  }
+
+  function queueBarangayAutosave() {
+    if (barangayIsPopulating) {
+      return;
+    }
+    updateBarangayMapPreviewFromInputs();
+    const stationId = String(barangayStationIdInput ? barangayStationIdInput.value : '').trim();
+    if (stationId === '') {
+      return;
+    }
+    if (barangayAutosaveTimer) {
+      window.clearTimeout(barangayAutosaveTimer);
+    }
+    barangayAutosaveTimer = window.setTimeout(function () {
+      autosaveBarangay().catch(function (error) {
+        setBarangayMessage(error.message || 'Unable to auto-save substation changes.', true);
+      });
+    }, 450);
   }
 
   async function saveUser() {
@@ -839,9 +1591,15 @@
     openModal();
   });
 
+  if (openSubstationModalBtn) {
+    openSubstationModalBtn.addEventListener('click', function () {
+      resetBarangayForm();
+      openBarangayModal();
+    });
+  }
+
   if (isSuperadminPage && barangayPanel) {
     barangayPanel.hidden = false;
-    activateBarangayMap();
   }
 
   if (createBarangayAdminInput) {
@@ -852,10 +1610,55 @@
   if (barangayForm) {
     barangayForm.addEventListener('submit', function (event) {
       event.preventDefault();
-      setBarangayMessage('Saving barangay...', false);
+      setBarangayMessage('Saving substation...', false);
       saveBarangay().catch(function (error) {
         setBarangayMessage(error.message, true);
       });
+    });
+  }
+
+  if (resetBarangayBtn) {
+    resetBarangayBtn.addEventListener('click', resetBarangayForm);
+  }
+
+  [
+    barangayNameInput,
+    barangayCodeInput,
+    barangayLatitudeInput,
+    barangayLongitudeInput,
+    barangayStatusInput,
+    barangayAorRadiusInput
+  ].forEach(function (field) {
+    if (!field) {
+      return;
+    }
+    field.addEventListener('input', queueBarangayAutosave);
+    field.addEventListener('change', queueBarangayAutosave);
+  });
+
+  if (barangayLocationInput) {
+    barangayLocationInput.addEventListener('input', function () {
+      queueBarangayGeocode();
+      queueBarangayAutosave();
+    });
+    barangayLocationInput.addEventListener('change', function () {
+      geocodeBarangayAddress();
+      queueBarangayAutosave();
+    });
+    barangayLocationInput.addEventListener('blur', function () {
+      geocodeBarangayAddress();
+    });
+  }
+
+  if (closeBarangayModalBtn) {
+    closeBarangayModalBtn.addEventListener('click', closeBarangayModal);
+  }
+
+  if (barangayModal) {
+    barangayModal.addEventListener('click', function (event) {
+      if (event.target && event.target.getAttribute('data-close-barangay-modal') === 'true') {
+        closeBarangayModal();
+      }
     });
   }
 
@@ -926,6 +1729,44 @@
     });
   }
 
+  if (deleteUserBtn) {
+    deleteUserBtn.addEventListener('click', function () {
+      if (!activeActionUser) {
+        return;
+      }
+      openDeleteUserModal(activeActionUser);
+    });
+  }
+
+  if (closeDeleteUserModalBtn) {
+    closeDeleteUserModalBtn.addEventListener('click', closeDeleteUserModal);
+  }
+
+  if (cancelDeleteUserBtn) {
+    cancelDeleteUserBtn.addEventListener('click', closeDeleteUserModal);
+  }
+
+  if (confirmDeleteUserBtn) {
+    confirmDeleteUserBtn.addEventListener('click', function () {
+      if (!pendingDeleteUser) {
+        return;
+      }
+      deleteUser(pendingDeleteUser).then(function () {
+        if (!deleteUserMessage || deleteUserMessage.textContent === '') {
+          closeDeleteUserModal();
+        }
+      });
+    });
+  }
+
+  if (deleteUserModal) {
+    deleteUserModal.addEventListener('click', function (event) {
+      if (event.target && event.target.getAttribute('data-close-delete-user-modal') === 'true') {
+        closeDeleteUserModal();
+      }
+    });
+  }
+
   function setWarningMessage(text, isError) {
     warningFormMessage.textContent = text;
     warningFormMessage.style.color = isError ? '#a61d2a' : '#2e5b3f';
@@ -969,8 +1810,8 @@
       }
 
       closeWarningModal();
-      window.alert(payload.message || 'Warning or memo sent successfully.');
       setMessage(payload.message || 'Warning or memo sent successfully.', false);
+      showToast(payload.message || 'Warning or memo sent successfully.', false);
       await loadBootstrap();
     } catch (error) {
       setWarningMessage('Unable to send the warning.', true);
@@ -1023,8 +1864,37 @@
 
       populateWarningForm(user);
       openWarningModal();
+      return;
+    }
+
+    const deleteButton = event.target.closest('[data-delete-user]');
+    if (deleteButton) {
+      const user = state.users.find(function (entry) {
+        return String(entry.userId) === String(deleteButton.getAttribute('data-delete-user'));
+      });
+      if (!user) {
+        return;
+      }
+
+      openDeleteUserModal(user);
     }
   });
+
+  if (substationsTableBody) {
+    substationsTableBody.addEventListener('click', function (event) {
+      const editButton = event.target.closest('[data-edit-station]');
+      if (!editButton) {
+        return;
+      }
+      const station = state.stations.find(function (entry) {
+        return String(entry.stationId) === String(editButton.getAttribute('data-edit-station'));
+      });
+      if (!station) {
+        return;
+      }
+      openBarangayEditor(station);
+    });
+  }
 
   refreshUsersBtn.addEventListener('click', function () {
     loadBootstrap().catch(function (error) {
@@ -1057,6 +1927,18 @@
   userRoleFilter.addEventListener('change', function () {
     state.roleFilter = userRoleFilter.value;
     renderTable();
+  });
+  if (userWarningsFilter) {
+    userWarningsFilter.addEventListener('change', function () {
+      state.warningsFilter = userWarningsFilter.value;
+      renderTable();
+    });
+  }
+
+  usersTabButtons.forEach(function (button) {
+    button.addEventListener('click', function () {
+      setActiveTab(button.getAttribute('data-users-tab') || 'accounts');
+    });
   });
 
   function setNewsMessage(text, isError) {
@@ -1308,6 +2190,12 @@
         setAnnouncementMessage(error.message || 'Unable to publish announcement.', true);
       });
     });
+  }
+
+  try {
+    setActiveTab(readRequestedTab() || localStorage.getItem(usersTabStorageKey) || 'accounts');
+  } catch (error) {
+    setActiveTab(readRequestedTab() || 'accounts');
   }
 
   loadBootstrap().catch(function (error) {

@@ -168,12 +168,15 @@ function firenet_user_settings_table_exists(PDO $pdo): bool {
     return $exists;
 }
 
-function firenet_ensure_user_settings_table(PDO $pdo): void {
-    if (firenet_user_settings_table_exists($pdo)) {
-        return;
-    }
+function firenet_user_settings_column_exists(PDO $pdo, string $columnName): bool {
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'user_settings' AND COLUMN_NAME = ?");
+    $stmt->execute([$columnName]);
+    return (int) ($stmt->fetchColumn() ?: 0) > 0;
+}
 
-    $pdo->exec('CREATE TABLE IF NOT EXISTS user_settings (
+function firenet_ensure_user_settings_table(PDO $pdo): void {
+    if (!firenet_user_settings_table_exists($pdo)) {
+        $pdo->exec('CREATE TABLE IF NOT EXISTS user_settings (
         user_setting_id INT PRIMARY KEY AUTO_INCREMENT,
         user_id INT NOT NULL,
         compact_mode TINYINT(1) NOT NULL DEFAULT 0,
@@ -187,12 +190,34 @@ function firenet_ensure_user_settings_table(PDO $pdo): void {
         CONSTRAINT fk_user_settings_user FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
         UNIQUE KEY unique_user_settings (user_id)
     )');
+        $GLOBALS['firenet_user_settings_table_exists_cache'] = true;
+        return;
+    }
 
-    $GLOBALS['firenet_user_settings_table_exists_cache'] = true;
+    if (!firenet_user_settings_column_exists($pdo, 'compact_mode')) {
+        $pdo->exec('ALTER TABLE user_settings ADD COLUMN compact_mode TINYINT(1) NOT NULL DEFAULT 0 AFTER user_id');
+    }
+    if (!firenet_user_settings_column_exists($pdo, 'reduce_motion')) {
+        $pdo->exec('ALTER TABLE user_settings ADD COLUMN reduce_motion TINYINT(1) NOT NULL DEFAULT 0 AFTER compact_mode');
+    }
+    if (!firenet_user_settings_column_exists($pdo, 'dark_mode')) {
+        $pdo->exec('ALTER TABLE user_settings ADD COLUMN dark_mode TINYINT(1) NOT NULL DEFAULT 0 AFTER reduce_motion');
+    }
+    if (!firenet_user_settings_column_exists($pdo, 'security_alerts')) {
+        $pdo->exec('ALTER TABLE user_settings ADD COLUMN security_alerts TINYINT(1) NOT NULL DEFAULT 1 AFTER dark_mode');
+    }
+    if (!firenet_user_settings_column_exists($pdo, 'hide_sensitive')) {
+        $pdo->exec('ALTER TABLE user_settings ADD COLUMN hide_sensitive TINYINT(1) NOT NULL DEFAULT 0 AFTER security_alerts');
+    }
+    if (!firenet_user_settings_column_exists($pdo, 'auto_logout_minutes')) {
+        $pdo->exec('ALTER TABLE user_settings ADD COLUMN auto_logout_minutes INT NOT NULL DEFAULT 30 AFTER hide_sensitive');
+    }
 }
 
 function firenet_load_user_settings(PDO $pdo, int $userId): array {
     $settings = firenet_user_settings_defaults();
+
+    firenet_ensure_user_settings_table($pdo);
 
     if (!firenet_user_settings_table_exists($pdo)) {
         return $settings;

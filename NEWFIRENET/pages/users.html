@@ -2,21 +2,22 @@
   <header class="users-hero">
     <div>
       <p class="users-kicker">Administrator tools</p>
-      <h2>User Accounts</h2>
-      <p class="muted-text" id="usersWelcomeText">Create accounts, assign stations, and manage access by role.</p>
+      <h2 id="usersHeroTitle">Admin Settings</h2>
+      <p class="muted-text" id="usersWelcomeText">Manage personnel accounts, login updates, and public-facing station notices.</p>
     </div>
     <div class="users-hero-actions">
       <button type="button" class="primary-btn" id="openUserModalBtn">Create User</button>
+      <button type="button" class="primary-btn" id="openSubstationModalBtn" hidden>New Substation</button>
       <button type="button" class="secondary-btn" id="refreshUsersBtn">Refresh</button>
     </div>
   </header>
 
-  <section class="users-news-manager" id="newsManagerSection">
+  <section class="users-news-manager" id="newsManagerSection" data-users-panel="news" hidden>
     <header class="users-hero users-news-hero">
       <div>
         <p class="users-kicker">News desk</p>
         <h2>Login News Feed</h2>
-        <p class="muted-text">Upload a photo, write the news title and what happened, then publish. The login page will auto-flash it.</p>
+          <p class="muted-text">Publish login-screen updates, response highlights, or official flash notices shown on sign-in.</p>
       </div>
       <div class="users-hero-actions">
         <button type="button" class="primary-btn" id="openNewsModalBtn">Publish News</button>
@@ -24,18 +25,129 @@
     </header>
   </section>
 
-  <section class="users-news-manager" id="announcementsManagerSection">
+  <section class="users-news-manager" id="announcementsManagerSection" data-users-panel="notices" hidden>
     <header class="users-hero users-news-hero">
       <div>
         <p class="users-kicker">Announcements desk</p>
         <h2>Public Notices</h2>
-        <p class="muted-text">Publish district/station announcements for the public. They will appear on the login page in the Announcements section.</p>
+          <p class="muted-text">Publish district or station advisories for the public-facing announcement area on the login screen.</p>
       </div>
       <div class="users-hero-actions">
         <button type="button" class="primary-btn" id="openAnnouncementModalBtn">Publish Announcement</button>
       </div>
     </header>
   </section>
+
+  <section class="users-layout" id="barangayPanel" data-users-panel="substations" hidden>
+    <section class="users-table-card">
+      <div class="users-panel-head">
+        <div>
+          <p class="users-kicker">Station directory</p>
+          <h3>Substations</h3>
+        </div>
+        <div class="users-panel-meta">
+          <span class="users-meta-chip">Total <strong id="substationTotalCount">0</strong></span>
+        </div>
+      </div>
+      <div class="users-table-wrap">
+        <table class="portal-table users-table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Code</th>
+              <th>Location</th>
+              <th>Coordinates</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="substationsTableBody">
+            <tr><td colspan="6" class="muted-text users-empty-row">Loading substations...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </section>
+
+  <div id="barangayModal" class="users-modal" hidden>
+    <div class="users-modal-backdrop" data-close-barangay-modal="true"></div>
+    <div class="users-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="barangayModalTitle">
+      <header class="users-modal-header">
+        <div>
+          <p class="users-kicker">Substation form</p>
+          <h3 id="barangayModalTitle">Create Substation</h3>
+        </div>
+        <button type="button" class="modal-close-btn" id="closeBarangayModalBtn" aria-label="Close">x</button>
+      </header>
+      <form id="barangayForm" class="users-form" novalidate>
+        <input type="hidden" id="barangayStationIdInput" value="">
+        <div class="users-form-grid">
+          <label>
+            Substation Name
+            <input type="text" id="barangayNameInput" maxlength="160" placeholder="e.g. Makati Central Substation" required>
+          </label>
+          <label>
+            Station Code
+            <input type="text" id="barangayCodeInput" maxlength="20" placeholder="e.g. MCFS">
+          </label>
+          <label class="users-full-width">
+            Location / Address
+            <input type="text" id="barangayLocationInput" maxlength="255" placeholder="Street, barangay, city">
+          </label>
+          <label>
+            Latitude
+            <input type="number" step="any" id="barangayLatitudeInput" placeholder="14.5547" required>
+          </label>
+          <label>
+            Longitude
+            <input type="number" step="any" id="barangayLongitudeInput" placeholder="121.0244" required>
+          </label>
+          <label>
+            Status
+            <select id="barangayStatusInput">
+              <option value="active" selected>Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
+          </label>
+          <label>
+            AOR Radius (km)
+            <input type="number" step="0.1" min="0" id="barangayAorRadiusInput" placeholder="2.5">
+          </label>
+          <div class="users-full-width">
+            <p class="muted-text">Click the map to pin the substation location, or enter the coordinates manually.</p>
+            <div id="barangayMap" class="users-map-panel" aria-label="Substation location map"></div>
+            <p class="muted-text" id="barangayMapMeta">Click on the map to pin the new substation location.</p>
+          </div>
+          <label class="users-toggle-item users-full-width">
+            <span>
+              <strong>Create admin for this substation</strong>
+              <small>Optional when opening a brand new station.</small>
+            </span>
+            <input type="checkbox" id="createBarangayAdminInput">
+          </label>
+          <div id="barangayAdminFields" class="users-form-grid users-full-width" hidden>
+            <label>
+              Admin Username
+              <input type="text" id="barangayAdminUsernameInput" maxlength="50" placeholder="substation admin">
+            </label>
+            <label>
+              Admin Email
+              <input type="email" id="barangayAdminEmailInput" maxlength="100" placeholder="admin@station.local">
+            </label>
+            <label class="users-full-width">
+              Admin Password
+              <input type="password" id="barangayAdminPasswordInput" maxlength="255" placeholder="Required when enabled">
+            </label>
+          </div>
+        </div>
+        <div class="users-form-actions">
+          <button type="submit" class="primary-btn" id="saveBarangayBtn">Save Substation</button>
+          <button type="button" class="secondary-btn" id="resetBarangayBtn">New Substation</button>
+        </div>
+        <p class="muted-text" id="barangayFormMessage"></p>
+      </form>
+    </div>
+  </div>
 
   <div id="newsModal" class="users-modal" hidden>
     <div class="users-modal-backdrop" data-close-news-modal="true"></div>
@@ -154,82 +266,14 @@
     </div>
   </div>
 
-  <section class="users-brgy-panel" id="barangayPanel" hidden>
-    <div class="users-brgy-head">
-      <div>
-        <p class="users-kicker">Superadmin</p>
-        <h3>Add New Barangay</h3>
-        <p class="muted-text">Fill out barangay details, pin the location on the map, and optionally create an admin right away.</p>
-      </div>
-    </div>
-
-    <form id="barangayForm" class="users-brgy-form" novalidate>
-      <div class="users-brgy-grid">
-        <label>
-          Barangay Name
-          <input type="text" id="barangayNameInput" maxlength="120" placeholder="e.g. Barangay Bel-Air" required>
-        </label>
-        <label>
-          Barangay Code
-          <input type="text" id="barangayCodeInput" maxlength="20" placeholder="Auto if blank">
-        </label>
-        <label class="users-brgy-full">
-          Address / Location
-          <input type="text" id="barangayLocationInput" maxlength="255" placeholder="Street, barangay, city">
-        </label>
-        <label>
-          Latitude
-          <input type="text" id="barangayLatitudeInput" placeholder="Pin on map" readonly>
-        </label>
-        <label>
-          Longitude
-          <input type="text" id="barangayLongitudeInput" placeholder="Pin on map" readonly>
-        </label>
-      </div>
-
-      <div class="users-brgy-map-wrap">
-        <div id="barangayMap" class="users-brgy-map" role="img" aria-label="Map for pinning barangay location"></div>
-        <p class="muted-text" id="barangayMapMeta">Click on the map to pin the new barangay location.</p>
-      </div>
-
-      <label class="users-toggle-item users-brgy-toggle">
-        <span>
-          <strong>Create admin for this barangay</strong>
-          <small>Generate a station admin account for this newly created barangay.</small>
-        </span>
-        <input type="checkbox" id="createBarangayAdminInput">
-      </label>
-
-      <div id="barangayAdminFields" class="users-brgy-grid" hidden>
-        <label>
-          Admin Username
-          <input type="text" id="barangayAdminUsernameInput" maxlength="50" placeholder="e.g. admin_belair">
-        </label>
-        <label>
-          Admin Email
-          <input type="email" id="barangayAdminEmailInput" maxlength="100" placeholder="e.g. admin.belair@newfirenet.local">
-        </label>
-        <label>
-          Admin Password
-          <input type="password" id="barangayAdminPasswordInput" maxlength="255" placeholder="Required when creating admin">
-        </label>
-      </div>
-
-      <div class="users-form-actions users-brgy-actions">
-        <button type="submit" class="primary-btn" id="saveBarangayBtn">Add Barangay</button>
-      </div>
-      <p class="muted-text" id="barangayFormMessage"></p>
-    </form>
-  </section>
-
-  <section class="users-grid">
+  <section class="users-grid" data-users-panel="accounts">
     <article class="users-card"><strong id="userTotalCount">0</strong><span>Total Users</span></article>
     <article class="users-card"><strong id="userAdminCount">0</strong><span>Admins</span></article>
     <article class="users-card"><strong id="userActiveCount">0</strong><span>Active</span></article>
     <article class="users-card"><strong id="userStationCount">0</strong><span>Stations</span></article>
   </section>
 
-  <section class="users-layout">
+  <section class="users-layout" data-users-panel="accounts">
     <aside class="users-sidebar">
       <div class="users-filter-card">
         <h3>Filters</h3>
@@ -237,7 +281,7 @@
           Search users
           <input type="search" id="userSearchInput" placeholder="Username, email, station">
         </label>
-        <label>
+          <label id="userStationFilterWrap">
           Station
           <select id="userStationFilter"></select>
         </label>
@@ -245,14 +289,25 @@
           Role
           <select id="userRoleFilter"></select>
         </label>
+        <label>
+          Warnings
+          <select id="userWarningsFilter">
+            <option value="">All users</option>
+            <option value="with-warnings">With warnings / memos</option>
+            <option value="no-warnings">No warnings</option>
+            <option value="2-plus">2+ warnings</option>
+            <option value="3-plus">3+ warnings</option>
+          </select>
+        </label>
       </div>
 
       <div class="users-filter-card">
         <h3>Helpful Notes</h3>
         <ul class="simple-list">
-          <li>Admins can manage only regular user accounts, not other admins or superadmins.</li>
+            <li>Admins can create and manage only regular users within their own station.</li>
+            <li>Admins cannot create other admins or create substations.</li>
+            <li>Superadmins can create substations, assign admins, and review activity across all stations.</li>
           <li>Use the warning/memo action to document misconduct or share formal guidance with a user.</li>
-          <li>Superadmin accounts are reserved for platform-wide access and cannot be edited by station admins.</li>
           <li>Password updates are optional during edits.</li>
           <li>User mail access follows assigned station membership.</li>
         </ul>
@@ -263,7 +318,7 @@
       <div class="users-panel-head">
         <div>
           <p class="users-kicker">Accounts</p>
-          <h3>Station Users</h3>
+          <h3>Personnel Accounts</h3>
         </div>
         <div class="users-panel-meta">
           <span class="users-meta-chip">Showing <strong id="usersVisibleCount">0</strong></span>
@@ -452,8 +507,36 @@
         <button type="button" class="secondary-btn" id="openEditFromActionsBtn">Edit User</button>
         <button type="button" class="secondary-btn" id="openWarningFromActionsBtn">Send Warning/Memo</button>
         <button type="button" class="secondary-btn users-action-toggle-btn" id="toggleStatusBtn">Deactivate Account</button>
+        <button type="button" class="secondary-btn users-action-delete-btn" id="deleteUserBtn">Delete User</button>
       </div>
       <p class="muted-text" id="userActionsFormMessage"></p>
+    </div>
+  </div>
+</div>
+
+<div id="deleteUserModal" class="users-modal" hidden>
+  <div class="users-modal-backdrop" data-close-delete-user-modal="true"></div>
+  <div class="users-modal-dialog users-modal-dialog--compact" role="dialog" aria-modal="true" aria-labelledby="deleteUserModalTitle">
+    <header class="users-modal-header">
+      <div>
+        <p class="users-kicker">Delete account</p>
+        <h3 id="deleteUserModalTitle">Delete User</h3>
+      </div>
+      <button type="button" class="modal-close-btn" id="closeDeleteUserModalBtn" aria-label="Close">x</button>
+    </header>
+    <div class="users-form">
+      <div class="users-delete-confirm">
+        <p class="users-delete-copy">You are about to permanently delete this user account.</p>
+        <div class="users-delete-card">
+          <strong id="deleteUserName">-</strong>
+          <span id="deleteUserMeta">This action cannot be undone.</span>
+        </div>
+      </div>
+      <div class="users-form-actions">
+        <button type="button" class="secondary-btn" id="cancelDeleteUserBtn">Cancel</button>
+        <button type="button" class="primary-btn users-delete-confirm-btn" id="confirmDeleteUserBtn">Delete User</button>
+      </div>
+      <p class="muted-text" id="deleteUserMessage"></p>
     </div>
   </div>
 </div>

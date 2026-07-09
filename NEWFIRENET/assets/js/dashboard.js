@@ -52,6 +52,10 @@
     dashOpsBigNumber: document.getElementById('dashOpsBigNumber'),
     dashOpsCaption: document.getElementById('dashOpsCaption'),
     dashOpsMiniList: document.getElementById('dashOpsMiniList'),
+    dashLoadBalanceSummary: document.getElementById('dashLoadBalanceSummary'),
+    dashLoadBalanceLead: document.getElementById('dashLoadBalanceLead'),
+    dashLoadBalanceMeta: document.getElementById('dashLoadBalanceMeta'),
+    dashLoadBalanceList: document.getElementById('dashLoadBalanceList'),
     dashNewsFeed: document.getElementById('dashNewsFeed'),
     darkReadiness: document.getElementById('darkReadiness'),
     darkOpen: document.getElementById('darkOpen'),
@@ -209,12 +213,23 @@
     items.push(buildSearchItem({
       id: 'users',
       type: 'page',
-      title: 'Users',
-      subtitle: 'Manage user accounts and station access.',
-      url: '/firenet/NEWFIRENET/backend/pages/users.php',
-      keywords: ['users', 'admin', 'superadmin', 'accounts', 'station access'],
+      title: 'Admin Settings',
+      subtitle: 'Manage user accounts, news, notices, and admin tools.',
+      url: '/firenet/NEWFIRENET/backend/pages/admin_settings.php',
+      keywords: ['users', 'admin settings', 'admin', 'superadmin', 'accounts', 'login news', 'public notices', 'audit log', 'station access'],
       weight: 78,
       hint: 'Useful for account management'
+    }));
+
+    items.push(buildSearchItem({
+      id: 'audit-log',
+      type: 'page',
+      title: 'Audit Log',
+      subtitle: 'Review user actions, reports, calendar changes, and request workflow history.',
+      url: '/firenet/NEWFIRENET/backend/pages/audit_log.php',
+      keywords: ['audit', 'audit log', 'activity', 'history', 'reports', 'calendar', 'accepted request', 'rejected request'],
+      weight: 77,
+      hint: 'Useful for activity review'
     }));
 
     items.push(buildSearchItem({
@@ -666,6 +681,54 @@
       .join('');
   }
 
+  function renderDispatchLoadBalance() {
+    if (!elements.dashLoadBalanceSummary || !elements.dashLoadBalanceLead || !elements.dashLoadBalanceMeta || !elements.dashLoadBalanceList) {
+      return;
+    }
+
+    const summary = context.dispatchLoadSummary && typeof context.dispatchLoadSummary === 'object' ? context.dispatchLoadSummary : {};
+    const topStations = Array.isArray(summary.topStations) ? summary.topStations : [];
+    const busiestStationName = String(summary.busiestStationName || 'No active dispatch load');
+    const busiestAssignments = Number(summary.busiestStationActiveAssignments || 0);
+    const stationsHandlingCount = Number(summary.stationsHandlingCount || 0);
+    const zeroAvailabilityCount = Number(summary.zeroAvailabilityCount || 0);
+    const fallbackDispatchCountToday = Number(summary.fallbackDispatchCountToday || 0);
+
+    elements.dashLoadBalanceSummary.textContent =
+      `${stationsHandlingCount} station(s) handling incidents now · ${zeroAvailabilityCount} idle station(s)`;
+    elements.dashLoadBalanceLead.textContent = busiestStationName;
+    elements.dashLoadBalanceMeta.textContent =
+      busiestAssignments > 0
+        ? `${busiestAssignments} active assignment(s) · ${fallbackDispatchCountToday} fallback dispatch(es) today`
+        : 'Waiting for live assignments';
+
+    if (topStations.length === 0) {
+      elements.dashLoadBalanceList.innerHTML = '<li class="dash-load-item dash-load-item--empty">No dispatch activity yet.</li>';
+      return;
+    }
+
+    elements.dashLoadBalanceList.innerHTML = topStations
+      .map((station, index) => {
+        const stationName = escapeHtml(station.stationName || 'Station');
+        const activeAssignmentCount = Number(station.activeAssignmentCount || 0);
+        const incidentsHandledToday = Number(station.incidentsHandledToday || 0);
+        const fallbackCount = Number(station.fallbackDispatchCountToday || 0);
+        const itemClass = station.isCurrentStation ? 'dash-load-item dash-load-item--current' : 'dash-load-item';
+        const sub = `${incidentsHandledToday} handled today${fallbackCount > 0 ? ` · ${fallbackCount} fallback` : ''}`;
+        return `
+          <li class="${itemClass}">
+            <span class="dash-load-rank">${index + 1}</span>
+            <div class="dash-load-main">
+              <span class="dash-load-name">${stationName}</span>
+              <span class="dash-load-sub">${escapeHtml(sub)}</span>
+            </div>
+            <span class="dash-load-count">${activeAssignmentCount} active</span>
+          </li>
+        `;
+      })
+      .join('');
+  }
+
   function renderOngoingIncident() {
     if (elements.ongoingIncidentTitle && context.ongoingIncidentTitle) {
       elements.ongoingIncidentTitle.textContent = String(context.ongoingIncidentTitle);
@@ -966,6 +1029,7 @@
     setupQuickIncidentReporting();
     renderBriefing();
     renderStationStatuses();
+    renderDispatchLoadBalance();
     renderOngoingIncident();
     searchState.items = buildSearchIndex();
 

@@ -21,11 +21,11 @@ try {
 } catch (Throwable $ignored) {
 }
 
-$usersContext = [
+$adminSettingsContext = [
     'role' => $role,
     'stationId' => $stationId,
     'stationName' => $stationName,
-    'usersApiUrl' => '/firenet/NEWFIRENET/backend/controllers/users.php',
+    'adminSettingsApiUrl' => '/firenet/NEWFIRENET/backend/controllers/users.php',
     'googleMapsConfigured' => false
 ];
 
@@ -40,18 +40,19 @@ try {
 } catch (Throwable $ignored) {
 }
 
-$usersContext['googleMapsConfigured'] = $googleMapsApiKey !== '';
+$adminSettingsContext['googleMapsConfigured'] = $googleMapsApiKey !== '';
 
-$pageStyles = ['/firenet/NEWFIRENET/assets/css/users.css'];
+$bodyClass = 'has-dashboard-bg';
+$pageStyles = ['/firenet/NEWFIRENET/assets/css/users.css?v=' . filemtime(__DIR__ . '/../../assets/css/users.css')];
 $pageScripts = ['https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js'];
 if ($googleMapsApiKey !== '') {
     $pageScripts[] = 'https://maps.googleapis.com/maps/api/js?key=' . rawurlencode($googleMapsApiKey) . '&v=weekly&loading=async';
 }
-$pageScripts[] = '/firenet/NEWFIRENET/assets/js/users.js';
+$pageScripts[] = '/firenet/NEWFIRENET/assets/js/users.js?v=' . filemtime(__DIR__ . '/../../assets/js/users.js');
 
 require_once __DIR__ . '/../../includes/header.php';
 ?>
-<script id="usersContext" type="application/json"><?php echo json_encode($usersContext, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE); ?></script>
+<script id="adminSettingsContext" type="application/json"><?php echo json_encode($adminSettingsContext, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE); ?></script>
 <?php
 readfile(__DIR__ . '/../../pages/users.html');
 require_once __DIR__ . '/../../includes/footer.php';

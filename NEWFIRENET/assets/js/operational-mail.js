@@ -4,9 +4,15 @@
   const threadModal = document.getElementById('threadModal');
   const closeThreadBtn = document.getElementById('closeThreadBtn');
   const threadContent = document.getElementById('threadContent');
-  const threadEmpty = document.getElementById('threadEmpty');
   const threadTitle = document.getElementById('threadTitle');
   const composeModal = document.getElementById('composeModal');
+  const rejectRequestModal = document.getElementById('rejectRequestModal');
+  const rejectRequestForm = document.getElementById('rejectRequestForm');
+  const rejectRequestReason = document.getElementById('rejectRequestReason');
+  const rejectRequestSubject = document.getElementById('rejectRequestSubject');
+  const rejectRequestMessage = document.getElementById('rejectRequestMessage');
+  const closeRejectModalBtn = document.getElementById('closeRejectModalBtn');
+  const cancelRejectBtn = document.getElementById('cancelRejectBtn');
   const openComposeBtn = document.getElementById('openComposeBtn');
   const closeComposeBtn = document.getElementById('closeComposeBtn');
   const refreshBtn = document.getElementById('refreshBtn');
@@ -56,10 +62,16 @@
   const composeMessage = document.getElementById('composeMessage');
   const sendBtn = document.getElementById('sendBtn');
   const saveDraftBtn = document.getElementById('saveDraftBtn');
-  const inboxCount = document.getElementById('inboxCount');
-  const unreadCount = document.getElementById('unreadCount');
-  const sentCount = document.getElementById('sentCount');
-  const draftCount = document.getElementById('draftCount');
+  const inboxCount = document.getElementById('ticketQueueCount');
+  const unreadCount = document.getElementById('ticketClaimedCount');
+  const sentCount = document.getElementById('ticketCompletedCount');
+  const draftCount = document.getElementById('ticketDraftCount');
+  const opsDraftStatCard = document.getElementById('opsDraftStatCard');
+  const opsTicketTabsCentral = document.getElementById('opsTicketTabsCentral');
+  const opsTicketTabsRequester = document.getElementById('opsTicketTabsRequester');
+  const opsMailFilters = document.getElementById('opsMailFilters');
+  const stationFilterField = document.getElementById('stationFilterField');
+  const opsTicketStats = document.getElementById('opsTicketStats');
   const mailFolderTitle = document.getElementById('mailFolderTitle');
   const mailActiveFilter = document.getElementById('mailActiveFilter');
   
@@ -80,12 +92,12 @@
   const filePickerBackBtn = document.getElementById('filePickerBackBtn');
   const filePickerSelectBtn = document.getElementById('filePickerSelectBtn');
 
-  if (!contextElement || !mailList || !threadModal || !threadContent || !threadEmpty || !threadTitle || !threadActions || !requestTimeline || !timelineRequestTitle || !timelineStepsContainer || !timelineNote || !composeModal || !openComposeBtn || !closeComposeBtn || !closeThreadBtn || !refreshBtn || !searchInput || !stationFilterSelect || !sortSelect || !composeForm || !composeSubject || !composeStationSelect || !composeBodyEditor || !composeMessage || !sendBtn || !saveDraftBtn || !inboxCount || !unreadCount || !sentCount || !draftCount || !mailFolderTitle || !mailActiveFilter) {
+  if (!contextElement || !mailList || !threadModal || !threadContent || !threadTitle || !threadActions || !requestTimeline || !timelineRequestTitle || !timelineStepsContainer || !timelineNote || !composeModal || !openComposeBtn || !closeComposeBtn || !closeThreadBtn || !refreshBtn || !searchInput || !stationFilterSelect || !sortSelect || !composeForm || !composeSubject || !composeStationSelect || !composeBodyEditor || !composeMessage || !sendBtn || !saveDraftBtn || !inboxCount || !unreadCount || !sentCount || !draftCount || !mailFolderTitle || !mailActiveFilter) {
     return;
   }
 
   function mountMailModalsToBody() {
-    [composeModal, threadModal, cloudinaryFilePicker].forEach(function (el) {
+    [composeModal, threadModal, rejectRequestModal, cloudinaryFilePicker].forEach(function (el) {
       if (el && el.parentElement !== document.body) {
         document.body.appendChild(el);
       }
@@ -95,8 +107,9 @@
   function syncMailModalScrollLock() {
     const composeOpen = !composeModal.hidden;
     const threadOpen = threadModal && !threadModal.hidden;
+    const rejectOpen = rejectRequestModal && !rejectRequestModal.hidden;
     const pickerOpen = cloudinaryFilePicker && !cloudinaryFilePicker.hidden;
-    document.body.classList.toggle('mail-modal-open', composeOpen || threadOpen || pickerOpen);
+    document.body.classList.toggle('mail-modal-open', composeOpen || threadOpen || rejectOpen || pickerOpen);
   }
 
   function openThreadModal() {
@@ -105,6 +118,94 @@
     }
     threadModal.hidden = false;
     syncMailModalScrollLock();
+  }
+
+  function hideThreadModalForOverlay() {
+    if (!threadModal) {
+      return;
+    }
+    threadModal.hidden = true;
+    syncMailModalScrollLock();
+  }
+
+  function reopenThreadModalIfNeeded() {
+    if (state.threadDetail && state.threadDetail.thread && threadModal) {
+      threadModal.hidden = false;
+      syncMailModalScrollLock();
+    }
+  }
+
+  function setRejectModalMessage(text, isError) {
+    if (!rejectRequestMessage) {
+      return;
+    }
+    rejectRequestMessage.textContent = text;
+    rejectRequestMessage.style.color = isError ? '#fca5a5' : '#86efac';
+  }
+
+  function openRejectModal(detail, action) {
+    if (!rejectRequestModal || !detail || !detail.requestRoute) {
+      return;
+    }
+    state.rejectModalDetail = detail;
+    state.rejectModalAction = action || 'request-target-reject';
+    if (rejectRequestSubject) {
+      rejectRequestSubject.textContent = (detail.thread && detail.thread.subject) ? detail.thread.subject : 'Operational request';
+    }
+    if (rejectRequestReason) {
+      rejectRequestReason.value = '';
+    }
+    setRejectModalMessage('', false);
+    hideThreadModalForOverlay();
+    rejectRequestModal.hidden = false;
+    syncMailModalScrollLock();
+    if (rejectRequestReason) {
+      rejectRequestReason.focus();
+    }
+  }
+
+  function closeRejectModal() {
+    if (!rejectRequestModal) {
+      return;
+    }
+    rejectRequestModal.hidden = true;
+    state.rejectModalDetail = null;
+    syncMailModalScrollLock();
+    reopenThreadModalIfNeeded();
+  }
+
+  async function submitRejectModal(event) {
+    if (event) {
+      event.preventDefault();
+    }
+    const detail = state.rejectModalDetail;
+    if (!detail || !detail.requestRoute || !detail.requestRoute.routeId) {
+      setRejectModalMessage('Unable to locate this request.', true);
+      return;
+    }
+    const reason = rejectRequestReason ? String(rejectRequestReason.value || '').trim() : '';
+    if (reason === '') {
+      setRejectModalMessage('Enter a rejection reason before continuing.', true);
+      if (rejectRequestReason) {
+        rejectRequestReason.focus();
+      }
+      return;
+    }
+
+    try {
+      setRejectModalMessage('Submitting rejection…', false);
+      await submitRouteAction(state.rejectModalAction || 'request-target-reject', {
+        routeId: Number(detail.requestRoute.routeId || 0),
+        reason: reason
+      });
+      closeRejectModal();
+      closeThreadModal();
+      await fetchBootstrap();
+      await fetchList();
+      setMessage('Request rejected.', false);
+    } catch (error) {
+      setRejectModalMessage(error.message || 'Unable to reject this request.', true);
+    }
   }
 
   function hideThreadModalForCompose() {
@@ -124,7 +225,11 @@
     state.activeThread = null;
     state.threadDetail = null;
     syncMailModalScrollLock();
-    renderList();
+    if (isCentralReviewer()) {
+      fetchList().catch(function () { renderList(); });
+    } else {
+      renderList();
+    }
   }
 
   function getThreadReplyBodyHtml() {
@@ -214,12 +319,85 @@
       approved: 'Approved',
       rejected: 'Rejected',
       forwarded_to_target: 'Awaiting MCFS review',
-      routed_to_user: 'Assigned to user',
+      routed_to_user: 'Being processed',
       file_returned_to_coml: 'File ready',
-      returned_to_origin: 'Returned to requester station',
+      returned_to_origin: 'Returned to station',
       completed: 'Completed'
     };
     return labels[value] || value.replace(/_/g, ' ');
+  }
+
+  function ticketStatusValue(item) {
+    return String(item.status || (item.requestRoute && item.requestRoute.status) || '').toLowerCase();
+  }
+
+  function ticketHandlerId(item) {
+    return Number(item.handlingComlUserId || (item.requestRoute && item.requestRoute.handlingComlUserId) || 0);
+  }
+
+  function ticketHandlerName(item) {
+    return String(item.handlingComlUsername || (item.requestRoute && item.requestRoute.handlingComlUsername) || '');
+  }
+
+  function isTicketTerminalStatus(status) {
+    return ['completed', 'rejected'].indexOf(String(status || '').toLowerCase()) !== -1;
+  }
+
+  function ticketTabCategory(item) {
+    const status = ticketStatusValue(item);
+    if (isTicketTerminalStatus(status)) {
+      return 'completed';
+    }
+    if (ticketHandlerId(item) > 0) {
+      return 'claimed';
+    }
+    return 'queue';
+  }
+
+  function getTicketStatusPresentation(item) {
+    const status = ticketStatusValue(item);
+    const handlerId = ticketHandlerId(item);
+    const handlerName = ticketHandlerName(item);
+    const me = currentUserId();
+    const handlerLabel = handlerId > 0
+      ? (handlerId === me ? 'You' : handlerName || 'ComL user')
+      : '';
+
+    if (status === 'completed') {
+      return { label: 'Completed', tone: 'completed', handlerLabel: handlerLabel };
+    }
+    if (status === 'rejected') {
+      return { label: 'Rejected', tone: 'rejected', handlerLabel: handlerLabel };
+    }
+    if (handlerId > 0) {
+      if (['routed_to_user', 'file_returned_to_coml', 'returned_to_origin'].indexOf(status) !== -1) {
+        return { label: 'Being processed', tone: 'processing', handlerLabel: handlerLabel };
+      }
+      return { label: 'Claimed', tone: 'claimed', handlerLabel: handlerLabel };
+    }
+    return { label: 'Open', tone: 'queue', handlerLabel: '' };
+  }
+
+  function allTicketItems() {
+    const reviewer = isCentralReviewer();
+    const sourceItems = reviewer ? state.requestTracking : state.items;
+    return (Array.isArray(sourceItems) ? sourceItems : []).filter(function (item) {
+      if (reviewer || isCentralStation()) {
+        return true;
+      }
+      return item.mailType === 'request' && item.requestFiles;
+    });
+  }
+
+  function countTicketsByTab() {
+    const counts = { queue: 0, claimed: 0, completed: 0 };
+    allTicketItems().forEach(function (item) {
+      const tab = ticketTabCategory(item);
+      if (counts[tab] !== undefined) {
+        counts[tab] += 1;
+      }
+    });
+    return counts;
   }
 
   const apiUrl = String((JSON.parse(contextElement.textContent || '{}') || {}).mailApiUrl || '/firenet/NEWFIRENET/backend/controllers/station_mails.php');
@@ -234,6 +412,7 @@
   const copyShareLinkBtn = document.getElementById('copyShareLinkBtn');
   
   const state = {
+    ticketTab: 'queue',
     folder: 'inbox',
     search: '',
     stationFilter: '',
@@ -250,6 +429,8 @@
     composeReplyThreadId: 0,
     composeFulfillRouteId: 0,
     composeReplyOriginStationId: 0,
+    rejectModalDetail: null,
+    rejectModalAction: 'request-target-reject',
     composeSelectedCloudFiles: [],
     localAttachments: [],
     // File picker state
@@ -314,6 +495,82 @@
       return '';
     }
     return '<div class="mail-thread-message-body">' + escapeHtml(value).replace(/\n/g, '<br>') + '</div>';
+  }
+
+  function isRejectedRequestStatus(status) {
+    return String(status || '').toLowerCase() === 'rejected';
+  }
+
+  function requestOutcomeMeta(status) {
+    const value = String(status || '').toLowerCase();
+    if (value === 'rejected') {
+      return { tone: 'rejected', label: 'Rejected', icon: 'bi-x-circle-fill' };
+    }
+    if (value === 'completed') {
+      return { tone: 'completed', label: 'Delivered', icon: 'bi-check-circle-fill' };
+    }
+    return null;
+  }
+
+  function renderRequestOutcomeBadge(status) {
+    const meta = requestOutcomeMeta(status);
+    if (!meta) {
+      return '';
+    }
+    return '<span class="mail-request-outcome-badge mail-request-outcome-badge--' + meta.tone + '">' +
+      '<i class="bi ' + meta.icon + '" aria-hidden="true"></i><span>' + escapeHtml(meta.label) + '</span>' +
+    '</span>';
+  }
+
+  function renderRequestStatusValue(status) {
+    const meta = requestOutcomeMeta(status);
+    if (meta) {
+      return renderRequestOutcomeBadge(status);
+    }
+    return '<strong>' + escapeHtml(formatRequestStatus(status)) + '</strong>';
+  }
+
+  function resolveRequestDescription(detail) {
+    const rr = (detail && detail.requestRoute) || {};
+    const edited = String(rr.editedBody || '').trim();
+    if (edited) {
+      return edited;
+    }
+    const messages = Array.isArray(detail && detail.messages) ? detail.messages : [];
+    const requestMessage = messages.find(function (message) {
+      return message.mailType === 'request' && message.requestFiles;
+    }) || messages.find(function (message) {
+      return message.mailType === 'request';
+    }) || messages[0];
+    if (requestMessage) {
+      const body = String(requestMessage.body || '').trim();
+      if (body) {
+        return body;
+      }
+    }
+    return '';
+  }
+
+  function messageDisplayBody(message, detail) {
+    const body = String((message && message.body) || '').trim();
+    if (body) {
+      return body;
+    }
+    if (message && message.mailType === 'request') {
+      return resolveRequestDescription(detail);
+    }
+    return '';
+  }
+
+  function renderRequestDescriptionBlock(detail) {
+    const text = resolveRequestDescription(detail);
+    if (!text) {
+      return '';
+    }
+    return '<section class="mail-request-description">' +
+      '<h3 class="mail-request-ref-title">Request description</h3>' +
+      formatMessageBody(text) +
+    '</section>';
   }
 
   function clearLocalAttachments() {
@@ -459,10 +716,18 @@
   }
 
   function updateCounts(meta) {
-    inboxCount.textContent = String((meta.folders && meta.folders.inbox) || 0);
-    unreadCount.textContent = String((meta.folders && meta.folders.unread) || 0);
-    sentCount.textContent = String((meta.folders && meta.folders.sent) || 0);
-    draftCount.textContent = String((meta.folders && meta.folders.drafts) || 0);
+    if (isCentralReviewer()) {
+      const counts = countTicketsByTab();
+      if (inboxCount) inboxCount.textContent = String(counts.queue);
+      if (unreadCount) unreadCount.textContent = String(counts.claimed);
+      if (sentCount) sentCount.textContent = String(counts.completed);
+      if (draftCount) draftCount.textContent = '0';
+      return;
+    }
+    if (inboxCount) inboxCount.textContent = String((meta.folders && meta.folders.inbox) || 0);
+    if (unreadCount) unreadCount.textContent = String((meta.folders && meta.folders.unread) || 0);
+    if (sentCount) sentCount.textContent = String((meta.folders && meta.folders.sent) || 0);
+    if (draftCount) draftCount.textContent = String((meta.folders && meta.folders.drafts) || 0);
   }
 
   function getOperationalOrgmailMeta() {
@@ -502,33 +767,96 @@
     return isComlUser() && isCentralStation();
   }
 
-  function folderTitles() {
+  function ticketTabTitles() {
     if (isCentralReviewer()) {
-      return { inbox: 'Incoming requests', sent: 'Sent', drafts: 'Drafts' };
+      return {
+        queue: 'Ticket queue',
+        claimed: 'In progress',
+        completed: 'Completed'
+      };
     }
-    return { inbox: 'Updates', sent: 'My requests', drafts: 'Drafts' };
+    return {
+      updates: 'Updates from central',
+      sent: 'My requests',
+      drafts: 'Draft requests'
+    };
   }
 
-  function folderEmptyMessage() {
-    if (state.folder === 'sent') {
-      return isCentralStation() ? 'No sent requests yet.' : 'You have not submitted any file requests yet.';
+  function ticketTabDescriptions() {
+    if (isCentralReviewer()) {
+      return {
+        queue: 'Unclaimed requests waiting for a ComL to pick up',
+        claimed: 'Requests claimed by a ComL and still being worked on',
+        completed: 'Finished or rejected requests'
+      };
     }
-    if (state.folder === 'drafts') {
+    return {
+      updates: 'Responses and releases from central ComL',
+      sent: 'Requests you have submitted to MCFS',
+      drafts: 'Saved drafts not yet sent'
+    };
+  }
+
+  function ticketEmptyMessage() {
+    if (isCentralReviewer()) {
+      if (state.ticketTab === 'claimed') {
+        return 'No requests are in progress right now.';
+      }
+      if (state.ticketTab === 'completed') {
+        return 'No completed requests yet.';
+      }
+      return 'The queue is empty — no unclaimed requests.';
+    }
+    if (state.ticketTab === 'sent') {
+      return 'You have not submitted any file requests yet.';
+    }
+    if (state.ticketTab === 'drafts') {
       return 'No draft requests.';
     }
-    if (isCentralReviewer()) {
-      return 'No incoming requests awaiting MCFS review.';
-    }
     return 'No updates from central yet.';
+  }
+
+  function syncTicketTabUi() {
+    const reviewer = isCentralReviewer();
+    const activeTab = reviewer ? state.ticketTab : state.ticketTab;
+    const titles = ticketTabTitles();
+    const descriptions = ticketTabDescriptions();
+
+    if (opsTicketTabsCentral) {
+      opsTicketTabsCentral.hidden = !reviewer;
+    }
+    if (opsTicketTabsRequester) {
+      opsTicketTabsRequester.hidden = reviewer;
+    }
+    if (opsDraftStatCard) {
+      opsDraftStatCard.hidden = reviewer;
+    }
+    if (opsTicketStats) {
+      opsTicketStats.classList.toggle('is-requester-stats', !reviewer);
+    }
+    if (opsMailFilters && stationFilterField) {
+      stationFilterField.hidden = !reviewer;
+    }
+
+    const tabContainer = reviewer ? opsTicketTabsCentral : opsTicketTabsRequester;
+    if (tabContainer) {
+      Array.from(tabContainer.querySelectorAll('.ops-ticket-tab')).forEach(function (button) {
+        const tab = button.getAttribute('data-ticket-tab');
+        const isActive = tab === activeTab;
+        button.classList.toggle('is-active', isActive);
+        button.setAttribute('aria-selected', isActive ? 'true' : 'false');
+      });
+    }
+
+    mailFolderTitle.textContent = titles[activeTab] || 'Requests';
+    mailActiveFilter.textContent = descriptions[activeTab] || '';
   }
 
   function applyOperationalModeUi() {
     const central = isCentralStation();
     const reviewer = isCentralReviewer();
     const heroNote = document.querySelector('.mail-hero-operational .muted-text');
-    const inboxFolderBtn = document.querySelector('.mail-folder-btn[data-folder="inbox"]');
-    const filtersCard = stationFilterSelect ? stationFilterSelect.closest('.mail-card') : null;
-    const statLabels = document.querySelectorAll('.mail-stat-card span');
+    const statLabels = document.querySelectorAll('.ops-ticket-stats .mail-stat-card span');
 
     if (heroNote) {
       heroNote.textContent = reviewer
@@ -536,34 +864,26 @@
         : 'Submit file requests to Makati Central Fire Station. Only central ComL approves and fulfills requests.';
     }
 
-    if (inboxFolderBtn) {
-      inboxFolderBtn.textContent = reviewer ? 'Inbox' : 'Updates';
-    }
-
-    if (filtersCard) {
-      filtersCard.hidden = !reviewer;
-    }
-
     if (statLabels.length >= 4) {
-      statLabels[0].textContent = reviewer ? 'Incoming' : 'Updates';
-      statLabels[1].textContent = 'Unread';
-      statLabels[2].textContent = reviewer ? 'Sent' : 'My requests';
-      statLabels[3].textContent = 'Drafts';
+      if (reviewer) {
+        statLabels[0].textContent = 'Queue';
+        statLabels[1].textContent = 'In progress';
+        statLabels[2].textContent = 'Completed';
+        statLabels[3].textContent = 'Drafts';
+      } else {
+        statLabels[0].textContent = 'Updates';
+        statLabels[1].textContent = 'Unread';
+        statLabels[2].textContent = 'My requests';
+        statLabels[3].textContent = 'Drafts';
+      }
     }
 
-    mailActiveFilter.textContent = reviewer
-      ? 'Showing requests awaiting MCFS review'
-      : 'Showing your submitted file requests';
-
-    if (!central && !state._operationalModeInitialized && state.folder === 'inbox') {
+    if (!central && !state._operationalModeInitialized && state.ticketTab === 'queue') {
+      state.ticketTab = 'sent';
       state.folder = 'sent';
-      document.querySelectorAll('.mail-folder-btn').forEach(function (button) {
-        button.classList.toggle('active', button.getAttribute('data-folder') === 'sent');
-      });
     }
     state._operationalModeInitialized = true;
-
-    mailFolderTitle.textContent = folderTitles()[state.folder] || 'Requests';
+    syncTicketTabUi();
   }
 
   function getDefaultSourceStationId() {
@@ -672,20 +992,19 @@
 
   function visibleItems() {
     const reviewer = isCentralReviewer();
-    const useTracking = reviewer && state.folder === 'inbox';
-    const sourceItems = useTracking ? state.requestTracking : state.items;
-    return (Array.isArray(sourceItems) ? sourceItems : []).filter(function (item) {
-      if (reviewer || isCentralStation()) {
-        return true;
+    const items = allTicketItems();
+
+    return items.filter(function (item) {
+      if (reviewer && ticketTabCategory(item) !== state.ticketTab) {
+        return false;
       }
-      return item.mailType === 'request' && item.requestFiles;
-    }).filter(function (item) {
+
       const matchesStation = state.stationFilter === '' || String(item.senderStationId || item.originStationId || item.targetStationId || '') === state.stationFilter;
       const matchesSearch = state.search === '' || String(item.subject || '').toLowerCase().includes(state.search.toLowerCase()) || String(item.snippet || item.body || '').toLowerCase().includes(state.search.toLowerCase()) || String(item.senderUsername || item.requestUsername || '').toLowerCase().includes(state.search.toLowerCase());
       return matchesStation && matchesSearch;
     }).sort(function (a, b) {
       if (state.sort === 'oldest') {
-        return new Date(a.sentAt || a.createdAt).getTime() - new Date(b.sentAt || b.createdAt).getTime();
+        return new Date(a.sentAt || a.createdAt || a.updatedAt).getTime() - new Date(b.sentAt || b.createdAt || b.updatedAt).getTime();
       }
       if (state.sort === 'unread') {
         const unreadA = a.readAt ? 1 : 0;
@@ -694,30 +1013,37 @@
           return unreadA - unreadB;
         }
       }
-      return new Date(b.sentAt || b.createdAt).getTime() - new Date(a.sentAt || a.createdAt).getTime();
+      return new Date(b.sentAt || b.createdAt || b.updatedAt).getTime() - new Date(a.sentAt || a.createdAt || a.updatedAt).getTime();
     });
   }
 
   function renderList() {
     const items = visibleItems();
+    updateCounts(state.bootstrap || {});
     if (items.length === 0) {
-      mailList.innerHTML = '<div class="mail-empty-list">' + escapeHtml(folderEmptyMessage()) + '</div>';
+      mailList.innerHTML = '<div class="mail-empty-list">' + escapeHtml(ticketEmptyMessage()) + '</div>';
       return;
     }
 
     mailList.innerHTML = items.map(function (item) {
       const unreadClass = item.readAt ? '' : ' unread';
       const selectedClass = state.activeThread && state.activeThread.threadId === item.threadId ? ' is-active' : '';
-      const status = item.requestRoute ? formatRequestStatus(item.requestRoute.status) : formatRequestStatus(item.status || 'Open');
-      const senderLabel = item.senderStationName || item.originStationName || '';
-      const senderUserLabel = item.senderUsername || item.requestUsername || '';
-      const stationPath = item.originStationName && item.targetStationName ? escapeHtml(item.originStationName + ' → ' + item.targetStationName) : '';
-      const infoLabel = stationPath || senderLabel || senderUserLabel ? stationPath || escapeHtml(senderLabel + (senderLabel && senderUserLabel ? ' / ' : '') + senderUserLabel) : 'Operational request';
+      const presentation = getTicketStatusPresentation(item);
+      const detailStatus = formatRequestStatus(ticketStatusValue(item));
+      const stationPath = item.originStationName && item.targetStationName
+        ? escapeHtml(item.originStationName + ' → ' + item.targetStationName)
+        : '';
+      const infoLabel = stationPath || escapeHtml(item.originStationName || item.senderStationName || 'Operational request');
       const snippet = item.snippet || item.body || '';
-      return '<article class="mail-list-item' + unreadClass + selectedClass + '" data-thread-id="' + escapeHtml(String(item.threadId)) + '">' +
+      const handlerLine = presentation.handlerLabel
+        ? '<p class="ops-ticket-handler"><i class="bi bi-person-badge" aria-hidden="true"></i> Claimed by <strong>' + escapeHtml(presentation.handlerLabel) + '</strong></p>'
+        : (presentation.tone === 'queue' ? '<p class="ops-ticket-handler is-unclaimed"><i class="bi bi-inbox" aria-hidden="true"></i> Unclaimed</p>' : '');
+      return '<article class="mail-list-item ops-ticket-item ops-ticket-item--' + escapeHtml(presentation.tone) + unreadClass + selectedClass + '" data-thread-id="' + escapeHtml(String(item.threadId)) + '">' +
         '<div class="mail-list-title"><strong>' + escapeHtml(item.subject || '(No subject)') + '</strong><span>' + escapeHtml(formatDate(item.sentAt || item.createdAt || item.updatedAt)) + '</span></div>' +
-        '<div class="mail-list-meta"><span>' + infoLabel + '</span>' +
-        '<span class="mail-badge mail-badge--status">' + escapeHtml(status) + '</span></div>' +
+        '<div class="mail-list-meta ops-ticket-meta"><span>' + infoLabel + '</span>' +
+        '<span class="ops-ticket-status ops-ticket-status--' + escapeHtml(presentation.tone) + '">' + escapeHtml(presentation.label) + '</span>' +
+        '<span class="ops-ticket-status-detail">' + escapeHtml(detailStatus) + '</span></div>' +
+        handlerLine +
         '<p class="mail-list-snippet">' + escapeHtml(snippet) + '</p>' +
       '</article>';
     }).join('');
@@ -882,7 +1208,7 @@
     const confBlock = confParts.length
       ? '<div class="mail-thread-summary-badges">' + confParts.join(' ') + '</div>'
       : '';
-    const html = metaBlock + confBlock + refBlock;
+    const html = renderRouteHandlerBanner(detail) + metaBlock + confBlock + renderRequestDescriptionBlock(detail) + refBlock;
     if (threadRequestSummary) {
       threadRequestSummary.innerHTML = html;
       threadRequestSummary.hidden = html === '';
@@ -894,7 +1220,6 @@
     if (messages.length === 0) {
       threadContent.innerHTML = '';
       threadContent.hidden = true;
-      threadEmpty.hidden = false;
       return;
     }
 
@@ -912,26 +1237,32 @@
       return '<article class="mail-thread-message">' +
         '<div class="mail-thread-message-head"><strong>' + escapeHtml(message.senderStationName || '') + '</strong><span>' + escapeHtml(formatDate(message.sentAt || message.createdAt)) + '</span></div>' +
         '<div class="mail-thread-message-meta"><span>' + escapeHtml(message.senderUsername || '') + '</span>' + requestTags.join(' ') + '</div>' +
-        formatMessageBody(message.body) +
+        formatMessageBody(messageDisplayBody(message, detail)) +
         (attachments ? '<div class="mail-attachments">' + attachments + '</div>' : '') +
       '</article>';
     }).join('');
     threadContent.hidden = false;
-    threadEmpty.hidden = true;
   }
 
   function renderRequestMetaBlock(rr) {
     if (!rr || !rr.routeId) {
       return '';
     }
-    const status = formatRequestStatus(rr.status);
     const cards = [
-      '<div class="mail-request-meta-card"><span>Status</span><strong>' + escapeHtml(status) + '</strong></div>',
+      '<div class="mail-request-meta-card"><span>Status</span>' + renderRequestStatusValue(rr.status) + '</div>',
       '<div class="mail-request-meta-card"><span>From station</span><strong>' + escapeHtml(rr.originStationName || '—') + '</strong></div>',
       '<div class="mail-request-meta-card"><span>Requested by</span><strong>' + escapeHtml(rr.requestUsername || '—') + '</strong></div>'
     ];
     if (rr.assignedUsername && !isCentralReviewer()) {
       cards.push('<div class="mail-request-meta-card"><span>Assigned to</span><strong>' + escapeHtml(rr.assignedUsername) + '</strong></div>');
+    }
+    if (rr.handlingComlUsername && isComlUser()) {
+      const handlerLabel = Number(rr.handlingComlUserId || 0) === currentUserId() ? 'You' : rr.handlingComlUsername;
+      cards.push('<div class="mail-request-meta-card"><span>ComL handler</span><strong>' + escapeHtml(handlerLabel) + '</strong></div>');
+    }
+    const rejectReason = String(rr.targetReviewNotes || rr.originReviewNotes || '').trim();
+    if (String(rr.status || '').toLowerCase() === 'rejected' && rejectReason) {
+      cards.push('<div class="mail-request-meta-card mail-request-meta-card--wide"><span>Rejection reason</span><strong>' + escapeHtml(rejectReason) + '</strong></div>');
     }
     return '<div class="mail-request-meta">' + cards.join('') + '</div>';
   }
@@ -960,8 +1291,153 @@
     return Boolean(state.bootstrap && state.bootstrap.currentUser && state.bootstrap.currentUser.isComl);
   }
 
-  function requestTimelineSteps() {
+  function currentUserId() {
+    return Number((state.bootstrap && state.bootstrap.currentUser && state.bootstrap.currentUser.userId) || 0);
+  }
+
+  function routeActiveComlStationId(requestRoute) {
+    const status = String((requestRoute && requestRoute.status) || '').toLowerCase();
+    if (status === 'pending_origin_review') {
+      return Number(requestRoute.originStationId || 0);
+    }
+    if (['approved', 'forwarded_to_target', 'routed_to_user', 'file_returned_to_coml', 'returned_to_origin'].indexOf(status) !== -1) {
+      return Number(requestRoute.targetStationId || 0);
+    }
+    return 0;
+  }
+
+  function routeHandlerContext(requestRoute) {
+    const rr = requestRoute || {};
+    const me = currentUserId();
+    const myStationId = Number((state.bootstrap && state.bootstrap.currentUser && state.bootstrap.currentUser.stationId) || 0);
+    const activeStationId = routeActiveComlStationId(rr);
+    const handlerId = Number(rr.handlingComlUserId || 0);
+    const handlerName = String(rr.handlingComlUsername || '');
+    const onMyQueue = activeStationId > 0 && activeStationId === myStationId;
+    return {
+      handlerId: handlerId,
+      handlerName: handlerName,
+      onMyQueue: onMyQueue,
+      isMine: onMyQueue && handlerId > 0 && handlerId === me,
+      isTaken: onMyQueue && handlerId > 0 && handlerId !== me,
+      isAvailable: onMyQueue && handlerId < 1
+    };
+  }
+
+  function comlBlockedByOtherHandler(detail) {
+    if (!isComlUser()) {
+      return false;
+    }
+    return routeHandlerContext((detail && detail.requestRoute) || {}).isTaken;
+  }
+
+  function renderRouteHandlerBanner(detail) {
+    const rr = (detail && detail.requestRoute) || {};
+    if (!rr.routeId || !isComlUser()) {
+      return '';
+    }
+    const ctx = routeHandlerContext(rr);
+    if (ctx.isMine) {
+      return '<div class="mail-route-handler-banner is-mine"><i class="bi bi-person-check-fill" aria-hidden="true"></i><span>You are handling this request</span></div>';
+    }
+    if (ctx.isTaken) {
+      return '<div class="mail-route-handler-banner is-taken"><i class="bi bi-person-lock-fill" aria-hidden="true"></i><span>Being handled by <strong>' + escapeHtml(ctx.handlerName || 'another ComL') + '</strong></span></div>';
+    }
+    if (ctx.isAvailable) {
+      return '<div class="mail-route-handler-banner is-available"><i class="bi bi-inbox" aria-hidden="true"></i><span>Unclaimed — you can read this request now. Claim it when you are ready to work on it.</span></div>';
+    }
+    return '';
+  }
+
+  function canClaimRequest(detail) {
+    if (!isComlUser()) {
+      return false;
+    }
+    return routeHandlerContext((detail && detail.requestRoute) || {}).isAvailable;
+  }
+
+  function canActOnClaimedRequest(detail) {
+    if (!isComlUser()) {
+      return true;
+    }
+    const ctx = routeHandlerContext((detail && detail.requestRoute) || {});
+    if (!ctx.onMyQueue) {
+      return true;
+    }
+    return ctx.isMine;
+  }
+
+  async function claimThreadRoute(detail) {
+    if (!isComlUser() || !detail || !detail.requestRoute || !detail.requestRoute.routeId) {
+      return detail;
+    }
+    const formData = new FormData();
+    formData.append('action', 'request-claim');
+    formData.append('routeId', String(detail.requestRoute.routeId));
+    const response = await fetch(apiUrl, { method: 'POST', body: formData, credentials: 'same-origin' });
+    const payload = await response.json();
+    if (!response.ok || !payload || payload.ok !== true) {
+      throw new Error((payload && payload.message) || 'Unable to claim this request.');
+    }
+    if (payload.data && payload.data.requestRoute) {
+      detail.requestRoute = payload.data.requestRoute;
+    }
+    return detail;
+  }
+
+  async function claimRequestTicket(detail) {
+    const threadId = detail && detail.thread && detail.thread.threadId;
+    let updated = await claimThreadRoute(detail);
+    if (Number((updated.requestRoute && updated.requestRoute.handlingComlUserId) || 0) !== currentUserId()) {
+      throw new Error('Unable to claim this request.');
+    }
+    if (isCentralReviewer()) {
+      await fetchBootstrap();
+    }
+    state.threadDetail = updated;
+    renderThread(updated);
+    renderList();
+    return updated;
+  }
+
+  async function takeoverThreadRoute(detail) {
+    if (!detail || !detail.requestRoute || !detail.requestRoute.routeId) {
+      throw new Error('Unable to locate this request.');
+    }
+    const confirmed = window.confirm('Take over this request from the other ComL? They will no longer be able to act on it until you finish.');
+    if (!confirmed) {
+      return detail;
+    }
+    await submitRouteAction('request-takeover', {
+      routeId: Number(detail.requestRoute.routeId || 0)
+    });
+    return openThread(detail.thread.threadId).then(function () {
+      return state.threadDetail;
+    });
+  }
+
+  function requestTimelineSteps(status) {
+    const rejected = isRejectedRequestStatus(status);
     if (!isCentralReviewer()) {
+      if (rejected) {
+        return [
+          {
+            title: 'Submitted',
+            note: 'Your request was sent to Makati Central Fire Station.',
+            feature: 'Request submitted to central ComL.'
+          },
+          {
+            title: 'Central review',
+            note: 'MCFS ComL reviewed your reference details.',
+            feature: 'Central ComL evaluated the request.'
+          },
+          {
+            title: 'Rejected',
+            note: 'This request was declined by MCFS ComL.',
+            feature: 'Request rejected.'
+          }
+        ];
+      }
       return [
         {
           title: 'Submitted',
@@ -977,6 +1453,26 @@
           title: 'Delivered',
           note: 'The requested file has been released back to you.',
           feature: 'Central ComL completes the request and sends the file.'
+        }
+      ];
+    }
+
+    if (rejected) {
+      return [
+        {
+          title: 'Received',
+          note: 'A station submitted a file request to MCFS.',
+          feature: 'Request received at central ComL.'
+        },
+        {
+          title: 'Under review',
+          note: 'The request was reviewed by MCFS ComL.',
+          feature: 'MCFS ComL evaluated the request.'
+        },
+        {
+          title: 'Rejected',
+          note: 'This request was declined and returned to the requester.',
+          feature: 'Request rejected.'
         }
       ];
     }
@@ -1005,24 +1501,28 @@
     ];
   }
 
-  function requestTimelineActiveIndex(status) {
+  function requestTimelineActiveIndex(status, steps) {
+    const value = String(status || '').toLowerCase();
+    const lastIndex = Math.max(0, (steps || []).length - 1);
+    if (value === 'rejected') {
+      return lastIndex;
+    }
+
     if (!isCentralReviewer()) {
-      switch (String(status || '').toLowerCase()) {
+      switch (value) {
         case 'forwarded_to_target':
         case 'routed_to_user':
         case 'file_returned_to_coml':
         case 'returned_to_origin':
           return 1;
         case 'completed':
-          return 2;
-        case 'rejected':
-          return 1;
+          return lastIndex;
         default:
           return 0;
       }
     }
 
-    switch (String(status || '').toLowerCase()) {
+    switch (value) {
       case 'pending_origin_review':
       case 'forwarded_to_target':
         return 1;
@@ -1030,11 +1530,9 @@
       case 'routed_to_user':
       case 'file_returned_to_coml':
       case 'returned_to_origin':
-        return 2;
+        return Math.min(2, lastIndex);
       case 'completed':
-        return 3;
-      case 'rejected':
-        return 1;
+        return lastIndex;
       default:
         return 0;
     }
@@ -1047,17 +1545,21 @@
       return;
     }
 
-    const steps = requestTimelineSteps();
-    const activeIndex = requestTimelineActiveIndex(route.status);
-    if (state.timelineSelectedIndex === undefined || state.timelineSelectedIndex < 0 || state.timelineSelectedIndex >= steps.length) {
-      state.timelineSelectedIndex = activeIndex;
-    }
+    const steps = requestTimelineSteps(route.status);
+    const activeIndex = requestTimelineActiveIndex(route.status, steps);
+    const rejected = isRejectedRequestStatus(route.status);
+    state.timelineSelectedIndex = activeIndex;
 
     timelineRequestTitle.textContent = detail.thread.subject || 'Operational request timeline';
     timelineStepsContainer.innerHTML = steps.map(function (step, index) {
-      const completed = index <= activeIndex;
+      const isRejectedStep = rejected && index === steps.length - 1;
+      const completed = isRejectedStep ? false : (rejected ? index < activeIndex : index <= activeIndex);
       const active = index === state.timelineSelectedIndex;
-      return '<button type="button" class="timeline-step' + (completed ? ' completed' : '') + (active ? ' active' : '') + '" data-step-index="' + index + '">' +
+      return '<button type="button" class="timeline-step' +
+        (completed ? ' completed' : '') +
+        (isRejectedStep ? ' rejected' : '') +
+        (active ? ' active' : '') +
+        '" data-step-index="' + index + '">' +
         '<span class="timeline-marker">' + (index + 1) + '</span>' +
         '<span class="timeline-step-title">' + escapeHtml(step.title) + '</span>' +
       '</button>';
@@ -1066,6 +1568,12 @@
     const selectedStep = steps[state.timelineSelectedIndex];
     if (selectedStep) {
       let selectedNote = selectedStep.note || 'Select a step to view progress details.';
+      if (rejected && state.timelineSelectedIndex === steps.length - 1) {
+        const reason = String(route.targetReviewNotes || route.originReviewNotes || '').trim();
+        if (reason) {
+          selectedNote = 'Reason: ' + reason;
+        }
+      }
       if (selectedStep.title === 'User attachment' && detail.requestRoute && detail.requestRoute.assignedUsername) {
         selectedNote = 'Assigned user: ' + detail.requestRoute.assignedUsername + '. ' + selectedNote;
       }
@@ -1086,16 +1594,66 @@
     });
   }
 
+  function canReleaseClaimedRequest(detail) {
+    if (!isComlUser()) {
+      return false;
+    }
+    const rr = (detail && detail.requestRoute) || {};
+    if (isTicketTerminalStatus(rr.status)) {
+      return false;
+    }
+    return routeHandlerContext(rr).isMine;
+  }
+
+  function renderReleaseToQueueButton() {
+    return '<button type="button" class="secondary-btn ops-release-btn" id="releaseRequestBtn" title="Return to unclaimed queue">' +
+      '<i class="bi bi-arrow-return-left" aria-hidden="true"></i><span>Release to queue</span>' +
+    '</button>';
+  }
+
+  async function releaseRequestTicket(detail) {
+    if (!detail || !detail.requestRoute || !detail.requestRoute.routeId) {
+      throw new Error('Unable to locate this request.');
+    }
+    const confirmed = window.confirm('Release this request back to the queue? Another ComL will be able to claim it.');
+    if (!confirmed) {
+      return;
+    }
+    await submitRouteAction('request-release', {
+      routeId: Number(detail.requestRoute.routeId || 0)
+    });
+    closeThreadModal();
+    await fetchBootstrap();
+    await fetchList();
+    setMessage('Request released back to the queue.', false);
+  }
+
   function renderThreadActions(detail) {
     const requestRoute = detail.requestRoute || {};
     const currentUser = (state.bootstrap && state.bootstrap.currentUser) || {};
     const routeStatus = String(requestRoute.status || '');
     const atTargetStation = Number(requestRoute.targetStationId || 0) === Number(currentUser.stationId || 0);
 
+    if (canClaimRequest(detail)) {
+      return '<div class="mail-thread-action-row mail-thread-action-row--primary">' +
+        '<button type="button" class="primary-btn" id="claimRequestBtn"><i class="bi bi-hand-index-thumb" aria-hidden="true"></i><span>Claim request</span></button>' +
+        '<p class="form-note ops-claim-hint">You are viewing only. Claim this ticket when you want to handle it.</p>' +
+      '</div>';
+    }
+
+    if (comlBlockedByOtherHandler(detail)) {
+      return '';
+    }
+
+    if (!canActOnClaimedRequest(detail)) {
+      return '';
+    }
+
     if (isCentralReviewer() && requestRoute.routeId && atTargetStation) {
       let html = '';
       const canFulfillCentral = ['forwarded_to_target', 'routed_to_user', 'file_returned_to_coml', 'returned_to_origin'].includes(routeStatus);
       const canReviewTarget = routeStatus === 'forwarded_to_target';
+      const releaseBtn = canReleaseClaimedRequest(detail) ? renderReleaseToQueueButton() : '';
 
       if (canReviewTarget && requestRoute.isConfidential && !requestRoute.targetConfidentialConfirmed) {
         html += '<div class="mail-thread-action-row"><button type="button" class="primary-btn" id="targetConfirmConfidentialBtn">Confirm confidentiality</button></div>';
@@ -1103,9 +1661,12 @@
 
       if (canReviewTarget) {
         html += '<div class="mail-thread-action-row mail-thread-action-row--secondary">' +
+          releaseBtn +
           '<button type="button" class="secondary-btn" id="targetRejectRequestBtn">Reject</button>' +
           '<button type="button" class="secondary-btn" id="threadReplyBtn">Reply</button>' +
         '</div>';
+      } else if (releaseBtn) {
+        html += '<div class="mail-thread-action-row mail-thread-action-row--secondary">' + releaseBtn + '</div>';
       }
 
       if (canFulfillCentral) {
@@ -1115,6 +1676,10 @@
       }
 
       return html;
+    }
+
+    if (canReleaseClaimedRequest(detail)) {
+      return '<div class="mail-thread-action-row mail-thread-action-row--secondary">' + renderReleaseToQueueButton() + '</div>';
     }
 
     const canAssignedReply = canAssignedRequestUserReply(detail);
@@ -1131,6 +1696,24 @@
     const targetConfirmConfidentialBtn = document.getElementById('targetConfirmConfidentialBtn');
     const centralFulfillBtn = document.getElementById('centralFulfillBtn');
     const replyAssignedBtn = document.getElementById('replyAssignedBtn');
+    const claimRequestBtn = document.getElementById('claimRequestBtn');
+    const releaseRequestBtn = document.getElementById('releaseRequestBtn');
+
+    if (releaseRequestBtn) {
+      releaseRequestBtn.addEventListener('click', function () {
+        releaseRequestTicket(detail).catch(function (error) {
+          setMessage(error.message, true);
+        });
+      });
+    }
+
+    if (claimRequestBtn) {
+      claimRequestBtn.addEventListener('click', function () {
+        claimRequestTicket(detail).catch(function (error) {
+          setMessage(error.message, true);
+        });
+      });
+    }
 
     if (targetRejectRequestBtn) {
       targetRejectRequestBtn.addEventListener('click', function () {
@@ -1309,21 +1892,7 @@
   }
 
   async function rejectRequest(detail) {
-    const reason = window.prompt('Enter rejection reason:');
-    if (reason === null) {
-      return;
-    }
-
-    try {
-      setMessage('Rejecting request...', false);
-      await submitRouteAction('request-reject', { routeId: Number(detail.requestRoute.routeId || 0), reason: reason.trim() });
-      await openThread(detail.thread.threadId);
-      await fetchBootstrap();
-      await fetchList();
-      setMessage('Request rejected.', false);
-    } catch (error) {
-      setMessage(error.message, true);
-    }
+    openRejectModal(detail, 'request-reject');
   }
 
   function assignRequestToTargetUser(detail) {
@@ -1391,25 +1960,7 @@
   }
 
   function rejectTargetRequest(detail) {
-    const reason = window.prompt('Enter rejection reason for target station:');
-    if (reason === null) {
-      return;
-    }
-
-    submitRouteAction('request-target-reject', {
-      routeId: Number(detail.requestRoute.routeId || 0),
-      reason: reason.trim()
-    }).then(function () {
-      return openThread(detail.thread.threadId);
-    }).then(function () {
-      return fetchBootstrap();
-    }).then(function () {
-      return fetchList();
-    }).then(function () {
-      setMessage('Target ComL rejection recorded.', false);
-    }).catch(function (error) {
-      setMessage(error.message, true);
-    });
+    openRejectModal(detail, 'request-target-reject');
   }
 
   function markFileReturned(detail) {
@@ -1476,14 +2027,32 @@
   }
 
   async function fetchList() {
-    const query = new URLSearchParams({ action: 'list', folder: state.folder, search: state.search || '' });
-    const response = await fetch(apiUrl + '?' + query.toString(), { credentials: 'same-origin' });
-    const payload = await response.json();
-    if (!response.ok || !payload || payload.ok !== true) {
-      throw new Error((payload && payload.message) || 'Unable to load requests.');
+    if (isCentralReviewer()) {
+      await fetchBootstrap();
+    } else {
+      const folderMap = { updates: 'inbox', sent: 'sent', drafts: 'drafts' };
+      state.folder = folderMap[state.ticketTab] || state.folder || 'inbox';
+      const query = new URLSearchParams({ action: 'list', folder: state.folder, search: state.search || '' });
+      const response = await fetch(apiUrl + '?' + query.toString(), { credentials: 'same-origin' });
+      const payload = await response.json();
+      if (!response.ok || !payload || payload.ok !== true) {
+        throw new Error((payload && payload.message) || 'Unable to load requests.');
+      }
+      state.items = Array.isArray(payload.items) ? payload.items : [];
     }
-    state.items = Array.isArray(payload.items) ? payload.items : [];
     renderList();
+  }
+
+  function switchTicketTab(tab) {
+    state.ticketTab = tab;
+    if (!isCentralReviewer()) {
+      const folderMap = { updates: 'inbox', sent: 'sent', drafts: 'drafts' };
+      state.folder = folderMap[tab] || 'inbox';
+    }
+    state.activeThread = null;
+    closeThreadModal();
+    syncTicketTabUi();
+    fetchList().catch(function (error) { setMessage(error.message, true); });
   }
 
   async function openThread(threadId) {
@@ -1492,8 +2061,9 @@
     if (!response.ok || !payload || payload.ok !== true || !payload.data) {
       throw new Error((payload && payload.message) || 'Unable to open thread.');
     }
-    state.activeThread = payload.data.thread || null;
-    renderThread(payload.data);
+    let detail = payload.data;
+    state.activeThread = detail.thread || null;
+    renderThread(detail);
     renderList();
   }
 
@@ -2151,29 +2721,35 @@
     fetchList().catch(function (error) { setMessage(error.message, true); });
   });
 
-  // Folder navigation
-  document.querySelectorAll('.mail-folder-btn').forEach(function(btn) {
-    btn.addEventListener('click', function() {
-      const folder = btn.getAttribute('data-folder');
-      state.folder = folder;
-      state.activeThread = null;
-      closeThreadModal();
-
-      // Update active button
-      document.querySelectorAll('.mail-folder-btn').forEach(function(b) {
-        b.classList.remove('active');
+  function bindTicketTabs(container) {
+    if (!container) {
+      return;
+    }
+    Array.from(container.querySelectorAll('.ops-ticket-tab')).forEach(function (button) {
+      button.addEventListener('click', function () {
+        switchTicketTab(button.getAttribute('data-ticket-tab') || 'queue');
       });
-      btn.classList.add('active');
-
-      // Update title
-      const titles = folderTitles();
-      mailFolderTitle.textContent = titles[folder] || 'Requests';
-      applyOperationalModeUi();
-
-      // Fetch and render
-      fetchList().catch(function (error) { setMessage(error.message, true); });
     });
-  });
+  }
+
+  bindTicketTabs(opsTicketTabsCentral);
+  bindTicketTabs(opsTicketTabsRequester);
+
+  if (opsTicketStats) {
+    opsTicketStats.addEventListener('click', function (event) {
+      const card = event.target.closest('.mail-stat-card');
+      if (!card || !isCentralReviewer()) {
+        return;
+      }
+      if (card.classList.contains('ops-stat-card--queue')) {
+        switchTicketTab('queue');
+      } else if (card.classList.contains('ops-stat-card--claimed')) {
+        switchTicketTab('claimed');
+      } else if (card.classList.contains('ops-stat-card--completed')) {
+        switchTicketTab('completed');
+      }
+    });
+  }
 
   if (closeThreadBtn) {
     closeThreadBtn.addEventListener('click', closeThreadModal);
@@ -2210,6 +2786,23 @@
     threadModal.addEventListener('click', function (event) {
       if (event.target && event.target.closest('[data-close-thread="true"]')) {
         closeThreadModal();
+      }
+    });
+  }
+
+  if (rejectRequestForm) {
+    rejectRequestForm.addEventListener('submit', submitRejectModal);
+  }
+  if (closeRejectModalBtn) {
+    closeRejectModalBtn.addEventListener('click', closeRejectModal);
+  }
+  if (cancelRejectBtn) {
+    cancelRejectBtn.addEventListener('click', closeRejectModal);
+  }
+  if (rejectRequestModal) {
+    rejectRequestModal.addEventListener('click', function (event) {
+      if (event.target && event.target.closest('[data-close-reject="true"]')) {
+        closeRejectModal();
       }
     });
   }
@@ -2438,6 +3031,10 @@
       closeFilePicker();
       return;
     }
+    if (rejectRequestModal && !rejectRequestModal.hidden) {
+      closeRejectModal();
+      return;
+    }
     if (threadModal && !threadModal.hidden) {
       closeThreadModal();
       return;
@@ -2449,6 +3046,9 @@
 
   async function init() {
     composeModal.hidden = true;
+    if (rejectRequestModal) {
+      rejectRequestModal.hidden = true;
+    }
     if (threadModal) {
       threadModal.hidden = true;
     }

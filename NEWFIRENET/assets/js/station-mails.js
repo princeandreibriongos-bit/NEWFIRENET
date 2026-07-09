@@ -84,6 +84,117 @@
     return Boolean(state.bootstrap && state.bootstrap.currentUser && state.bootstrap.currentUser.isComl);
   }
 
+  function currentUserId() {
+    return Number((state.bootstrap && state.bootstrap.currentUser && state.bootstrap.currentUser.userId) || 0);
+  }
+
+  function routeActiveComlStationId(requestRoute) {
+    const status = String((requestRoute && requestRoute.status) || '').toLowerCase();
+    if (status === 'pending_origin_review') {
+      return Number(requestRoute.originStationId || 0);
+    }
+    if (['approved', 'forwarded_to_target', 'routed_to_user', 'file_returned_to_coml', 'returned_to_origin'].indexOf(status) !== -1) {
+      return Number(requestRoute.targetStationId || 0);
+    }
+    return 0;
+  }
+
+  function routeHandlerContext(requestRoute) {
+    const rr = requestRoute || {};
+    const me = currentUserId();
+    const myStationId = Number((state.bootstrap && state.bootstrap.currentUser && state.bootstrap.currentUser.stationId) || 0);
+    const activeStationId = routeActiveComlStationId(rr);
+    const handlerId = Number(rr.handlingComlUserId || 0);
+    const onMyQueue = activeStationId > 0 && activeStationId === myStationId;
+    return {
+      handlerId: handlerId,
+      handlerName: String(rr.handlingComlUsername || ''),
+      onMyQueue: onMyQueue,
+      isMine: onMyQueue && handlerId > 0 && handlerId === me,
+      isTaken: onMyQueue && handlerId > 0 && handlerId !== me
+    };
+  }
+
+  function comlBlockedByOtherHandler(detail) {
+    return isComlUser() && routeHandlerContext((detail && detail.requestRoute) || {}).isTaken;
+  }
+
+  function renderRouteHandlerBanner(detail) {
+    const rr = (detail && detail.requestRoute) || {};
+    if (!rr.routeId || !isComlUser()) {
+      return '';
+    }
+    const ctx = routeHandlerContext(rr);
+    if (ctx.isMine) {
+      return '<div class="mail-route-handler-banner is-mine"><i class="bi bi-person-check-fill" aria-hidden="true"></i><span>You are handling this request</span></div>';
+    }
+    if (ctx.isTaken) {
+      return '<div class="mail-route-handler-banner is-taken"><i class="bi bi-person-lock-fill" aria-hidden="true"></i><span>Being handled by <strong>' + escapeHtml(ctx.handlerName || 'another ComL') + '</strong></span></div>';
+    }
+    if (ctx.onMyQueue && ctx.handlerId < 1) {
+      return '<div class="mail-route-handler-banner is-available"><i class="bi bi-inbox" aria-hidden="true"></i><span>Unclaimed — you can read this request now. Claim it when you are ready to work on it.</span></div>';
+    }
+    return '';
+  }
+
+  function canClaimRequest(detail) {
+    if (!isComlUser()) {
+      return false;
+    }
+    return routeHandlerContext((detail && detail.requestRoute) || {}).isAvailable;
+  }
+
+  function canActOnClaimedRequest(detail) {
+    if (!isComlUser()) {
+      return true;
+    }
+    const ctx = routeHandlerContext((detail && detail.requestRoute) || {});
+    if (!ctx.onMyQueue) {
+      return true;
+    }
+    return ctx.isMine;
+  }
+
+  async function claimThreadRoute(detail) {
+    if (!isComlUser() || !detail || !detail.requestRoute || !detail.requestRoute.routeId) {
+      return detail;
+    }
+    const formData = new FormData();
+    formData.append('action', 'request-claim');
+    formData.append('routeId', String(detail.requestRoute.routeId));
+    const response = await fetch(apiUrl, { method: 'POST', body: formData, credentials: 'same-origin' });
+    const payload = await response.json();
+    if (!response.ok || !payload || payload.ok !== true) {
+      throw new Error((payload && payload.message) || 'Unable to claim this request.');
+    }
+    if (payload.data && payload.data.requestRoute) {
+      detail.requestRoute = payload.data.requestRoute;
+    }
+    return detail;
+  }
+
+  async function claimRequestTicket(detail) {
+    const updated = await claimThreadRoute(detail);
+    if (Number((updated.requestRoute && updated.requestRoute.handlingComlUserId) || 0) !== currentUserId()) {
+      throw new Error('Unable to claim this request.');
+    }
+    renderThread(updated);
+    renderList();
+    setMessage('Request claimed. You can now work on it.', false);
+    return updated;
+  }
+
+  async function takeoverThreadRoute(detail) {
+    if (!detail || !detail.requestRoute || !detail.requestRoute.routeId) {
+      throw new Error('Unable to locate this request.');
+    }
+    if (!window.confirm('Take over this request from the other ComL? They will no longer be able to act on it until you finish.')) {
+      return detail;
+    }
+    await reviewRequest(detail, 'request-takeover', { routeId: Number(detail.requestRoute.routeId || 0) });
+    return detail;
+  }
+
   function canAssignedRequestUserReply(detail) {
     const requestRoute = (detail && detail.requestRoute) ? detail.requestRoute : {};
     if (!requestRoute.routeId) {
@@ -601,13 +712,17 @@
       isComlUser() &&
       requestRoute.routeId &&
       (requestRoute.status === 'forwarded_to_target' || requestRoute.status === 'completed') &&
-      Number(requestRoute.targetStationId || 0) === Number(currentUser.stationId || 0)
+      Number(requestRoute.targetStationId || 0) === Number(currentUser.stationId || 0) &&
+      !comlBlockedByOtherHandler(detail) &&
+      canActOnClaimedRequest(detail)
     );
     const canAssignOriginRequest = Boolean(
       isComlUser() &&
       requestRoute.routeId &&
       (requestRoute.status === 'forwarded_to_target' || requestRoute.status === 'completed') &&
-      Number(requestRoute.originStationId || 0) === Number(currentUser.stationId || 0)
+      Number(requestRoute.originStationId || 0) === Number(currentUser.stationId || 0) &&
+      !comlBlockedByOtherHandler(detail) &&
+      canActOnClaimedRequest(detail)
     );
     const canAssignedReply = canAssignedRequestUserReply(detail);
     const assignableUsers = Array.isArray((state.bootstrap || {}).stationUsers)
@@ -649,12 +764,13 @@
     mailDetailTitle.textContent = thread.subject || 'Conversation';
     mailDetail.hidden = false;
     mailDetailEmpty.hidden = true;
-    mailThreadSummary.innerHTML = [
+    mailThreadSummary.innerHTML = renderRouteHandlerBanner(detail) + [
       '<span class="mail-thread-summary-chip"><strong>' + escapeHtml(String(messages.length)) + '</strong> message(s)</span>',
       '<span class="mail-thread-summary-chip"><strong>' + escapeHtml(String(participants.length)) + '</strong> participant(s)</span>',
       '<span class="mail-thread-summary-chip"><strong>' + escapeHtml(String(totalAttachments)) + '</strong> attachment(s)</span>',
       requestRoute.routeId ? '<span class="mail-thread-summary-chip">Request target: <strong>' + escapeHtml(requestRoute.targetStationName || ('Station ' + String(requestRoute.targetStationId || ''))) + '</strong></span>' : '',
       requestRoute.status ? '<span class="mail-thread-summary-chip">Request status: <strong>' + escapeHtml(String(requestRoute.status).replace(/_/g, ' ')) + '</strong></span>' : '',
+      requestRoute.handlingComlUsername && isComlUser() ? '<span class="mail-thread-summary-chip">ComL handler: <strong>' + escapeHtml(Number(requestRoute.handlingComlUserId || 0) === currentUserId() ? 'You' : requestRoute.handlingComlUsername) + '</strong></span>' : '',
       '<span class="mail-thread-summary-chip">Last activity: <strong>' + escapeHtml(formatDate(lastMessage.sentAt || lastMessage.createdAt || thread.lastMessageAt || '')) + '</strong></span>'
     ].join('');
 
@@ -664,7 +780,15 @@
       return;
     }
 
-    const canReviewRequest = Boolean(canReply && requestRoute.routeId && requestRoute.status === 'pending_origin_review' && Number(requestRoute.originStationId || 0) === Number((state.bootstrap.currentUser || {}).stationId || 0));
+    const canReviewRequest = Boolean(
+      canReply &&
+      requestRoute.routeId &&
+      requestRoute.status === 'pending_origin_review' &&
+      Number(requestRoute.originStationId || 0) === Number((state.bootstrap.currentUser || {}).stationId || 0) &&
+      !comlBlockedByOtherHandler(detail) &&
+      canActOnClaimedRequest(detail)
+    );
+    const showClaimRequest = canClaimRequest(detail);
 
     mailDetail.innerHTML = messages.map(function (message) {
       const isOperationalFileRequest = message.mailType === 'request' && Boolean(message.requestFiles);
@@ -694,7 +818,9 @@
           (attachments ? '<div class="mail-attachments">' + attachments + '</div>' : '') +
         '</article>'
       );
-    }).join('') + (canReviewRequest
+    }).join('') + (showClaimRequest
+      ? '<div class="mail-form-actions"><button type="button" class="primary-btn" id="claimRequestBtn"><i class="bi bi-hand-index-thumb" aria-hidden="true"></i> Claim request</button><p class="form-note">Review the request first, then claim it when you are ready to handle it.</p></div>'
+      : (canReviewRequest
       ? '<div class="mail-form-actions"><button type="button" class="secondary-btn" id="editRequestBtn">Edit</button><button type="button" class="primary-btn" id="approveRequestBtn">Approve</button><button type="button" class="secondary-btn" id="rejectRequestBtn">Reject</button></div>'
         : (canReply
           ? (assignmentControlHtml + originAssignmentControlHtml + '<div class="mail-form-actions"><button type="button" class="secondary-btn" id="replyThreadBtn">' + (canAssignedReply ? 'Open Conversation / Attach File' : 'Reply') + '</button>' + (isComlUser() && !requestRoute.routeId ? '<button type="button" class="secondary-btn" id="forwardThreadBtn">Forward</button>' : '') + '</div>')
@@ -740,6 +866,14 @@
     if (forwardThreadBtn) {
       forwardThreadBtn.addEventListener('click', function () {
         prepareForward(detail);
+      });
+    }
+    const claimRequestBtn = document.getElementById('claimRequestBtn');
+    if (claimRequestBtn) {
+      claimRequestBtn.addEventListener('click', function () {
+        claimRequestTicket(detail).catch(function (error) {
+          setMessage(error.message, true);
+        });
       });
     }
 
@@ -801,11 +935,13 @@
       throw new Error((payload && payload.message) || 'Unable to load mail thread.');
     }
 
+    let detail = payload.data;
+
     state.activeItem = state.items.find(function (item) {
       return String(item.threadId) === String(threadId);
     }) || null;
     renderList();
-    renderThread(payload.data);
+    renderThread(detail);
 
     updateThreadActionLabels();
   }

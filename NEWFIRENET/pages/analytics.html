@@ -1,151 +1,335 @@
-<section class="analytics-shell">
-  <section class="analytics-hero portal-card">
-    <div>
-      <p class="analytics-kicker">Operations Intelligence</p>
-      <h2>Station Analytics</h2>
-      <p class="muted-text" id="analyticsWelcome"></p>
+<div class="ana-pro">
+  <div class="ana-page-bg" aria-hidden="true"></div>
+
+  <div class="ana-body">
+    <header class="ana-hero" aria-label="Analytics overview">
+      <div class="ana-hero-top">
+        <div class="ana-hero-copy">
+          <p class="ana-kicker">FireNet · Operations intelligence</p>
+          <h1 class="ana-title">Station Analytics</h1>
+          <p class="ana-subtitle" id="analyticsWelcome">Loading session context…</p>
+          <p class="ana-role-summary" id="analyticsRoleSummary" hidden></p>
+          <ul class="ana-meta-chips" aria-label="Session context">
+            <li class="ana-meta-chip">
+              <span class="ana-meta-chip-label">Role</span>
+              <span class="ana-meta-chip-value" id="analyticsRoleTitle">—</span>
+            </li>
+            <li class="ana-meta-chip">
+              <span class="ana-meta-chip-label">Station</span>
+              <span class="ana-meta-chip-value" id="analyticsStationId">—</span>
+            </li>
+            <li class="ana-meta-chip ana-meta-chip--scope">
+              <span class="ana-meta-chip-value" id="analyticsFilterSummary">Current incidents</span>
+            </li>
+          </ul>
+        </div>
+        <div class="ana-hero-actions">
+          <a class="ana-action ana-action--ghost" href="/firenet/NEWFIRENET/backend/pages/reports.php">All reports</a>
+          <a class="ana-action ana-action--ghost" href="/firenet/NEWFIRENET/backend/pages/dashboard.php">Dashboard</a>
+        </div>
+      </div>
+
+      <div class="ana-stat-strip" aria-label="Incident metrics">
+        <article class="ana-stat-tile ana-stat-tile--active">
+          <span class="ana-stat-icon" aria-hidden="true"><i class="bi bi-exclamation-triangle"></i></span>
+          <span class="ana-stat-label">Active</span>
+          <strong class="ana-stat-value" id="analyticsActiveCount">0</strong>
+        </article>
+        <article class="ana-stat-tile ana-stat-tile--completed">
+          <span class="ana-stat-icon" aria-hidden="true"><i class="bi bi-check-circle"></i></span>
+          <span class="ana-stat-label">Completed</span>
+          <strong class="ana-stat-value" id="analyticsCompletedCount">0</strong>
+        </article>
+        <article class="ana-stat-tile ana-stat-tile--total">
+          <span class="ana-stat-icon" aria-hidden="true"><i class="bi bi-bar-chart"></i></span>
+          <span class="ana-stat-label">Total (scope)</span>
+          <strong class="ana-stat-value" id="analyticsTotalCount">0</strong>
+        </article>
+        <article class="ana-stat-tile ana-stat-tile--map">
+          <span class="ana-stat-icon" aria-hidden="true"><i class="bi bi-geo-alt"></i></span>
+          <span class="ana-stat-label">Heat points</span>
+          <strong class="ana-stat-value" id="analyticsIncidentHeatPointCount">0</strong>
+        </article>
+      </div>
+
+      <div class="ana-live-bar" aria-label="Latest incident focus">
+        <div class="ana-live-indicator">
+          <span class="ana-activity-dot" aria-hidden="true"></span>
+          <div class="ana-live-text">
+            <p class="ana-live-title" id="analyticsLatestLabel">No active incidents.</p>
+            <p class="ana-live-meta" id="analyticsLatestMeta">Analytics will update when new incidents are recorded.</p>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <section class="ana-toolbar" aria-label="Map filters and layers">
+      <form class="ana-filter-form" method="get" action="/firenet/NEWFIRENET/backend/pages/analytics.php">
+        <div class="ana-toolbar-row ana-toolbar-row--primary">
+          <div class="ana-filter-toggle" role="radiogroup" aria-label="Incident scope">
+            <label class="ana-toggle-pill">
+              <input type="radio" name="incident_scope" value="current" id="analyticsScopeCurrent">
+              <span><i class="bi bi-broadcast" aria-hidden="true"></i> Current</span>
+            </label>
+            <label class="ana-toggle-pill">
+              <input type="radio" name="incident_scope" value="history" id="analyticsScopeHistory">
+              <span><i class="bi bi-clock-history" aria-hidden="true"></i> History</span>
+            </label>
+          </div>
+
+          <div class="ana-date-range" id="analyticsDateRange" hidden>
+            <label class="ana-filter-field">
+              <span class="visually-hidden">From</span>
+              <input type="datetime-local" name="incident_from" id="analyticsIncidentFrom" aria-label="From date and time">
+            </label>
+            <span class="ana-date-sep" aria-hidden="true">→</span>
+            <label class="ana-filter-field">
+              <span class="visually-hidden">To</span>
+              <input type="datetime-local" name="incident_to" id="analyticsIncidentTo" aria-label="To date and time">
+            </label>
+          </div>
+
+          <div class="ana-filter-actions">
+            <button type="submit" class="ana-filter-submit">Apply view</button>
+            <a class="ana-filter-reset" href="/firenet/NEWFIRENET/backend/pages/analytics.php">Reset</a>
+          </div>
+        </div>
+
+        <div class="ana-toolbar-row ana-toolbar-row--secondary">
+          <div class="ana-layer-filter" role="group" aria-label="Map layer filter">
+            <span class="ana-toolbar-label">Layers</span>
+            <button type="button" class="ana-layer-pill is-active" data-layer-filter="all" aria-pressed="true">All</button>
+            <button type="button" class="ana-layer-pill" data-layer-filter="stations" aria-pressed="false">Stations</button>
+            <button type="button" class="ana-layer-pill" data-layer-filter="heatmap" aria-pressed="false">Heatmap</button>
+            <button type="button" class="ana-layer-pill" data-layer-filter="hydrants" aria-pressed="false">Hydrants</button>
+          </div>
+
+          <div class="ana-station-display" role="group" aria-label="Station map display">
+            <span class="ana-toolbar-label">Show</span>
+            <button type="button" class="ana-display-pill is-active" id="analyticsToggleStationNames" aria-pressed="true">Names</button>
+            <button type="button" class="ana-display-pill is-active" id="analyticsToggleStationAor" aria-pressed="true">AOR radius</button>
+          </div>
+
+          <div class="ana-map-badges" aria-label="Map data counts">
+            <span class="ana-map-badge ana-map-badge--station"><strong id="analyticsStationCount">0</strong><small>Stations</small></span>
+            <span class="ana-map-badge ana-map-badge--hydrant"><strong id="analyticsHydrantCount">0</strong><small>Hydrants</small></span>
+          </div>
+
+          <div class="ana-hydrant-source" title="Hydrant data source">
+            <i class="bi bi-droplet" aria-hidden="true"></i>
+            <small id="analyticsHydrantSourceLabel">OpenStreetMap public hydrants</small>
+          </div>
+        </div>
+      </form>
+    </section>
+
+    <div class="ana-main-grid">
+      <section class="ana-map-panel" aria-label="Makati response map">
+        <div class="ana-map-panel-head">
+          <div>
+            <p class="ana-kicker">GIS layer</p>
+            <h2 class="ana-panel-title">Makati response map</h2>
+            <p class="ana-map-meta" id="analyticsMapMeta">Stations, incident heat points, and hydrants are rendered here.</p>
+          </div>
+          <div class="ana-map-legend" aria-label="Map legend">
+            <span class="ana-legend-item ana-legend-item--station">Stations</span>
+            <span class="ana-legend-item ana-legend-item--incident">Heatmap</span>
+            <span class="ana-legend-item ana-legend-item--hydrant">Hydrants</span>
+          </div>
+        </div>
+
+        <div class="ana-map-wrap">
+          <div id="analyticsMap" class="ana-map-canvas" role="img" aria-label="GIS map of Makati fire stations, incidents, and hydrants"></div>
+          <div id="analyticsMapStatus" class="ana-map-status">Loading GIS map…</div>
+        </div>
+
+        <p class="ana-map-source" id="analyticsMapSource">Hydrants will use the public OpenStreetMap layer when available.</p>
+      </section>
+
+      <aside class="ana-side-panel" aria-label="Routing and reference">
+        <section class="ana-side-card ana-side-card--routing">
+          <div class="ana-side-card-head">
+            <p class="ana-kicker">Live routing</p>
+            <h2 class="ana-panel-title">Station route ETA</h2>
+          </div>
+
+          <label class="ana-live-routing-field" for="analyticsLiveIncidentSelect">
+            <span>Select live incident</span>
+            <select id="analyticsLiveIncidentSelect" class="ana-live-routing-select">
+              <option value="">No live incidents available</option>
+            </select>
+          </label>
+
+          <div id="analyticsRouteEtaList" class="ana-route-eta-list" aria-live="polite"></div>
+        </section>
+
+        <section class="ana-side-card ana-side-card--notes">
+          <div class="ana-side-card-head">
+            <p class="ana-kicker">Reference</p>
+            <h2 class="ana-panel-title">How to read</h2>
+          </div>
+          <ul class="ana-list">
+            <li>Active incidents exclude completed and fire-out records.</li>
+            <li>Switch to <strong>History</strong> to filter by a custom date range.</li>
+            <li>Use <strong>Show</strong> toggles to hide station names or AOR radius circles on the map.</li>
+            <li>Layer pills: <strong>All</strong>, <strong>Stations</strong>, <strong>Heatmap</strong>, or <strong>Hydrants</strong> — control what appears on the map.</li>
+            <li>Open <a href="/firenet/NEWFIRENET/backend/pages/reports.php">Reports</a> for full incident timelines.</li>
+          </ul>
+        </section>
+      </aside>
     </div>
-    <div class="analytics-hero-chip">
-      <span class="analytics-chip-label">Role</span>
-      <strong id="analyticsRoleTitle"></strong>
-      <small>Station <span id="analyticsStationId"></span></small>
-    </div>
-  </section>
 
-  <section class="portal-card role-card analytics-role-card">
-    <h3>Overview</h3>
-    <p class="muted-text" id="analyticsRoleSummary"></p>
-  </section>
+    <section class="ana-trend-grid" aria-label="Trend and comparison insights">
+      <article class="ana-side-card ana-side-card--comparison">
+        <div class="ana-side-card-head">
+          <p class="ana-kicker">Time-series comparison</p>
+          <h2 class="ana-panel-title">Period snapshot</h2>
+        </div>
+        <div class="ana-comparison-cards">
+          <div class="ana-comparison-card">
+            <span class="ana-comparison-label">This week</span>
+            <strong class="ana-comparison-value" id="analyticsCurrentWeekCount">0</strong>
+            <small class="ana-comparison-meta" id="analyticsCurrentWeekMeta">vs previous week</small>
+          </div>
+          <div class="ana-comparison-card">
+            <span class="ana-comparison-label">Previous week</span>
+            <strong class="ana-comparison-value" id="analyticsPreviousWeekCount">0</strong>
+            <small class="ana-comparison-meta">Last 7-day window</small>
+          </div>
+          <div class="ana-comparison-card">
+            <span class="ana-comparison-label">This month</span>
+            <strong class="ana-comparison-value" id="analyticsCurrentMonthCount">0</strong>
+            <small class="ana-comparison-meta" id="analyticsCurrentMonthMeta">vs previous month</small>
+          </div>
+          <div class="ana-comparison-card">
+            <span class="ana-comparison-label">Previous month</span>
+            <strong class="ana-comparison-value" id="analyticsPreviousMonthCount">0</strong>
+            <small class="ana-comparison-meta">Last month baseline</small>
+          </div>
+        </div>
+      </article>
 
-  <section class="portal-card analytics-filter-card">
-    <div class="analytics-filter-header">
-      <div>
-        <p class="analytics-kicker">Map Filters</p>
-        <h3>Incident Scope</h3>
-        <p class="muted-text" id="analyticsFilterSummary">Use current incidents or the full history with a custom time window.</p>
-      </div>
-      <div class="analytics-filter-source">
-        <strong>Hydrants</strong>
-        <small id="analyticsHydrantSourceLabel">OpenStreetMap public hydrants</small>
-      </div>
-    </div>
+      <article class="ana-side-card ana-side-card--trend-chart">
+        <div class="ana-side-card-head">
+          <p class="ana-kicker">Volume trend</p>
+          <h2 class="ana-panel-title">Last 14 days</h2>
+        </div>
+        <div class="ana-chart-box">
+          <canvas id="analyticsDailyTrendChart" aria-label="Daily incident trend" role="img"></canvas>
+        </div>
+      </article>
 
-    <form class="analytics-filter-form" method="get" action="/firenet/NEWFIRENET/backend/pages/analytics.php">
-      <div class="analytics-filter-toggle" role="radiogroup" aria-label="Incident scope">
-        <label class="analytics-toggle-pill">
-          <input type="radio" name="incident_scope" value="current" id="analyticsScopeCurrent">
-          <span>Current incidents</span>
-        </label>
-        <label class="analytics-toggle-pill">
-          <input type="radio" name="incident_scope" value="history" id="analyticsScopeHistory">
-          <span>All incident history</span>
-        </label>
-      </div>
+      <article class="ana-side-card ana-side-card--hourly-chart">
+        <div class="ana-side-card-head">
+          <p class="ana-kicker">Hourly pattern</p>
+          <h2 class="ana-panel-title">Incident activity by hour</h2>
+        </div>
+        <div class="ana-chart-box ana-chart-box--short">
+          <canvas id="analyticsHourlyTrendChart" aria-label="Hourly incident pattern" role="img"></canvas>
+        </div>
+      </article>
+    </section>
 
-      <div class="analytics-filter-grid">
-        <label class="analytics-filter-field">
-          <span>From</span>
-          <input type="datetime-local" name="incident_from" id="analyticsIncidentFrom">
-        </label>
-        <label class="analytics-filter-field">
-          <span>To</span>
-          <input type="datetime-local" name="incident_to" id="analyticsIncidentTo">
-        </label>
-      </div>
+    <section class="ana-insights-grid" aria-label="Dispatch workload insights">
+      <article class="ana-side-card ana-side-card--dispatch">
+        <div class="ana-side-card-head">
+          <p class="ana-kicker">Dispatch workload</p>
+          <h2 class="ana-panel-title">Load balance</h2>
+        </div>
+        <div class="ana-load-summary">
+          <div class="ana-load-summary-main">
+            <span class="ana-load-summary-label">Busiest station now</span>
+            <strong class="ana-load-summary-value" id="analyticsDispatchLead">No active dispatch load</strong>
+            <p class="ana-load-summary-meta" id="analyticsDispatchLeadMeta">Waiting for assignments.</p>
+          </div>
+          <div class="ana-load-summary-stats">
+            <span class="ana-load-chip"><strong id="analyticsDispatchActiveStations">0</strong><small>Handling now</small></span>
+            <span class="ana-load-chip"><strong id="analyticsDispatchZeroCoverage">0</strong><small>Idle stations</small></span>
+            <span class="ana-load-chip"><strong id="analyticsDispatchFallbackToday">0</strong><small>Fallback today</small></span>
+          </div>
+        </div>
+      </article>
 
-      <div class="analytics-filter-actions">
-        <button type="submit" class="analytics-filter-submit">Apply view</button>
-        <a class="analytics-filter-reset" href="/firenet/NEWFIRENET/backend/pages/analytics.php">Reset</a>
-      </div>
-    </form>
-  </section>
+      <article class="ana-side-card ana-side-card--dispatch-table">
+        <div class="ana-side-card-head">
+          <p class="ana-kicker">Station comparison</p>
+          <h2 class="ana-panel-title">Incidents handled today</h2>
+        </div>
+        <div class="ana-load-table" id="analyticsDispatchTable" aria-live="polite">
+          <p class="ana-load-empty">No station dispatch workload available yet.</p>
+        </div>
+      </article>
+    </section>
 
-  <section class="analytics-grid">
-    <article class="portal-card analytics-stat-card analytics-stat-card--active">
-      <div class="analytics-stat-top">
-        <h3>Active Incidents</h3>
-      </div>
-      <p class="stat-number" id="analyticsActiveCount">0</p>
-      <p class="muted-text">Incidents currently requiring attention.</p>
-    </article>
+    <section class="ana-geo-grid" aria-label="Geographic analytics insights">
+      <article class="ana-side-card">
+        <div class="ana-side-card-head">
+          <p class="ana-kicker">Geographic analytics</p>
+          <h2 class="ana-panel-title">Top hotspots</h2>
+        </div>
+        <div class="ana-geo-list" id="analyticsHotspotList">
+          <p class="ana-load-empty">No hotspot summary available yet.</p>
+        </div>
+      </article>
 
-    <article class="portal-card analytics-stat-card analytics-stat-card--completed">
-      <div class="analytics-stat-top">
-        <h3>Completed Incidents</h3>
-      </div>
-      <p class="stat-number" id="analyticsCompletedCount">0</p>
-      <p class="muted-text">Incidents already closed or fire out.</p>
-    </article>
+      <article class="ana-side-card">
+        <div class="ana-side-card-head">
+          <p class="ana-kicker">AOR density</p>
+          <h2 class="ana-panel-title">Incidents inside station coverage</h2>
+        </div>
+        <div class="ana-geo-list" id="analyticsAorDensityList">
+          <p class="ana-load-empty">No AOR density summary available yet.</p>
+        </div>
+      </article>
 
-    <article class="portal-card analytics-stat-card analytics-stat-card--total">
-      <div class="analytics-stat-top">
-        <h3>Total Incidents</h3>
-      </div>
-      <p class="stat-number" id="analyticsTotalCount">0</p>
-      <p class="muted-text">All incident reports for your station.</p>
-    </article>
-  </section>
+      <article class="ana-side-card">
+        <div class="ana-side-card-head">
+          <p class="ana-kicker">Hydrant risk</p>
+          <h2 class="ana-panel-title">Inactive hydrants near incidents</h2>
+        </div>
+        <div class="ana-load-summary">
+          <div class="ana-load-summary-main">
+            <span class="ana-load-summary-label">Risk snapshot</span>
+            <strong class="ana-load-summary-value" id="analyticsHydrantRiskLead">0 affected incidents</strong>
+            <p class="ana-load-summary-meta" id="analyticsHydrantRiskMeta">0 inactive or maintenance hydrants are near current incident zones.</p>
+          </div>
+          <div class="ana-geo-list" id="analyticsHydrantRiskAreas">
+            <p class="ana-load-empty">No hydrant risk areas found.</p>
+          </div>
+        </div>
+      </article>
+    </section>
 
-  <section class="portal-card analytics-map-card">
-    <div class="analytics-map-header">
-      <div>
-        <p class="analytics-kicker">GIS Layer</p>
-        <h3>Makati Response Map</h3>
-        <p class="muted-text" id="analyticsMapMeta">Stations, incident heat points, and hydrants are rendered here.</p>
-      </div>
-      <div class="analytics-map-badges" aria-label="Map summary">
-        <span class="analytics-map-badge analytics-map-badge--station"><strong id="analyticsStationCount">0</strong><small>Stations</small></span>
-        <span class="analytics-map-badge analytics-map-badge--incident"><strong id="analyticsIncidentHeatPointCount">0</strong><small>Heat points</small></span>
-        <span class="analytics-map-badge analytics-map-badge--hydrant"><strong id="analyticsHydrantCount">0</strong><small>Hydrants</small></span>
-      </div>
-    </div>
+    <section class="ana-classification-grid" aria-label="Incident classification breakdown">
+      <article class="ana-side-card">
+        <div class="ana-side-card-head">
+          <p class="ana-kicker">Classification</p>
+          <h2 class="ana-panel-title">Alarm levels</h2>
+        </div>
+        <div class="ana-chart-box ana-chart-box--short">
+          <canvas id="analyticsAlarmBreakdownChart" aria-label="Alarm level breakdown" role="img"></canvas>
+        </div>
+      </article>
 
-    <div class="analytics-map-legend" aria-label="Map legend">
-      <span class="analytics-legend-item analytics-legend-item--station">Stations</span>
-      <span class="analytics-legend-item analytics-legend-item--incident">Incident heatmap</span>
-      <span class="analytics-legend-item analytics-legend-item--hydrant">Fire hydrants</span>
-    </div>
+      <article class="ana-side-card">
+        <div class="ana-side-card-head">
+          <p class="ana-kicker">Classification</p>
+          <h2 class="ana-panel-title">Incident status mix</h2>
+        </div>
+        <div class="ana-chart-box ana-chart-box--short">
+          <canvas id="analyticsStatusBreakdownChart" aria-label="Incident status breakdown" role="img"></canvas>
+        </div>
+      </article>
 
-    <div class="analytics-layer-filter" role="group" aria-label="Map layer filter">
-      <button type="button" class="analytics-layer-pill is-active" data-layer-filter="all">All useful layers</button>
-      <button type="button" class="analytics-layer-pill" data-layer-filter="heatmap">Heatmap only</button>
-      <button type="button" class="analytics-layer-pill" data-layer-filter="hydrants">Hydrants only</button>
-    </div>
-
-    <div class="analytics-live-routing" aria-label="Live incident response routing">
-      <label class="analytics-live-routing-field" for="analyticsLiveIncidentSelect">
-        <span>Live incident route ETA</span>
-        <select id="analyticsLiveIncidentSelect" class="analytics-live-routing-select">
-          <option value="">No live incidents available</option>
-        </select>
-      </label>
-      <div id="analyticsRouteEtaList" class="analytics-route-eta-list" aria-live="polite"></div>
-    </div>
-
-    <p class="analytics-map-source muted-text" id="analyticsMapSource">Hydrants will use the public OpenStreetMap layer when available.</p>
-
-    <div class="analytics-map-wrap">
-      <div id="analyticsMap" class="analytics-map-canvas" role="img" aria-label="GIS map of Makati fire stations, incidents, and hydrants"></div>
-      <div id="analyticsMapStatus" class="analytics-map-status">Loading GIS map...</div>
-    </div>
-  </section>
-
-  <section class="analytics-layout">
-    <article class="portal-card analytics-highlight-card">
-      <p class="analytics-kicker">Live Incident Focus</p>
-      <h3>Latest Active Incident</h3>
-      <p class="analytics-highlight-title" id="analyticsLatestLabel">No active incidents.</p>
-      <p class="muted-text" id="analyticsLatestMeta">Analytics will update when new incidents are recorded.</p>
-    </article>
-
-    <article class="portal-card analytics-notes-card">
-      <p class="analytics-kicker">How To Read</p>
-      <h3>Analytics Notes</h3>
-      <ul class="simple-list analytics-list">
-        <li>Active incidents exclude completed and fire out incidents.</li>
-        <li>Completed incidents include after incident records and finished timestamps.</li>
-        <li>Use Reports to drill into individual incident timelines.</li>
-      </ul>
-    </article>
-  </section>
-</section>
+      <article class="ana-side-card">
+        <div class="ana-side-card-head">
+          <p class="ana-kicker">Classification</p>
+          <h2 class="ana-panel-title">Report categories</h2>
+        </div>
+        <div class="ana-chart-box ana-chart-box--short">
+          <canvas id="analyticsReportTypeChart" aria-label="Report category breakdown" role="img"></canvas>
+        </div>
+      </article>
+    </section>
+  </div>
+</div>

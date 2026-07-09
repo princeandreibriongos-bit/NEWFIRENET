@@ -125,6 +125,105 @@ function firenet_save_user_warning(PDO $pdo, int $userId, int $senderUserId, str
     return (int) $pdo->lastInsertId();
 }
 
+function firenet_mail_ensure_min_schema(PDO $pdo): void
+{
+    $pdo->exec(<<<'SQL'
+CREATE TABLE IF NOT EXISTS station_mail_threads (
+    thread_id INT PRIMARY KEY AUTO_INCREMENT,
+    subject VARCHAR(255) NOT NULL,
+    created_by_user_id INT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    last_message_at DATETIME NULL,
+    CONSTRAINT fk_station_mail_threads_user FOREIGN KEY (created_by_user_id) REFERENCES users(user_id) ON DELETE CASCADE,
+    INDEX idx_station_mail_threads_last_message (last_message_at),
+    INDEX idx_station_mail_threads_creator (created_by_user_id)
+)
+SQL);
+
+    $pdo->exec(<<<'SQL'
+CREATE TABLE IF NOT EXISTS station_mail_messages (
+    mail_id INT PRIMARY KEY AUTO_INCREMENT,
+    thread_id INT NOT NULL,
+    parent_mail_id INT NULL,
+    sender_user_id INT NOT NULL,
+    sender_station_id INT NOT NULL,
+    subject VARCHAR(255) NOT NULL,
+    body LONGTEXT NOT NULL,
+    mail_type ENUM('message', 'request', 'file_share') NOT NULL DEFAULT 'message',
+    importance ENUM('normal', 'high', 'urgent') NOT NULL DEFAULT 'normal',
+    request_files TINYINT(1) NOT NULL DEFAULT 0,
+    is_draft TINYINT(1) NOT NULL DEFAULT 0,
+    sent_at DATETIME NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_station_mail_messages_thread FOREIGN KEY (thread_id) REFERENCES station_mail_threads(thread_id) ON DELETE CASCADE,
+    CONSTRAINT fk_station_mail_messages_parent FOREIGN KEY (parent_mail_id) REFERENCES station_mail_messages(mail_id) ON DELETE SET NULL,
+    CONSTRAINT fk_station_mail_messages_sender FOREIGN KEY (sender_user_id) REFERENCES users(user_id) ON DELETE CASCADE,
+    CONSTRAINT fk_station_mail_messages_station FOREIGN KEY (sender_station_id) REFERENCES stations(station_id) ON DELETE CASCADE,
+    INDEX idx_station_mail_messages_thread (thread_id, mail_id)
+)
+SQL);
+
+    $pdo->exec(<<<'SQL'
+CREATE TABLE IF NOT EXISTS station_mail_recipients (
+    recipient_id INT PRIMARY KEY AUTO_INCREMENT,
+    mail_id INT NOT NULL,
+    recipient_user_id INT NULL,
+    recipient_station_id INT NULL,
+    recipient_type ENUM('user', 'station') NOT NULL,
+    read_at DATETIME NULL,
+    archived_at DATETIME NULL,
+    deleted_at DATETIME NULL,
+    starred_at DATETIME NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_station_mail_recipients_mail FOREIGN KEY (mail_id) REFERENCES station_mail_messages(mail_id) ON DELETE CASCADE,
+    CONSTRAINT fk_station_mail_recipients_user FOREIGN KEY (recipient_user_id) REFERENCES users(user_id) ON DELETE CASCADE,
+    CONSTRAINT fk_station_mail_recipients_station FOREIGN KEY (recipient_station_id) REFERENCES stations(station_id) ON DELETE CASCADE,
+    UNIQUE KEY unique_station_mail_recipient (mail_id, recipient_type, recipient_user_id, recipient_station_id)
+)
+SQL);
+}
+
+function firenet_send_warning_mail(PDO $pdo, int $senderUserId, int $senderStationId, int $recipientUserId, string $warningType, string $message): void
+{
+    if ($senderUserId < 1 || $senderStationId < 1 || $recipientUserId < 1) {
+        return;
+    }
+
+    firenet_mail_ensure_min_schema($pdo);
+
+    $typeLabel = $warningType === 'memo' ? 'Memo' : 'Warning';
+    $subject = '[ADMIN ' . strtoupper($typeLabel) . '] ' . $typeLabel . ' from Station Administration';
+    $body = trim($message) !== ''
+        ? ("This " . strtolower($typeLabel) . " was issued by station administration.\n\n" . trim($message))
+        : ('This ' . strtolower($typeLabel) . ' was issued by station administration. Please review this notice in full.');
+
+    $threadStmt = $pdo->prepare('INSERT INTO station_mail_threads (subject, created_by_user_id, last_message_at) VALUES (?, ?, NOW())');
+    $threadStmt->execute([$subject, $senderUserId]);
+    $threadId = (int) $pdo->lastInsertId();
+    if ($threadId < 1) {
+        return;
+    }
+
+    $messageStmt = $pdo->prepare('
+        INSERT INTO station_mail_messages (
+            thread_id, parent_mail_id, sender_user_id, sender_station_id,
+            subject, body, mail_type, importance, request_files, is_draft, sent_at
+        ) VALUES (?, NULL, ?, ?, ?, ?, "message", "high", 0, 0, NOW())
+    ');
+    $messageStmt->execute([$threadId, $senderUserId, $senderStationId, $subject, $body]);
+
+    $mailId = (int) $pdo->lastInsertId();
+    if ($mailId < 1) {
+        return;
+    }
+
+    $recipientStmt = $pdo->prepare('INSERT INTO station_mail_recipients (mail_id, recipient_type, recipient_user_id) VALUES (?, "user", ?)');
+    $recipientStmt->execute([$mailId, $recipientUserId]);
+}
+
 function firenet_user_settings_defaults(): array
 {
     return [
@@ -146,15 +245,22 @@ function firenet_user_settings_table_exists(PDO $pdo): bool
     return $exists;
 }
 
+function firenet_user_settings_column_exists(PDO $pdo, string $columnName): bool
+{
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'user_settings' AND COLUMN_NAME = ?");
+    $stmt->execute([$columnName]);
+    return (int) ($stmt->fetchColumn() ?: 0) > 0;
+}
+
 function firenet_ensure_user_settings_table(PDO $pdo): void
 {
-    if (firenet_user_settings_table_exists($pdo)) {
-        return;
-    }
-
-    $pdo->exec('CREATE TABLE IF NOT EXISTS user_settings (
+    if (!firenet_user_settings_table_exists($pdo)) {
+        $pdo->exec('CREATE TABLE IF NOT EXISTS user_settings (
         user_setting_id INT PRIMARY KEY AUTO_INCREMENT,
         user_id INT NOT NULL,
+        compact_mode TINYINT(1) NOT NULL DEFAULT 0,
+        reduce_motion TINYINT(1) NOT NULL DEFAULT 0,
+        dark_mode TINYINT(1) NOT NULL DEFAULT 0,
         security_alerts TINYINT(1) NOT NULL DEFAULT 1,
         hide_sensitive TINYINT(1) NOT NULL DEFAULT 0,
         auto_logout_minutes INT NOT NULL DEFAULT 30,
@@ -163,6 +269,27 @@ function firenet_ensure_user_settings_table(PDO $pdo): void
         CONSTRAINT fk_user_settings_user FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
         UNIQUE KEY unique_user_settings (user_id)
     )');
+        return;
+    }
+
+    if (!firenet_user_settings_column_exists($pdo, 'compact_mode')) {
+        $pdo->exec('ALTER TABLE user_settings ADD COLUMN compact_mode TINYINT(1) NOT NULL DEFAULT 0 AFTER user_id');
+    }
+    if (!firenet_user_settings_column_exists($pdo, 'reduce_motion')) {
+        $pdo->exec('ALTER TABLE user_settings ADD COLUMN reduce_motion TINYINT(1) NOT NULL DEFAULT 0 AFTER compact_mode');
+    }
+    if (!firenet_user_settings_column_exists($pdo, 'dark_mode')) {
+        $pdo->exec('ALTER TABLE user_settings ADD COLUMN dark_mode TINYINT(1) NOT NULL DEFAULT 0 AFTER reduce_motion');
+    }
+    if (!firenet_user_settings_column_exists($pdo, 'security_alerts')) {
+        $pdo->exec('ALTER TABLE user_settings ADD COLUMN security_alerts TINYINT(1) NOT NULL DEFAULT 1 AFTER dark_mode');
+    }
+    if (!firenet_user_settings_column_exists($pdo, 'hide_sensitive')) {
+        $pdo->exec('ALTER TABLE user_settings ADD COLUMN hide_sensitive TINYINT(1) NOT NULL DEFAULT 0 AFTER security_alerts');
+    }
+    if (!firenet_user_settings_column_exists($pdo, 'auto_logout_minutes')) {
+        $pdo->exec('ALTER TABLE user_settings ADD COLUMN auto_logout_minutes INT NOT NULL DEFAULT 30 AFTER hide_sensitive');
+    }
 }
 
 function firenet_load_user_settings(PDO $pdo, int $userId): array
@@ -213,6 +340,27 @@ function firenet_save_user_settings(PDO $pdo, int $userId, array $patch): array
     return firenet_load_user_settings($pdo, $userId);
 }
 
+function firenet_upsert_station_aor_zone(PDO $pdo, int $stationId, string $stationName, float $centerLat, float $centerLng, float $radiusKm): void
+{
+    $zoneName = trim($stationName) !== '' ? ($stationName . ' AOR') : ('Station ' . $stationId . ' AOR');
+    $shapeType = 'circle';
+    $safeRadiusKm = $radiusKm > 0 ? $radiusKm : 2.5;
+
+    $stmt = $pdo->prepare('
+        INSERT INTO station_aor_zones (station_id, zone_name, shape_type, center_latitude, center_longitude, radius_km, is_active)
+        VALUES (?, ?, ?, ?, ?, ?, 1)
+        ON DUPLICATE KEY UPDATE
+            zone_name = VALUES(zone_name),
+            shape_type = VALUES(shape_type),
+            center_latitude = VALUES(center_latitude),
+            center_longitude = VALUES(center_longitude),
+            radius_km = VALUES(radius_km),
+            is_active = 1,
+            updated_at = CURRENT_TIMESTAMP
+    ');
+    $stmt->execute([$stationId, $zoneName, $shapeType, $centerLat, $centerLng, $safeRadiusKm]);
+}
+
 function firenet_users_bootstrap(PDO $pdo, int $currentStationId): array
 {
     global $currentRole;
@@ -220,11 +368,29 @@ function firenet_users_bootstrap(PDO $pdo, int $currentStationId): array
     $roleFilterSql = $currentRole === 'admin' ? ' WHERE LOWER(role_name) = "user"' : '';
     $roles = $pdo->query('SELECT role_id, role_name, description FROM roles' . $roleFilterSql . ' ORDER BY role_id ASC')->fetchAll(PDO::FETCH_ASSOC);
 
+    $stationSelectSql = '
+        SELECT
+            s.station_id,
+            s.station_name,
+            s.station_code,
+            s.location,
+            s.latitude,
+            s.longitude,
+            s.status,
+            z.zone_name AS aor_zone_name,
+            z.shape_type AS aor_shape_type,
+            z.center_latitude AS aor_center_latitude,
+            z.center_longitude AS aor_center_longitude,
+            z.radius_km AS aor_radius_km
+        FROM stations s
+        LEFT JOIN station_aor_zones z ON z.station_id = s.station_id AND z.is_active = 1
+    ';
+
     if ($currentRole === 'superadmin') {
-        $stationStmt = $pdo->query('SELECT station_id, station_name, station_code, location, latitude, longitude, status FROM stations ORDER BY station_name ASC');
+        $stationStmt = $pdo->query($stationSelectSql . ' ORDER BY s.station_name ASC');
         $stations = $stationStmt ? $stationStmt->fetchAll(PDO::FETCH_ASSOC) : [];
     } else {
-        $stationStmt = $pdo->prepare('SELECT station_id, station_name, station_code, location, latitude, longitude, status FROM stations WHERE station_id = ? LIMIT 1');
+        $stationStmt = $pdo->prepare($stationSelectSql . ' WHERE s.station_id = ? LIMIT 1');
         $stationStmt->execute([$currentStationId]);
         $stations = $stationStmt->fetchAll(PDO::FETCH_ASSOC);
     }
@@ -294,7 +460,12 @@ function firenet_users_bootstrap(PDO $pdo, int $currentStationId): array
                 'location' => (string) ($row['location'] ?? ''),
                 'latitude' => isset($row['latitude']) ? (float) $row['latitude'] : null,
                 'longitude' => isset($row['longitude']) ? (float) $row['longitude'] : null,
-                'status' => (string) ($row['status'] ?? 'active')
+                'status' => (string) ($row['status'] ?? 'active'),
+                'aorZoneName' => (string) ($row['aor_zone_name'] ?? ''),
+                'aorShapeType' => (string) ($row['aor_shape_type'] ?? 'circle'),
+                'aorCenterLat' => isset($row['aor_center_latitude']) ? (float) $row['aor_center_latitude'] : null,
+                'aorCenterLng' => isset($row['aor_center_longitude']) ? (float) $row['aor_center_longitude'] : null,
+                'aorRadiusKm' => isset($row['aor_radius_km']) ? (float) $row['aor_radius_km'] : null
             ];
         }, $stations),
         'positions' => array_map(static function (array $row): array {
@@ -356,7 +527,7 @@ try {
 
     if ($action === 'create_station') {
         if ($currentRole !== 'superadmin') {
-            firenet_users_fail('Only superadmins can add new barangays.', 403);
+            firenet_users_fail('Only superadmins can create new substations.', 403);
         }
 
         $stationName = trim((string) ($input['stationName'] ?? $input['barangayName'] ?? ''));
@@ -365,9 +536,10 @@ try {
         $latitude = (float) ($input['latitude'] ?? 0);
         $longitude = (float) ($input['longitude'] ?? 0);
         $stationStatus = strtolower(trim((string) ($input['stationStatus'] ?? 'active')));
+        $aorRadiusKm = (float) ($input['aorRadiusKm'] ?? 2.5);
 
         if ($stationName === '') {
-            firenet_users_fail('Barangay name is required.', 422);
+            firenet_users_fail('Substation name is required.', 422);
         }
 
         if ($stationCode === '') {
@@ -379,24 +551,29 @@ try {
         }
 
         if ($latitude < -90 || $latitude > 90 || $longitude < -180 || $longitude > 180) {
-            firenet_users_fail('Please pin a valid map location for the barangay.', 422);
+            firenet_users_fail('Please pin a valid map location for the substation.', 422);
         }
 
         if (!in_array($stationStatus, ['active', 'inactive'], true)) {
             $stationStatus = 'active';
+        }
+        if ($aorRadiusKm <= 0) {
+            $aorRadiusKm = 2.5;
         }
 
         $insertStation = $pdo->prepare('INSERT INTO stations (station_name, station_code, location, latitude, longitude, status) VALUES (?, ?, ?, ?, ?, ?)');
         try {
             $insertStation->execute([$stationName, $stationCode, $location, $latitude, $longitude, $stationStatus]);
         } catch (Throwable $e) {
-            firenet_users_fail('Unable to create barangay. Station name/code may already exist.', 409);
+            firenet_users_fail('Unable to create substation. Station name/code may already exist.', 409);
         }
 
         $newStationId = (int) $pdo->lastInsertId();
         if ($newStationId < 1) {
-            firenet_users_fail('Unable to create barangay at this time.', 500);
+            firenet_users_fail('Unable to create substation at this time.', 500);
         }
+
+        firenet_upsert_station_aor_zone($pdo, $newStationId, $stationName, $latitude, $longitude, $aorRadiusKm);
 
         $createAdmin = firenet_users_to_bool($input['createAdmin'] ?? false);
         if ($createAdmin) {
@@ -409,7 +586,7 @@ try {
             }
 
             if ($adminUsername === '' || $adminEmail === '' || trim($adminPassword) === '') {
-                firenet_users_fail('Admin username, email, and password are required when creating barangay admin.', 422);
+                firenet_users_fail('Admin username, email, and password are required when creating a substation admin.', 422);
             }
 
             $adminRoleStmt = $pdo->query("SELECT role_id FROM roles WHERE LOWER(role_name) = 'admin' LIMIT 1");
@@ -454,7 +631,71 @@ try {
                 'location' => $location,
                 'latitude' => $latitude,
                 'longitude' => $longitude,
-                'status' => $stationStatus
+                'status' => $stationStatus,
+                'aorRadiusKm' => $aorRadiusKm,
+                'aorCenterLat' => $latitude,
+                'aorCenterLng' => $longitude
+            ]
+        ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
+    if ($action === 'update_station') {
+        if ($currentRole !== 'superadmin') {
+            firenet_users_fail('Only superadmins can edit substations.', 403);
+        }
+
+        $editStationId = (int) ($input['stationId'] ?? 0);
+        $stationName = trim((string) ($input['stationName'] ?? ''));
+        $stationCode = strtoupper(trim((string) ($input['stationCode'] ?? '')));
+        $location = trim((string) ($input['location'] ?? ''));
+        $latitude = (float) ($input['latitude'] ?? 0);
+        $longitude = (float) ($input['longitude'] ?? 0);
+        $stationStatus = strtolower(trim((string) ($input['stationStatus'] ?? 'active')));
+        $aorRadiusKm = (float) ($input['aorRadiusKm'] ?? 2.5);
+
+        if ($editStationId < 1) {
+            firenet_users_fail('Substation not found.', 404);
+        }
+        if ($stationName === '') {
+            firenet_users_fail('Substation name is required.', 422);
+        }
+        if ($stationCode === '') {
+            firenet_users_fail('Station code is required.', 422);
+        }
+        if ($latitude < -90 || $latitude > 90 || $longitude < -180 || $longitude > 180) {
+            firenet_users_fail('Please pin a valid map location for the substation.', 422);
+        }
+        if (!in_array($stationStatus, ['active', 'inactive'], true)) {
+            $stationStatus = 'active';
+        }
+        if ($aorRadiusKm <= 0) {
+            $aorRadiusKm = 2.5;
+        }
+
+        $updateStation = $pdo->prepare('UPDATE stations SET station_name = ?, station_code = ?, location = ?, latitude = ?, longitude = ?, status = ? WHERE station_id = ? LIMIT 1');
+        try {
+            $updateStation->execute([$stationName, $stationCode, $location, $latitude, $longitude, $stationStatus, $editStationId]);
+        } catch (Throwable $e) {
+            firenet_users_fail('Unable to update substation. Station name/code may already exist.', 409);
+        }
+
+        firenet_upsert_station_aor_zone($pdo, $editStationId, $stationName, $latitude, $longitude, $aorRadiusKm);
+
+        echo json_encode([
+            'ok' => true,
+            'message' => 'Substation updated successfully.',
+            'data' => [
+                'stationId' => $editStationId,
+                'stationName' => $stationName,
+                'stationCode' => $stationCode,
+                'location' => $location,
+                'latitude' => $latitude,
+                'longitude' => $longitude,
+                'status' => $stationStatus,
+                'aorRadiusKm' => $aorRadiusKm,
+                'aorCenterLat' => $latitude,
+                'aorCenterLng' => $longitude
             ]
         ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
         exit;
@@ -500,8 +741,53 @@ try {
         }
 
         firenet_save_user_warning($pdo, $userId, $currentUserId, $warningType, $warningTemplate, $message);
+        firenet_send_warning_mail($pdo, $currentUserId, $currentStationId, $userId, $warningType, $message);
 
-        echo json_encode(['ok' => true, 'message' => 'Warning/memo sent successfully.'], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        echo json_encode(['ok' => true, 'message' => 'Warning/memo sent successfully and delivered to the user inbox.'], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
+    if ($action === 'delete') {
+        if ($userId < 1) {
+            firenet_users_fail('User not found.', 404);
+        }
+
+        $targetStmt = $pdo->prepare('SELECT u.station_id, r.role_name, u.username FROM users u JOIN roles r ON r.role_id = u.role_id WHERE u.user_id = ? LIMIT 1');
+        $targetStmt->execute([$userId]);
+        $targetRow = $targetStmt->fetch(PDO::FETCH_ASSOC);
+        if (!$targetRow) {
+            firenet_users_fail('User not found.', 404);
+        }
+
+        $targetStationId = (int) ($targetRow['station_id'] ?? 0);
+        $targetRoleName = strtolower((string) ($targetRow['role_name'] ?? 'user'));
+        $targetUsername = (string) ($targetRow['username'] ?? 'user');
+
+        if ($currentRole === 'admin') {
+            if ($targetStationId !== $currentStationId) {
+                firenet_users_fail('You can only delete users in your own station.', 403);
+            }
+            if ($targetRoleName !== 'user') {
+                firenet_users_fail('Station admins may only delete regular user accounts.', 403);
+            }
+        } elseif ($currentRole !== 'superadmin') {
+            firenet_users_fail('You are not allowed to delete users.', 403);
+        }
+
+        if ($userId === $currentUserId) {
+            firenet_users_fail('You cannot delete your own account.', 403);
+        }
+
+        $deleteStmt = $pdo->prepare('DELETE FROM users WHERE user_id = ? LIMIT 1');
+        $deleteStmt->execute([$userId]);
+        if ($deleteStmt->rowCount() < 1) {
+            firenet_users_fail('Unable to delete user.', 500);
+        }
+
+        echo json_encode([
+            'ok' => true,
+            'message' => 'User "' . $targetUsername . '" deleted successfully.'
+        ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
         exit;
     }
 

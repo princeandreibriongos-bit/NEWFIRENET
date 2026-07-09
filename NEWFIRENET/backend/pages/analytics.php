@@ -59,6 +59,16 @@ function firenet_analytics_format_datetime_local(?string $value): string {
     return date('Y-m-d\TH:i', $timestamp);
 }
 
+function firenet_analytics_haversine_km(float $lat1, float $lng1, float $lat2, float $lng2): float {
+    $earthRadiusKm = 6371.0;
+    $dLat = deg2rad($lat2 - $lat1);
+    $dLng = deg2rad($lng2 - $lng1);
+    $a = sin($dLat / 2) * sin($dLat / 2)
+        + cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * sin($dLng / 2) * sin($dLng / 2);
+    $c = 2 * atan2(sqrt($a), sqrt(max(0.0, 1 - $a)));
+    return $earthRadiusKm * $c;
+}
+
 function firenet_analytics_build_time_window_sql(?string $from, ?string $to): array {
     $conditions = [];
     $params = [];
@@ -308,6 +318,40 @@ $analyticsContext = [
     'hydrantGeo' => [],
     'hydrantNotice' => 'Hydrant layer will appear after hydrant coordinates are loaded.',
     'hydrantSourceLabel' => 'OpenStreetMap public hydrants',
+    'dispatchLoadSummary' => [
+        'busiestStationName' => 'No active dispatch load',
+        'busiestStationActiveAssignments' => 0,
+        'stationsHandlingCount' => 0,
+        'zeroAvailabilityCount' => 0,
+        'fallbackDispatchCountToday' => 0,
+        'topStations' => []
+    ],
+    'timeSeries' => [
+        'dailyLabels' => [],
+        'dailyCounts' => [],
+        'hourlyLabels' => [],
+        'hourlyCounts' => [],
+        'comparison' => [
+            'currentWeekCount' => 0,
+            'previousWeekCount' => 0,
+            'currentMonthCount' => 0,
+            'previousMonthCount' => 0
+        ]
+    ],
+    'geoInsights' => [
+        'topHotspots' => [],
+        'aorDensity' => [],
+        'hydrantRiskSummary' => [
+            'riskIncidentCount' => 0,
+            'inactiveHydrantsNearIncidents' => 0,
+            'topRiskAreas' => []
+        ]
+    ],
+    'classificationBreakdown' => [
+        'alarmLevels' => [],
+        'incidentStatuses' => [],
+        'reportTypes' => []
+    ],
     'incidentScope' => $incidentScope,
     'incidentScopeLabel' => $incidentScope === 'history' ? 'All incident history' : 'Current incidents',
     'incidentFrom' => $incidentFrom,
@@ -333,7 +377,7 @@ try {
     // and inject it into the runtime environment (e.g., when deploying to Cloud Run, GCE, or GKE).
     $analyticsContext['googleMapsConfigured'] = $googleMapsApiKey !== '';
 
-    $stationStmt = $pdo->query('SELECT station_id, station_name, station_code, latitude, longitude, status FROM stations ORDER BY station_id ASC');
+    $stationStmt = $pdo->query("\n        SELECT\n            s.station_id,\n            s.station_name,\n            s.station_code,\n            s.latitude,\n            s.longitude,\n            s.status,\n            z.zone_name,\n            z.center_latitude AS aor_center_latitude,\n            z.center_longitude AS aor_center_longitude,\n            z.radius_km\n        FROM stations s\n        LEFT JOIN station_aor_zones z ON z.station_id = s.station_id AND z.is_active = 1\n        ORDER BY s.station_id ASC\n    ");
     $stationRows = $stationStmt ? $stationStmt->fetchAll(PDO::FETCH_ASSOC) : [];
     foreach ($stationRows as $row) {
         $latitude = isset($row['latitude']) ? (float) $row['latitude'] : 0.0;
@@ -342,16 +386,91 @@ try {
             continue;
         }
 
+        $aorCenterLat = isset($row['aor_center_latitude']) ? (float) $row['aor_center_latitude'] : $latitude;
+        $aorCenterLng = isset($row['aor_center_longitude']) ? (float) $row['aor_center_longitude'] : $longitude;
+        $aorRadiusKm = isset($row['radius_km']) && $row['radius_km'] !== null ? (float) $row['radius_km'] : 2.5;
+
         $analyticsContext['stationGeo'][] = [
             'stationId' => (int) ($row['station_id'] ?? 0),
             'stationName' => (string) ($row['station_name'] ?? ''),
             'stationCode' => (string) ($row['station_code'] ?? ''),
             'latitude' => $latitude,
             'longitude' => $longitude,
-            'status' => (string) ($row['status'] ?? 'active')
+            'status' => (string) ($row['status'] ?? 'active'),
+            'aorZoneName' => (string) ($row['zone_name'] ?? ''),
+            'aorRadiusKm' => $aorRadiusKm > 0 ? $aorRadiusKm : 2.5,
+            'aorCenterLat' => $aorCenterLat,
+            'aorCenterLng' => $aorCenterLng
         ];
     }
     $analyticsContext['stationCount'] = count($analyticsContext['stationGeo']);
+
+    if (firenet_table_exists_for_analytics($pdo, 'incident_report_dispatch_stations')) {
+        $workloadStmt = $pdo->query("
+            SELECT
+                s.station_id,
+                s.station_name,
+                s.station_code,
+                s.status AS station_record_status,
+                COALESCE(active_assignments.active_count, 0) AS active_assignment_count,
+                COALESCE(today_assignments.handled_today_count, 0) AS incidents_handled_today,
+                COALESCE(today_assignments.fallback_count, 0) AS fallback_dispatch_count_today
+            FROM stations s
+            LEFT JOIN (
+                SELECT d.station_id, COUNT(*) AS active_count
+                FROM incident_report_dispatch_stations d
+                JOIN incident_reports i ON i.incident_report_id = d.incident_report_id
+                LEFT JOIN incident_report_stage st ON st.incident_report_stage_id = i.incident_report_stage_id
+                WHERE (st.stage_code IS NULL OR st.stage_code <> 'after_incident')
+                  AND (i.incident_status IS NULL OR i.incident_status <> 'fire_out')
+                  AND i.incident_finished_at IS NULL
+                GROUP BY d.station_id
+            ) active_assignments ON active_assignments.station_id = s.station_id
+            LEFT JOIN (
+                SELECT
+                    d.station_id,
+                    COUNT(DISTINCT d.incident_report_id) AS handled_today_count,
+                    SUM(CASE WHEN d.assignment_method <> 'aor' THEN 1 ELSE 0 END) AS fallback_count
+                FROM incident_report_dispatch_stations d
+                WHERE DATE(d.created_at) = CURDATE()
+                GROUP BY d.station_id
+            ) today_assignments ON today_assignments.station_id = s.station_id
+            ORDER BY active_assignment_count DESC, incidents_handled_today DESC, s.station_name ASC
+        ");
+        $workloadRows = $workloadStmt ? $workloadStmt->fetchAll(PDO::FETCH_ASSOC) : [];
+        $topStations = [];
+
+        foreach ($workloadRows as $index => $workloadRow) {
+            $recordStatus = strtolower((string) ($workloadRow['station_record_status'] ?? 'active'));
+            $activeAssignmentCount = (int) ($workloadRow['active_assignment_count'] ?? 0);
+            $incidentsHandledToday = (int) ($workloadRow['incidents_handled_today'] ?? 0);
+            $fallbackDispatchCountToday = (int) ($workloadRow['fallback_dispatch_count_today'] ?? 0);
+
+            if ($recordStatus === 'active' && $activeAssignmentCount === 0) {
+                $analyticsContext['dispatchLoadSummary']['zeroAvailabilityCount']++;
+            }
+            if ($activeAssignmentCount > 0) {
+                $analyticsContext['dispatchLoadSummary']['stationsHandlingCount']++;
+            }
+            $analyticsContext['dispatchLoadSummary']['fallbackDispatchCountToday'] += $fallbackDispatchCountToday;
+
+            if ($index === 0 && $activeAssignmentCount > 0) {
+                $analyticsContext['dispatchLoadSummary']['busiestStationName'] = (string) ($workloadRow['station_name'] ?? 'Station');
+                $analyticsContext['dispatchLoadSummary']['busiestStationActiveAssignments'] = $activeAssignmentCount;
+            }
+
+            $topStations[] = [
+                'stationId' => (int) ($workloadRow['station_id'] ?? 0),
+                'stationName' => (string) ($workloadRow['station_name'] ?? ''),
+                'stationCode' => (string) ($workloadRow['station_code'] ?? ''),
+                'activeAssignmentCount' => $activeAssignmentCount,
+                'incidentsHandledToday' => $incidentsHandledToday,
+                'fallbackDispatchCountToday' => $fallbackDispatchCountToday
+            ];
+        }
+
+        $analyticsContext['dispatchLoadSummary']['topStations'] = array_slice($topStations, 0, 6);
+    }
 
     $timeWindowSql = firenet_analytics_build_time_window_sql($incidentFrom, $incidentTo);
     $scopeSql = firenet_analytics_build_incident_scope_sql($incidentScope);
@@ -370,6 +489,184 @@ try {
     $analyticsContext['activeIncidentCount'] = (int) ($summary['active_count'] ?? 0);
     $analyticsContext['completedIncidentCount'] = (int) ($summary['completed_count'] ?? 0);
     $analyticsContext['totalIncidentCount'] = (int) ($summary['total_count'] ?? 0);
+
+    $trendDailySql = "
+        SELECT
+            DATE(" . 'COALESCE(i.incident_started_at, i.incident_finished_at, i.updated_at, i.created_at, r.updated_at, r.created_at)' . ") AS trend_day,
+            COUNT(*) AS trend_count
+        FROM incident_reports i
+        JOIN reports r ON r.report_id = i.report_id
+        LEFT JOIN incident_report_stage s ON s.incident_report_stage_id = i.incident_report_stage_id
+    ";
+    if ($incidentWhereSql !== '') {
+        $trendDailySql .= "\n        WHERE " . $incidentWhereSql;
+    }
+    $trendDailySql .= "
+        GROUP BY DATE(" . 'COALESCE(i.incident_started_at, i.incident_finished_at, i.updated_at, i.created_at, r.updated_at, r.created_at)' . ")
+        ORDER BY trend_day DESC
+        LIMIT 14
+    ";
+    $trendDailyStmt = $pdo->prepare($trendDailySql);
+    $trendDailyStmt->execute($incidentParams);
+    $trendDailyRows = $trendDailyStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    $dailyCountsByDate = [];
+    foreach ($trendDailyRows as $trendDailyRow) {
+        $trendDay = (string) ($trendDailyRow['trend_day'] ?? '');
+        if ($trendDay !== '') {
+            $dailyCountsByDate[$trendDay] = (int) ($trendDailyRow['trend_count'] ?? 0);
+        }
+    }
+    $dailyLabels = [];
+    $dailyCounts = [];
+    $todayDate = new DateTimeImmutable('today');
+    for ($offset = 13; $offset >= 0; $offset--) {
+        $day = $todayDate->sub(new DateInterval('P' . $offset . 'D'));
+        $dateKey = $day->format('Y-m-d');
+        $dailyLabels[] = $day->format('M j');
+        $dailyCounts[] = (int) ($dailyCountsByDate[$dateKey] ?? 0);
+    }
+    $analyticsContext['timeSeries']['dailyLabels'] = $dailyLabels;
+    $analyticsContext['timeSeries']['dailyCounts'] = $dailyCounts;
+
+    $trendHourlySql = "
+        SELECT
+            HOUR(" . 'COALESCE(i.incident_started_at, i.incident_finished_at, i.updated_at, i.created_at, r.updated_at, r.created_at)' . ") AS trend_hour,
+            COUNT(*) AS trend_count
+        FROM incident_reports i
+        JOIN reports r ON r.report_id = i.report_id
+        LEFT JOIN incident_report_stage s ON s.incident_report_stage_id = i.incident_report_stage_id
+    ";
+    if ($incidentWhereSql !== '') {
+        $trendHourlySql .= "\n        WHERE " . $incidentWhereSql;
+    }
+    $trendHourlySql .= "
+        GROUP BY HOUR(" . 'COALESCE(i.incident_started_at, i.incident_finished_at, i.updated_at, i.created_at, r.updated_at, r.created_at)' . ")
+        ORDER BY trend_hour ASC
+    ";
+    $trendHourlyStmt = $pdo->prepare($trendHourlySql);
+    $trendHourlyStmt->execute($incidentParams);
+    $trendHourlyRows = $trendHourlyStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    $hourlyCountsByHour = [];
+    foreach ($trendHourlyRows as $trendHourlyRow) {
+        $hourKey = (int) ($trendHourlyRow['trend_hour'] ?? -1);
+        if ($hourKey >= 0 && $hourKey <= 23) {
+            $hourlyCountsByHour[$hourKey] = (int) ($trendHourlyRow['trend_count'] ?? 0);
+        }
+    }
+    $hourlyLabels = [];
+    $hourlyCounts = [];
+    for ($hour = 0; $hour < 24; $hour++) {
+        $hourlyLabels[] = str_pad((string) $hour, 2, '0', STR_PAD_LEFT) . ':00';
+        $hourlyCounts[] = (int) ($hourlyCountsByHour[$hour] ?? 0);
+    }
+    $analyticsContext['timeSeries']['hourlyLabels'] = $hourlyLabels;
+    $analyticsContext['timeSeries']['hourlyCounts'] = $hourlyCounts;
+
+    $comparisonSql = "
+        SELECT
+            SUM(CASE WHEN " . 'COALESCE(i.incident_started_at, i.incident_finished_at, i.updated_at, i.created_at, r.updated_at, r.created_at)' . " >= DATE_SUB(CURDATE(), INTERVAL 6 DAY) THEN 1 ELSE 0 END) AS current_week_count,
+            SUM(CASE WHEN " . 'COALESCE(i.incident_started_at, i.incident_finished_at, i.updated_at, i.created_at, r.updated_at, r.created_at)' . " >= DATE_SUB(CURDATE(), INTERVAL 13 DAY)
+                      AND " . 'COALESCE(i.incident_started_at, i.incident_finished_at, i.updated_at, i.created_at, r.updated_at, r.created_at)' . " < DATE_SUB(CURDATE(), INTERVAL 6 DAY) THEN 1 ELSE 0 END) AS previous_week_count,
+            SUM(CASE WHEN YEAR(" . 'COALESCE(i.incident_started_at, i.incident_finished_at, i.updated_at, i.created_at, r.updated_at, r.created_at)' . ") = YEAR(CURDATE())
+                      AND MONTH(" . 'COALESCE(i.incident_started_at, i.incident_finished_at, i.updated_at, i.created_at, r.updated_at, r.created_at)' . ") = MONTH(CURDATE()) THEN 1 ELSE 0 END) AS current_month_count,
+            SUM(CASE WHEN YEAR(" . 'COALESCE(i.incident_started_at, i.incident_finished_at, i.updated_at, i.created_at, r.updated_at, r.created_at)' . ") = YEAR(DATE_SUB(CURDATE(), INTERVAL 1 MONTH))
+                      AND MONTH(" . 'COALESCE(i.incident_started_at, i.incident_finished_at, i.updated_at, i.created_at, r.updated_at, r.created_at)' . ") = MONTH(DATE_SUB(CURDATE(), INTERVAL 1 MONTH)) THEN 1 ELSE 0 END) AS previous_month_count
+        FROM incident_reports i
+        JOIN reports r ON r.report_id = i.report_id
+        LEFT JOIN incident_report_stage s ON s.incident_report_stage_id = i.incident_report_stage_id
+    ";
+    if ($incidentWhereSql !== '') {
+        $comparisonSql .= "\n        WHERE " . $incidentWhereSql;
+    }
+    $comparisonStmt = $pdo->prepare($comparisonSql);
+    $comparisonStmt->execute($incidentParams);
+    $comparison = $comparisonStmt->fetch(PDO::FETCH_ASSOC) ?: [];
+    $analyticsContext['timeSeries']['comparison'] = [
+        'currentWeekCount' => (int) ($comparison['current_week_count'] ?? 0),
+        'previousWeekCount' => (int) ($comparison['previous_week_count'] ?? 0),
+        'currentMonthCount' => (int) ($comparison['current_month_count'] ?? 0),
+        'previousMonthCount' => (int) ($comparison['previous_month_count'] ?? 0)
+    ];
+
+    $alarmBreakdownSql = "
+        SELECT
+            COALESCE(i.alarm_level, 1) AS alarm_level,
+            COUNT(*) AS incident_count
+        FROM incident_reports i
+        JOIN reports r ON r.report_id = i.report_id
+        LEFT JOIN incident_report_stage s ON s.incident_report_stage_id = i.incident_report_stage_id
+    ";
+    if ($incidentWhereSql !== '') {
+        $alarmBreakdownSql .= "\n        WHERE " . $incidentWhereSql;
+    }
+    $alarmBreakdownSql .= "
+        GROUP BY COALESCE(i.alarm_level, 1)
+        ORDER BY alarm_level ASC
+    ";
+    $alarmBreakdownStmt = $pdo->prepare($alarmBreakdownSql);
+    $alarmBreakdownStmt->execute($incidentParams);
+    $alarmBreakdownRows = $alarmBreakdownStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    foreach ($alarmBreakdownRows as $alarmRow) {
+        $analyticsContext['classificationBreakdown']['alarmLevels'][] = [
+            'label' => 'Alarm ' . max(1, (int) ($alarmRow['alarm_level'] ?? 1)),
+            'count' => (int) ($alarmRow['incident_count'] ?? 0)
+        ];
+    }
+
+    $statusBreakdownSql = "
+        SELECT
+            CASE
+                WHEN s.stage_code = 'after_incident' OR i.incident_status = 'fire_out' OR i.incident_finished_at IS NOT NULL THEN 'Resolved'
+                WHEN i.incident_status = 'under_control' THEN 'Under Control'
+                ELSE 'Active'
+            END AS status_bucket,
+            COUNT(*) AS incident_count
+        FROM incident_reports i
+        JOIN reports r ON r.report_id = i.report_id
+        LEFT JOIN incident_report_stage s ON s.incident_report_stage_id = i.incident_report_stage_id
+    ";
+    if ($incidentWhereSql !== '') {
+        $statusBreakdownSql .= "\n        WHERE " . $incidentWhereSql;
+    }
+    $statusBreakdownSql .= "
+        GROUP BY status_bucket
+    ";
+    $statusBreakdownStmt = $pdo->prepare($statusBreakdownSql);
+    $statusBreakdownStmt->execute($incidentParams);
+    $statusBreakdownRows = $statusBreakdownStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    foreach ($statusBreakdownRows as $statusRow) {
+        $analyticsContext['classificationBreakdown']['incidentStatuses'][] = [
+            'label' => (string) ($statusRow['status_bucket'] ?? 'Active'),
+            'count' => (int) ($statusRow['incident_count'] ?? 0)
+        ];
+    }
+
+    $reportTypeBreakdownSql = "
+        SELECT
+            COALESCE(rt.type_name, 'unknown') AS report_type_name,
+            COUNT(*) AS incident_count
+        FROM incident_reports i
+        JOIN reports r ON r.report_id = i.report_id
+        LEFT JOIN report_type rt ON rt.report_type_id = r.report_type_id
+        LEFT JOIN incident_report_stage s ON s.incident_report_stage_id = i.incident_report_stage_id
+    ";
+    if ($incidentWhereSql !== '') {
+        $reportTypeBreakdownSql .= "\n        WHERE " . $incidentWhereSql;
+    }
+    $reportTypeBreakdownSql .= "
+        GROUP BY COALESCE(rt.type_name, 'unknown')
+        ORDER BY incident_count DESC, report_type_name ASC
+    ";
+    $reportTypeBreakdownStmt = $pdo->prepare($reportTypeBreakdownSql);
+    $reportTypeBreakdownStmt->execute($incidentParams);
+    $reportTypeBreakdownRows = $reportTypeBreakdownStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    foreach ($reportTypeBreakdownRows as $typeRow) {
+        $typeName = str_replace('_', ' ', (string) ($typeRow['report_type_name'] ?? 'unknown'));
+        $analyticsContext['classificationBreakdown']['reportTypes'][] = [
+            'label' => ucwords($typeName),
+            'count' => (int) ($typeRow['incident_count'] ?? 0)
+        ];
+    }
 
     $latestSql = "\n        SELECT\n            COALESCE(NULLIF(r.title, ''), NULLIF(i.incident_location, ''), 'Unspecified location') AS incident_title,\n            COALESCE(i.incident_status, 'newly_reported') AS incident_status,\n            COALESCE(i.alarm_level, 1) AS alarm_level,\n            COALESCE(i.updated_at, i.created_at, r.updated_at, r.created_at) AS incident_time,\n            COALESCE(st.station_name, 'Makati') AS station_name\n        FROM incident_reports i\n        JOIN reports r ON r.report_id = i.report_id\n        LEFT JOIN stations st ON st.station_id = r.station_id\n        LEFT JOIN incident_report_stage s ON s.incident_report_stage_id = i.incident_report_stage_id\n    ";
     if ($incidentWhereSql !== '') {
@@ -398,6 +695,7 @@ try {
     $incidentHeatStmt = $pdo->prepare($incidentHeatSql);
     $incidentHeatStmt->execute($incidentParams);
     $incidentHeatRows = $incidentHeatStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    $hotspotCounts = [];
     foreach ($incidentHeatRows as $row) {
         $latitude = isset($row['latitude']) ? (float) $row['latitude'] : 0.0;
         $longitude = isset($row['longitude']) ? (float) $row['longitude'] : 0.0;
@@ -422,8 +720,81 @@ try {
             'alarmLevel' => $alarmLevel,
             'updatedAt' => (string) ($row['incident_time'] ?? '')
         ];
+
+        $hotspotLabel = trim((string) ($row['incident_label'] ?? ''));
+        $stationLabel = trim((string) ($row['station_name'] ?? ''));
+        if ($hotspotLabel === '') {
+            $hotspotLabel = $stationLabel !== '' ? $stationLabel : 'Unspecified area';
+        }
+        if (!isset($hotspotCounts[$hotspotLabel])) {
+            $hotspotCounts[$hotspotLabel] = [
+                'label' => $hotspotLabel,
+                'incidentCount' => 0,
+                'activeCount' => 0,
+                'alarmWeight' => 0
+            ];
+        }
+        $hotspotCounts[$hotspotLabel]['incidentCount']++;
+        $hotspotCounts[$hotspotLabel]['alarmWeight'] += $alarmLevel;
+        if ($incidentStatus !== 'fire_out') {
+            $hotspotCounts[$hotspotLabel]['activeCount']++;
+        }
     }
     $analyticsContext['incidentHeatPointCount'] = count($analyticsContext['incidentHeatmapPoints']);
+    if ($hotspotCounts) {
+        usort($hotspotCounts, static function (array $a, array $b): int {
+            if ((int) ($b['activeCount'] ?? 0) !== (int) ($a['activeCount'] ?? 0)) {
+                return ((int) ($b['activeCount'] ?? 0)) <=> ((int) ($a['activeCount'] ?? 0));
+            }
+            if ((int) ($b['incidentCount'] ?? 0) !== (int) ($a['incidentCount'] ?? 0)) {
+                return ((int) ($b['incidentCount'] ?? 0)) <=> ((int) ($a['incidentCount'] ?? 0));
+            }
+            return ((int) ($b['alarmWeight'] ?? 0)) <=> ((int) ($a['alarmWeight'] ?? 0));
+        });
+        $analyticsContext['geoInsights']['topHotspots'] = array_slice(array_values($hotspotCounts), 0, 5);
+    }
+
+    $aorDensity = [];
+    foreach ($analyticsContext['stationGeo'] as $stationGeo) {
+        $stationLat = (float) ($stationGeo['aorCenterLat'] ?? $stationGeo['latitude'] ?? 0);
+        $stationLng = (float) ($stationGeo['aorCenterLng'] ?? $stationGeo['longitude'] ?? 0);
+        $radiusKm = (float) ($stationGeo['aorRadiusKm'] ?? 2.5);
+        if (($stationLat === 0.0 && $stationLng === 0.0) || $radiusKm <= 0) {
+            continue;
+        }
+        $incidentCount = 0;
+        $activeCount = 0;
+        foreach ($analyticsContext['incidentHeatmapPoints'] as $heatPoint) {
+            $distanceKm = firenet_analytics_haversine_km(
+                $stationLat,
+                $stationLng,
+                (float) ($heatPoint['lat'] ?? 0),
+                (float) ($heatPoint['lng'] ?? 0)
+            );
+            if ($distanceKm <= $radiusKm) {
+                $incidentCount++;
+                if ((string) ($heatPoint['status'] ?? '') !== 'fire_out') {
+                    $activeCount++;
+                }
+            }
+        }
+        $aorDensity[] = [
+            'stationName' => (string) ($stationGeo['stationName'] ?? 'Station'),
+            'stationCode' => (string) ($stationGeo['stationCode'] ?? ''),
+            'incidentCount' => $incidentCount,
+            'activeCount' => $activeCount,
+            'radiusKm' => $radiusKm
+        ];
+    }
+    if ($aorDensity) {
+        usort($aorDensity, static function (array $a, array $b): int {
+            if ((int) ($b['activeCount'] ?? 0) !== (int) ($a['activeCount'] ?? 0)) {
+                return ((int) ($b['activeCount'] ?? 0)) <=> ((int) ($a['activeCount'] ?? 0));
+            }
+            return ((int) ($b['incidentCount'] ?? 0)) <=> ((int) ($a['incidentCount'] ?? 0));
+        });
+        $analyticsContext['geoInsights']['aorDensity'] = array_slice($aorDensity, 0, 6);
+    }
 
     $liveIncidentSql = "
         SELECT
@@ -599,6 +970,50 @@ try {
             : 'No hydrant records are available yet. Add public OpenStreetMap hydrants or local hydrant data to display this layer.';
     }
     $analyticsContext['hydrantCount'] = count($analyticsContext['hydrantGeo']);
+    $riskAreas = [];
+    $inactiveHydrantIds = [];
+    foreach ($analyticsContext['incidentHeatmapPoints'] as $heatPoint) {
+        $incidentLat = (float) ($heatPoint['lat'] ?? 0);
+        $incidentLng = (float) ($heatPoint['lng'] ?? 0);
+        if ($incidentLat === 0.0 && $incidentLng === 0.0) {
+            continue;
+        }
+        foreach ($analyticsContext['hydrantGeo'] as $hydrant) {
+            $hydrantStatus = strtolower((string) ($hydrant['status'] ?? 'active'));
+            if (!in_array($hydrantStatus, ['inactive', 'maintenance'], true)) {
+                continue;
+            }
+            $hydrantLat = (float) ($hydrant['latitude'] ?? 0);
+            $hydrantLng = (float) ($hydrant['longitude'] ?? 0);
+            if ($hydrantLat === 0.0 && $hydrantLng === 0.0) {
+                continue;
+            }
+            $distanceKm = firenet_analytics_haversine_km($incidentLat, $incidentLng, $hydrantLat, $hydrantLng);
+            if ($distanceKm > 0.75) {
+                continue;
+            }
+            $analyticsContext['geoInsights']['hydrantRiskSummary']['riskIncidentCount']++;
+            $inactiveHydrantIds[(string) ($hydrant['hydrantId'] ?? count($inactiveHydrantIds))] = true;
+            $riskAreaLabel = trim((string) ($heatPoint['stationName'] ?? ''));
+            if ($riskAreaLabel === '') {
+                $riskAreaLabel = trim((string) ($heatPoint['label'] ?? 'Unspecified area'));
+            }
+            if (!isset($riskAreas[$riskAreaLabel])) {
+                $riskAreas[$riskAreaLabel] = 0;
+            }
+            $riskAreas[$riskAreaLabel]++;
+        }
+    }
+    $analyticsContext['geoInsights']['hydrantRiskSummary']['inactiveHydrantsNearIncidents'] = count($inactiveHydrantIds);
+    if ($riskAreas) {
+        arsort($riskAreas);
+        foreach (array_slice($riskAreas, 0, 5, true) as $label => $count) {
+            $analyticsContext['geoInsights']['hydrantRiskSummary']['topRiskAreas'][] = [
+                'label' => $label,
+                'incidentCount' => (int) $count
+            ];
+        }
+    }
     $analyticsContext['incidentFilterSummary'] = firenet_analytics_build_filter_summary(
         $incidentScope,
         $incidentFrom,
@@ -616,11 +1031,13 @@ if ($googleMapsApiKey === '' || strpos($googleMapsApiKey, 'YOUR_GOOGLE_MAPS_API_
     $googleMapsApiKey = '';
 }
 
+$bodyClass = 'has-dashboard-bg';
 $pageStyles = ['/firenet/NEWFIRENET/assets/css/analytics.css?v=' . filemtime(__DIR__ . '/../../assets/css/analytics.css')];
 $pageScripts = [];
 if ($googleMapsApiKey !== '') {
     $pageScripts[] = 'https://maps.googleapis.com/maps/api/js?key=' . rawurlencode($googleMapsApiKey) . '&libraries=visualization&v=weekly&loading=async';
 }
+$pageScripts[] = '/firenet/NEWFIRENET/assets/vendor/chart.umd.js';
 $pageScripts[] = '/firenet/NEWFIRENET/assets/js/analytics.js?v=' . filemtime(__DIR__ . '/../../assets/js/analytics.js');
 
 require_once __DIR__ . '/../../includes/header.php';

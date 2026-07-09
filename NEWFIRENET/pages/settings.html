@@ -1,17 +1,37 @@
-<section class="settings-shell">
-  <h2>Settings</h2>
-  <p class="muted-text">Manage your profile and account security.</p>
+<section class="settings-pro">
+  <div class="settings-page-bg" aria-hidden="true"></div>
 
-  <section class="portal-card settings-profile-card">
-    <div class="settings-hero">
-      <div class="settings-avatar" id="settingsAvatar">
-        <img id="settingsAvatarImage" alt="Profile photo" hidden>
-        <span id="settingsAvatarInitials">FN</span>
+  <div class="settings-body">
+    <header class="settings-hero-shell" aria-label="Account settings overview">
+      <div class="settings-hero-top">
+        <div class="settings-hero-copy">
+          <p class="settings-kicker">FireNet · Account center</p>
+          <h1 class="settings-title">Settings</h1>
+          <p class="settings-subtitle">Manage your profile, workspace preferences, and account protection from one place.</p>
+          <ul class="settings-meta-chips" aria-label="Settings context">
+            <li class="settings-meta-chip"><span class="settings-meta-chip-label">Account</span><span class="settings-meta-chip-value" id="settingsDisplayName">Loading...</span></li>
+            <li class="settings-meta-chip"><span class="settings-meta-chip-label">Contact</span><span class="settings-meta-chip-value" id="settingsDisplayEmail">Loading profile...</span></li>
+            <li class="settings-meta-chip settings-meta-chip--subtle"><span class="settings-meta-chip-value">Secure preferences and password controls</span></li>
+          </ul>
+        </div>
       </div>
-      <div class="settings-hero-text">
-        <h3 id="settingsDisplayName">Loading...</h3>
-        <p id="settingsDisplayEmail" class="muted-text">Loading profile...</p>
-        <div class="settings-hero-actions">
+    </header>
+
+    <section class="settings-profile-panel">
+      <div class="settings-profile-head">
+        <div class="settings-avatar-card">
+          <div class="settings-avatar" id="settingsAvatar">
+            <img id="settingsAvatarImage" alt="Profile photo" hidden>
+            <span id="settingsAvatarInitials">FN</span>
+          </div>
+          <div class="settings-avatar-copy">
+            <p class="settings-section-kicker">Profile photo</p>
+            <h2 class="settings-panel-title">Identity</h2>
+            <p class="settings-panel-desc">Keep your station account recognizable across dashboard, mail, and reports.</p>
+          </div>
+        </div>
+
+        <div class="settings-photo-card">
           <input id="profilePhotoInput" type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden>
           <div class="settings-photo-buttons">
             <button type="button" class="secondary-btn" id="uploadProfilePhotoBtn">Upload Profile Photo</button>
@@ -20,157 +40,162 @@
           <p class="settings-photo-note">Accepted: JPG, PNG, WEBP, GIF up to 2MB.</p>
         </div>
       </div>
-    </div>
 
-    <form id="settingsForm" class="settings-form" novalidate>
-      <div class="settings-grid">
-        <label>
-          Username
-          <input id="settingsUsername" type="text" maxlength="60" required readonly>
-        </label>
-
-        <label>
-          Email
-          <input id="settingsEmail" type="email" maxlength="120" required readonly>
-        </label>
-      </div>
-
-      <p class="settings-admin-note">Need to update your username or email? Please contact an administrator for account changes.</p>
-
-      <div class="settings-actions">
-        <button type="button" class="secondary-btn" id="openPasswordModalBtn">Change Password</button>
-        <button type="submit" class="primary-btn" id="settingsSaveBtn" disabled title="Username and email are managed by administrators">Save Profile</button>
-      </div>
-      <p id="settingsMessage" class="muted-text"></p>
-    </form>
-  </section>
-
-  <section class="settings-section-grid">
-    <section class="portal-card settings-section-card">
-      <div class="settings-section-head">
-        <div>
-          <p class="settings-section-kicker">Display</p>
-          <h3>Workspace Preferences</h3>
-        </div>
-      </div>
-
-      <form id="preferencesForm" class="settings-form" novalidate>
-        <div class="settings-stack">
-          <label class="settings-toggle-item">
-            <span>
-              <strong>Compact interface</strong>
-              <small>Use tighter spacing across portal cards and tables.</small>
-            </span>
-            <input id="compactModeToggle" type="checkbox">
+      <form id="settingsForm" class="settings-form" novalidate>
+        <div class="settings-grid">
+          <label>
+            <span>Username</span>
+            <input id="settingsUsername" type="text" maxlength="60" required readonly>
           </label>
 
-          <label class="settings-toggle-item">
-            <span>
-              <strong>Reduce motion</strong>
-              <small>Minimize transitions and hover motion in the dashboard.</small>
-            </span>
-            <input id="reduceMotionToggle" type="checkbox">
-          </label>
-
-          <label class="settings-toggle-item">
-            <span>
-              <strong>Dark dashboards</strong>
-              <small>Use a deeper interface tone for long viewing sessions.</small>
-            </span>
-            <input id="darkModeToggle" type="checkbox">
+          <label>
+            <span>Email</span>
+            <input id="settingsEmail" type="email" maxlength="120" required readonly>
           </label>
         </div>
+
+        <p class="settings-admin-note">Username and email are administrator-managed. Contact your station administrator if account identity details need to change.</p>
 
         <div class="settings-actions">
-          <button type="submit" class="primary-btn" id="savePreferencesBtn">Save Preferences</button>
+          <button type="button" class="secondary-btn" id="openPasswordModalBtn">Change Password</button>
+          <button type="submit" class="primary-btn" id="settingsSaveBtn" disabled title="Username and email are managed by administrators">Save Profile</button>
         </div>
-        <p id="preferencesMessage" class="muted-text"></p>
+        <p id="settingsMessage" class="settings-inline-message"></p>
       </form>
     </section>
 
-    <section class="portal-card settings-section-card">
-      <div class="settings-section-head">
-        <div>
-          <p class="settings-section-kicker">Security</p>
-          <h3>System Protection</h3>
-        </div>
-      </div>
-
-      <form id="securityForm" class="settings-form" novalidate>
-        <div class="settings-stack">
-          <label class="settings-toggle-item">
-            <span>
-              <strong>Security alerts</strong>
-              <small>Show account and system security notices inside the portal.</small>
-            </span>
-            <input id="securityAlertsToggle" type="checkbox">
-          </label>
-
-          <label class="settings-toggle-item">
-            <span>
-              <strong>Hide sensitive details</strong>
-              <small>Mask sensitive incident information until you click to reveal it.</small>
-            </span>
-            <input id="hideSensitiveToggle" type="checkbox">
-          </label>
-
-          <label class="settings-field-inline">
-            <span>
-              <strong>Auto logout</strong>
-              <small>Sign out automatically after inactivity to protect the session.</small>
-            </span>
-            <select id="autoLogoutSelect">
-              <option value="0">Disabled</option>
-              <option value="15">15 minutes</option>
-              <option value="30">30 minutes</option>
-              <option value="60">1 hour</option>
-              <option value="120">2 hours</option>
-            </select>
-          </label>
+    <section class="settings-section-grid">
+      <section class="settings-section-card">
+        <div class="settings-section-head">
+          <div>
+            <p class="settings-section-kicker">Display</p>
+            <h2 class="settings-panel-title">Workspace Preferences</h2>
+            <p class="settings-panel-desc">Tune how the portal feels during long operations and reviews.</p>
+          </div>
         </div>
 
-        <div class="settings-actions">
-          <button type="submit" class="primary-btn" id="saveSecurityBtn">Save Security</button>
+        <form id="preferencesForm" class="settings-form" novalidate>
+          <div class="settings-stack">
+            <label class="settings-toggle-item">
+              <span>
+                <strong>Compact interface</strong>
+                <small>Use tighter spacing across portal cards and tables.</small>
+              </span>
+              <input id="compactModeToggle" type="checkbox">
+            </label>
+
+            <label class="settings-toggle-item">
+              <span>
+                <strong>Reduce motion</strong>
+                <small>Minimize transitions and hover motion in the dashboard.</small>
+              </span>
+              <input id="reduceMotionToggle" type="checkbox">
+            </label>
+
+            <label class="settings-toggle-item">
+              <span>
+                <strong>Keep navigation compact</strong>
+                <small>Save the collapsed sidebar state so dense workspaces open with more room.</small>
+              </span>
+              <input id="darkModeToggle" type="checkbox">
+            </label>
+          </div>
+
+          <div class="settings-actions">
+            <button type="submit" class="primary-btn" id="savePreferencesBtn">Save Preferences</button>
+          </div>
+          <p id="preferencesMessage" class="settings-inline-message"></p>
+        </form>
+      </section>
+
+      <section class="settings-section-card">
+        <div class="settings-section-head">
+          <div>
+            <p class="settings-section-kicker">Security</p>
+            <h2 class="settings-panel-title">System Protection</h2>
+            <p class="settings-panel-desc">Control alerts, hidden details, and session expiry for shared workstations.</p>
+          </div>
         </div>
-        <p id="securityMessage" class="muted-text"></p>
-      </form>
+
+        <form id="securityForm" class="settings-form" novalidate>
+          <div class="settings-stack">
+            <label class="settings-toggle-item">
+              <span>
+                <strong>Security alerts</strong>
+                <small>Show account and system security notices inside the portal.</small>
+              </span>
+              <input id="securityAlertsToggle" type="checkbox">
+            </label>
+
+            <label class="settings-toggle-item">
+              <span>
+                <strong>Hide sensitive details</strong>
+                <small>Mask sensitive incident information until you click to reveal it.</small>
+              </span>
+              <input id="hideSensitiveToggle" type="checkbox">
+            </label>
+
+            <label class="settings-field-inline">
+              <span>
+                <strong>Auto logout</strong>
+                <small>Sign out automatically after inactivity to protect the session.</small>
+              </span>
+              <select id="autoLogoutSelect">
+                <option value="0">Disabled</option>
+                <option value="15">15 minutes</option>
+                <option value="30">30 minutes</option>
+                <option value="60">1 hour</option>
+                <option value="120">2 hours</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="settings-actions">
+            <button type="submit" class="primary-btn" id="saveSecurityBtn">Save Security</button>
+          </div>
+          <p id="securityMessage" class="settings-inline-message"></p>
+        </form>
+      </section>
     </section>
-  </section>
+  </div>
 
   <div id="passwordModal" class="settings-modal" hidden>
     <div class="settings-modal-backdrop" data-close-password-modal="true"></div>
     <div class="settings-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="passwordModalTitle">
       <div class="settings-modal-header">
-        <h3 id="passwordModalTitle">Change Password</h3>
-        <button type="button" class="modal-close-btn" id="closePasswordModalBtn" data-close-password-modal="true" aria-label="Close dialog">x</button>
+        <div>
+          <p class="settings-section-kicker">Security</p>
+          <h3 id="passwordModalTitle">Change Password</h3>
+        </div>
+        <button type="button" class="modal-close-btn" id="closePasswordModalBtn" data-close-password-modal="true" aria-label="Close dialog">&times;</button>
       </div>
 
       <form id="passwordForm" class="settings-password-form" novalidate>
         <label>
-          Current Password
+          <span>Current Password</span>
           <input id="currentPassword" type="password" maxlength="255" required>
         </label>
 
         <label>
-          New Password
+          <span>New Password</span>
           <input id="newPassword" type="password" maxlength="255" required>
         </label>
 
         <label>
-          Confirm New Password
+          <span>Confirm New Password</span>
           <input id="confirmPassword" type="password" maxlength="255" required>
         </label>
 
         <label class="settings-show-password">
           <input id="showPasswordToggle" type="checkbox">
-          Show passwords
+          <span>Show passwords</span>
         </label>
 
-        <div class="settings-actions">
+        <div class="settings-actions settings-actions--modal">
           <button type="button" class="secondary-btn" id="cancelPasswordBtn">Cancel</button>
           <button type="submit" class="primary-btn" id="savePasswordBtn">Continue</button>
         </div>
-        <p id="passwordMessage" class="muted-text"></p>
+        <p id="passwordMessage" class="settings-inline-message"></p>
       </form>
     </div>
   </div>

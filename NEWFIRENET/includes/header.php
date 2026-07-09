@@ -20,11 +20,12 @@ $reportsPath = '/firenet/NEWFIRENET/backend/pages/reports.php';
 $calendarPath = '/firenet/NEWFIRENET/backend/pages/calendar.php';
 $stationIncidentLogsPath = '/firenet/NEWFIRENET/backend/pages/station_incident_logs.php';
 $stationMailsPath = '/firenet/NEWFIRENET/backend/pages/station_mails.php';
-$usersPath = '/firenet/NEWFIRENET/backend/pages/users.php';
+$adminSettingsPath = '/firenet/NEWFIRENET/backend/pages/admin_settings.php';
+$auditLogPath = '/firenet/NEWFIRENET/backend/pages/audit_log.php';
+$legacyUsersPath = '/firenet/NEWFIRENET/backend/pages/users.php';
 $analyticsPath = '/firenet/NEWFIRENET/backend/pages/analytics.php';
 $dashboardPath = '/firenet/NEWFIRENET/backend/pages/dashboard.php';
 $settingsPath = '/firenet/NEWFIRENET/backend/pages/settings.php';
-$fileRequestsPath = '/firenet/NEWFIRENET/backend/pages/file_requests.php';
 $generalMailPath = '/firenet/NEWFIRENET/backend/pages/general_mail.php';
 $operationalMailPath = '/firenet/NEWFIRENET/backend/pages/operational_mail.php';
 
@@ -38,6 +39,12 @@ $sidebarMailOpen = in_array(
   [$stationMailsPath, $generalMailPath, $operationalMailPath],
   true
 );
+$adminSettingsPaths = [$adminSettingsPath, $legacyUsersPath, $auditLogPath];
+$adminSettingsOpen = in_array($currentPath, $adminSettingsPaths, true);
+$adminSettingsTab = strtolower(trim((string) ($_GET['tab'] ?? 'accounts')));
+if (!in_array($adminSettingsTab, ['accounts', 'news', 'notices', 'substations'], true)) {
+  $adminSettingsTab = 'accounts';
+}
 $sessionUserId = (int) ($sessionUser['user_id'] ?? 0);
 $sessionStationName = 'Station ' . $sessionStationId;
 $headerProfilePhotoUrl = '';
@@ -179,7 +186,6 @@ if ($sessionUserId > 0) {
                   <a class="apps-tile" href="<?php echo htmlspecialchars($reportsPath); ?>"><span class="apps-tile-icon" aria-hidden="true"><i class="bi bi-file-earmark-text"></i></span><span>Reports</span></a>
                   <a class="apps-tile" href="<?php echo htmlspecialchars($calendarPath); ?>"><span class="apps-tile-icon" aria-hidden="true"><i class="bi bi-calendar3"></i></span><span>Calendar</span></a>
                   <a class="apps-tile" href="<?php echo htmlspecialchars($stationIncidentLogsPath); ?>"><span class="apps-tile-icon" aria-hidden="true"><i class="bi bi-clipboard-data"></i></span><span>Incident logs</span></a>
-                  <a class="apps-tile" href="<?php echo htmlspecialchars($fileRequestsPath); ?>"><span class="apps-tile-icon" aria-hidden="true"><i class="bi bi-inbox"></i></span><span>File requests</span></a>
                   <?php if ($sessionIsCentralStation): ?>
                     <a class="apps-tile" href="<?php echo htmlspecialchars($stationMailsPath); ?>"><span class="apps-tile-icon" aria-hidden="true"><i class="bi bi-envelope"></i></span><span>Station mail</span></a>
                     <a class="apps-tile" href="<?php echo htmlspecialchars($generalMailPath); ?>"><span class="apps-tile-icon" aria-hidden="true"><i class="bi bi-envelope-paper"></i></span><span>General mail</span></a>
@@ -190,7 +196,7 @@ if ($sessionUserId > 0) {
                   <a class="apps-tile" href="<?php echo htmlspecialchars($analyticsPath); ?>"><span class="apps-tile-icon" aria-hidden="true"><i class="bi bi-graph-up"></i></span><span>Analytics</span></a>
                   <a class="apps-tile" href="<?php echo htmlspecialchars($settingsPath); ?>"><span class="apps-tile-icon" aria-hidden="true"><i class="bi bi-gear"></i></span><span>Settings</span></a>
                   <?php if (in_array($sessionRoleKey, ['admin', 'superadmin'], true)): ?>
-                    <a class="apps-tile" href="<?php echo htmlspecialchars($usersPath); ?>"><span class="apps-tile-icon" aria-hidden="true"><i class="bi bi-people"></i></span><span>Users</span></a>
+                    <a class="apps-tile" href="<?php echo htmlspecialchars($adminSettingsPath); ?>"><span class="apps-tile-icon" aria-hidden="true"><i class="bi bi-people"></i></span><span>Admin Settings</span></a>
                   <?php endif; ?>
                 </div>
               </div>
@@ -252,8 +258,9 @@ if ($sessionUserId > 0) {
         'reportsUrl' => $reportsPath,
         'calendarUrl' => $calendarPath,
         'mailUrl' => $mailHomePath,
-        'usersUrl' => $usersPath,
-        'fileRequestsUrl' => $fileRequestsPath,
+        'adminSettingsUrl' => $adminSettingsPath,
+        'auditLogUrl' => $auditLogPath,
+        'usersUrl' => $legacyUsersPath,
         'generalMailUrl' => $generalMailPath,
         'operationalMailUrl' => $operationalMailPath,
         'isCentralStation' => $sessionIsCentralStation,
@@ -282,10 +289,6 @@ if ($sessionUserId > 0) {
           <a href="<?php echo htmlspecialchars($stationIncidentLogsPath); ?>" class="sidebar-link<?php echo $currentPath === $stationIncidentLogsPath ? ' is-active' : ''; ?>">
             <span class="sidebar-link-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M4 6h16v2H4V6zm0 5h16v2H4v-2zm0 5h10v2H4v-2z"/></svg></span>
             <span class="sidebar-link-text">Logs</span>
-          </a>
-          <a href="<?php echo htmlspecialchars($fileRequestsPath); ?>" class="sidebar-link<?php echo $currentPath === $fileRequestsPath ? ' is-active' : ''; ?>">
-            <span class="sidebar-link-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm4 18H6V4h7v5h5v11zM8 12h8v2H8v-2zm0 4h8v2H8v-2z"/></svg></span>
-            <span class="sidebar-link-text">File requests</span>
           </a>
 
           <div class="sidebar-divider" role="presentation"></div>
@@ -332,10 +335,37 @@ if ($sessionUserId > 0) {
 
           <?php if (in_array($sessionRoleKey, ['admin', 'superadmin'], true)): ?>
             <div class="sidebar-divider" role="presentation"></div>
-            <a href="<?php echo htmlspecialchars($usersPath); ?>" class="sidebar-link<?php echo $currentPath === $usersPath ? ' is-active' : ''; ?>">
-              <span class="sidebar-link-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5s-3 1.34-3 3 1.34 3 3 3zm-8 0c1.66 0 3-1.34 3-3S9.66 5 8 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg></span>
-              <span class="sidebar-link-text">Users</span>
-            </a>
+            <details class="sidebar-details"<?php echo $adminSettingsOpen ? ' open' : ''; ?>>
+              <summary class="sidebar-group-summary">
+                <span class="sidebar-link-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5s-3 1.34-3 3 1.34 3 3 3zm-8 0c1.66 0 3-1.34 3-3S9.66 5 8 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg></span>
+                <span class="sidebar-link-text">Admin Settings</span>
+                <span class="sidebar-summary-chevron" aria-hidden="true"></span>
+              </summary>
+              <div class="sidebar-submenu">
+                <a href="<?php echo htmlspecialchars($adminSettingsPath . '?tab=accounts'); ?>" class="sidebar-link sidebar-link--sub<?php echo $adminSettingsOpen && $adminSettingsTab === 'accounts' ? ' is-active' : ''; ?>">
+                  <span class="sidebar-link-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5s-3 1.34-3 3 1.34 3 3 3zM8 11c1.66 0 3-1.34 3-3S9.66 5 8 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg></span>
+                  <span class="sidebar-link-text">Users</span>
+                </a>
+                <a href="<?php echo htmlspecialchars($adminSettingsPath . '?tab=news'); ?>" class="sidebar-link sidebar-link--sub<?php echo $adminSettingsOpen && $adminSettingsTab === 'news' ? ' is-active' : ''; ?>">
+                  <span class="sidebar-link-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M4 5h16v14H4V5zm2 2v2h12V7H6zm0 4v6h5v-6H6zm7 0h5v2h-5v-2zm0 4h5v2h-5v-2z"/></svg></span>
+                  <span class="sidebar-link-text">Login News</span>
+                </a>
+                <a href="<?php echo htmlspecialchars($adminSettingsPath . '?tab=notices'); ?>" class="sidebar-link sidebar-link--sub<?php echo $adminSettingsOpen && $adminSettingsTab === 'notices' ? ' is-active' : ''; ?>">
+                  <span class="sidebar-link-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M6 3h12a2 2 0 0 1 2 2v14l-4-2-4 2-4-2-4 2V5a2 2 0 0 1 2-2zm2 4v2h8V7H8zm0 4v2h8v-2H8z"/></svg></span>
+                  <span class="sidebar-link-text">Public Notices</span>
+                </a>
+                <?php if ($sessionRoleKey === 'superadmin'): ?>
+                <a href="<?php echo htmlspecialchars($adminSettingsPath . '?tab=substations'); ?>" class="sidebar-link sidebar-link--sub<?php echo $adminSettingsOpen && $adminSettingsTab === 'substations' ? ' is-active' : ''; ?>">
+                  <span class="sidebar-link-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M4 20h16v2H4v-2zm2-2V8l5-4 5 4v10h2V9l-7-5-7 5v9h2zm3 0h4v-5H9v5z"/></svg></span>
+                  <span class="sidebar-link-text">Substations</span>
+                </a>
+                <?php endif; ?>
+                <a href="<?php echo htmlspecialchars($auditLogPath); ?>" class="sidebar-link sidebar-link--sub<?php echo $currentPath === $auditLogPath ? ' is-active' : ''; ?>">
+                  <span class="sidebar-link-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M4 4h16v2H4V4zm0 4h16v14H4V8zm3 3v2h10v-2H7zm0 4v2h7v-2H7z"/></svg></span>
+                  <span class="sidebar-link-text">Audit Log</span>
+                </a>
+              </div>
+            </details>
           <?php endif; ?>
         </nav>
       </aside>

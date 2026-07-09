@@ -28,8 +28,9 @@ $settingsContext = [
     'settingsApiUrl' => '/firenet/NEWFIRENET/backend/controllers/settings.php'
 ];
 
-$pageStyles = ['/firenet/NEWFIRENET/assets/css/settings.css'];
-$pageScripts = ['/firenet/NEWFIRENET/assets/js/settings.js'];
+$bodyClass = 'has-dashboard-bg';
+$pageStyles = ['/firenet/NEWFIRENET/assets/css/settings.css?v=' . filemtime(__DIR__ . '/../../assets/css/settings.css')];
+$pageScripts = ['/firenet/NEWFIRENET/assets/js/settings.js?v=' . filemtime(__DIR__ . '/../../assets/js/settings.js')];
 
 require_once __DIR__ . '/../../includes/header.php';
 ?>

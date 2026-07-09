@@ -95,7 +95,16 @@
   const endpoint = String(context.settingsApiUrl || '/firenet/NEWFIRENET/backend/controllers/settings.php');
   const logoutUrl = '/firenet/NEWFIRENET/backend/controllers/logout.php';
   const preferenceStorageKey = 'firenet.userSettingsState';
+  const sidebarCollapsedKey = 'firenet.sidebarCollapsed';
   let inactivityTimerId = null;
+
+  if (context.username) {
+    displayName.textContent = String(context.username);
+    avatarInitials.textContent = getInitials(context.username, '', context.role);
+  }
+  if (context.stationName) {
+    displayEmail.textContent = String(context.stationName);
+  }
 
   function loadLocalSettings() {
     try {
@@ -108,6 +117,27 @@
 
   function saveLocalSettings(values) {
     localStorage.setItem(preferenceStorageKey, JSON.stringify(values || {}));
+  }
+
+  function syncSidebarPreference(keepCompact) {
+    const sidebarLayout = document.getElementById('appLayout');
+    const sidebarCollapseBtn = document.getElementById('sidebarCollapseBtn');
+    const collapsed = Boolean(keepCompact);
+
+    try {
+      localStorage.setItem(sidebarCollapsedKey, collapsed ? '1' : '0');
+    } catch (error) {
+      // ignore storage failures
+    }
+
+    if (!sidebarLayout) {
+      return;
+    }
+
+    sidebarLayout.classList.toggle('sidebar-collapsed', collapsed);
+    if (sidebarCollapseBtn) {
+      sidebarCollapseBtn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+    }
   }
 
   function setInfo(target, text, isError) {
@@ -230,7 +260,7 @@
 
     document.body.classList.toggle('is-compact-ui', compactModeToggle.checked);
     document.body.classList.toggle('is-reduced-motion', reduceMotionToggle.checked);
-    document.body.classList.toggle('is-dark-dashboard', darkModeToggle.checked);
+    syncSidebarPreference(darkModeToggle.checked);
     document.body.classList.toggle('is-sensitive-hidden', hideSensitiveToggle.checked);
 
     resetInactivityTimer();
@@ -266,6 +296,8 @@
       const response = await fetch(endpoint, { method: 'GET', credentials: 'same-origin' });
       const payload = await response.json();
       if (!response.ok || !payload || payload.ok !== true || !payload.profile) {
+        displayName.textContent = String(context.username || 'FireNet User');
+        displayEmail.textContent = String(context.stationName || 'Station account');
         setMessage((payload && payload.message) ? payload.message : 'Unable to load profile settings.', true);
         return;
       }
@@ -274,6 +306,8 @@
       applyPreferences(payload.profile.settings || loadLocalSettings());
       setMessage('Profile loaded.', false);
     } catch (error) {
+      displayName.textContent = String(context.username || 'FireNet User');
+      displayEmail.textContent = String(context.stationName || 'Station account');
       setMessage('Unable to load profile settings.', true);
     }
   }

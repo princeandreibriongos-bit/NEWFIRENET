@@ -28,6 +28,14 @@ $ongoingIncidentMeta = 'Updates will appear here when incidents are active.';
 $completedIncidentCount = 0;
 $totalIncidentCount = 0;
 $stationStatuses = [];
+$dispatchLoadSummary = [
+    'busiestStationName' => 'No active dispatch load',
+    'busiestStationActiveAssignments' => 0,
+    'stationsHandlingCount' => 0,
+    'zeroAvailabilityCount' => 0,
+    'fallbackDispatchCountToday' => 0,
+    'topStations' => []
+];
 
 try {
     $pdo = firenet_get_pdo();
@@ -124,8 +132,90 @@ try {
             'statusCode' => $statusCode,
             'statusLabel' => $statusLabel,
             'activeAssignmentCount' => $activeAssignmentCount,
+            'incidentsHandledToday' => 0,
+            'fallbackDispatchCountToday' => 0,
             'isCurrentStation' => ((int) ($statusRow['station_id'] ?? 0) === $stationId)
         ];
+    }
+
+    if ($dispatchTableExists) {
+        $workloadStmt = $pdo->query("
+            SELECT
+                s.station_id,
+                s.station_name,
+                s.status AS station_record_status,
+                COALESCE(active_assignments.active_count, 0) AS active_assignment_count,
+                COALESCE(today_assignments.handled_today_count, 0) AS incidents_handled_today,
+                COALESCE(today_assignments.fallback_count, 0) AS fallback_dispatch_count_today
+            FROM stations s
+            LEFT JOIN (
+                SELECT d.station_id, COUNT(*) AS active_count
+                FROM incident_report_dispatch_stations d
+                JOIN incident_reports i ON i.incident_report_id = d.incident_report_id
+                LEFT JOIN incident_report_stage st ON st.incident_report_stage_id = i.incident_report_stage_id
+                WHERE (st.stage_code IS NULL OR st.stage_code <> 'after_incident')
+                  AND (i.incident_status IS NULL OR i.incident_status <> 'fire_out')
+                  AND i.incident_finished_at IS NULL
+                GROUP BY d.station_id
+            ) active_assignments ON active_assignments.station_id = s.station_id
+            LEFT JOIN (
+                SELECT
+                    d.station_id,
+                    COUNT(DISTINCT d.incident_report_id) AS handled_today_count,
+                    SUM(CASE WHEN d.assignment_method <> 'aor' THEN 1 ELSE 0 END) AS fallback_count
+                FROM incident_report_dispatch_stations d
+                WHERE DATE(d.created_at) = CURDATE()
+                GROUP BY d.station_id
+            ) today_assignments ON today_assignments.station_id = s.station_id
+            ORDER BY active_assignment_count DESC, incidents_handled_today DESC, s.station_name ASC
+        ");
+        $workloadRows = $workloadStmt ? $workloadStmt->fetchAll(PDO::FETCH_ASSOC) : [];
+        $topStations = [];
+
+        foreach ($workloadRows as $index => $workloadRow) {
+            $currentStationId = (int) ($workloadRow['station_id'] ?? 0);
+            $activeAssignmentCount = (int) ($workloadRow['active_assignment_count'] ?? 0);
+            $incidentsHandledToday = (int) ($workloadRow['incidents_handled_today'] ?? 0);
+            $fallbackDispatchCountToday = (int) ($workloadRow['fallback_dispatch_count_today'] ?? 0);
+
+            foreach ($stationStatuses as &$stationStatus) {
+                if ((int) ($stationStatus['stationId'] ?? 0) !== $currentStationId) {
+                    continue;
+                }
+
+                $stationStatus['incidentsHandledToday'] = $incidentsHandledToday;
+                $stationStatus['fallbackDispatchCountToday'] = $fallbackDispatchCountToday;
+                break;
+            }
+            unset($stationStatus);
+
+            $recordStatus = strtolower((string) ($workloadRow['station_record_status'] ?? 'active'));
+            if ($recordStatus === 'active' && $activeAssignmentCount === 0) {
+                $dispatchLoadSummary['zeroAvailabilityCount']++;
+            }
+            if ($activeAssignmentCount > 0) {
+                $dispatchLoadSummary['stationsHandlingCount']++;
+            }
+            $dispatchLoadSummary['fallbackDispatchCountToday'] += $fallbackDispatchCountToday;
+
+            if ($index === 0 && $activeAssignmentCount > 0) {
+                $dispatchLoadSummary['busiestStationName'] = (string) ($workloadRow['station_name'] ?? 'Station');
+                $dispatchLoadSummary['busiestStationActiveAssignments'] = $activeAssignmentCount;
+            }
+
+            if (count($topStations) < 4) {
+                $topStations[] = [
+                    'stationId' => $currentStationId,
+                    'stationName' => (string) ($workloadRow['station_name'] ?? ''),
+                    'activeAssignmentCount' => $activeAssignmentCount,
+                    'incidentsHandledToday' => $incidentsHandledToday,
+                    'fallbackDispatchCountToday' => $fallbackDispatchCountToday,
+                    'isCurrentStation' => $currentStationId === $stationId
+                ];
+            }
+        }
+
+        $dispatchLoadSummary['topStations'] = $topStations;
     }
 
     $trendStmt = $pdo->prepare("SELECT DATE(i.created_at) AS report_date, COUNT(*) AS report_count
@@ -168,6 +258,9 @@ try {
     if ($offlineStationCount > 0) {
         $recentNews[] = $offlineStationCount . ' station(s) are currently offline or not available for dispatch.';
     }
+    if ($dispatchLoadSummary['stationsHandlingCount'] > 0) {
+        $recentNews[] = $dispatchLoadSummary['busiestStationName'] . ' currently has the heaviest load with ' . $dispatchLoadSummary['busiestStationActiveAssignments'] . ' active assignment(s).';
+    }
     if ($completedIncidentCount > 0 && $totalIncidentCount > 0) {
         $recentNews[] = 'Resolution progress: ' . round(($completedIncidentCount / $totalIncidentCount) * 100) . '% of reported incidents have been completed recently.';
     }
@@ -201,7 +294,8 @@ $dashboardContext = [
     'dailyIncidentCounts' => array_values($dailyIncidentCounts),
     'dailyIncidentLabels' => array_keys($dailyIncidentCounts),
     'recentNews' => $recentNews,
-    'stationStatuses' => $stationStatuses
+    'stationStatuses' => $stationStatuses,
+    'dispatchLoadSummary' => $dispatchLoadSummary
 ];
 
 $pageStyles = ['/firenet/NEWFIRENET/assets/css/dashboard.css?v=' . (is_file(__DIR__ . '/../../assets/css/dashboard.css') ? filemtime(__DIR__ . '/../../assets/css/dashboard.css') : time())];

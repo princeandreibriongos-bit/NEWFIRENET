@@ -251,12 +251,132 @@ SQL);
         'ref_responding_station_ids' => 'VARCHAR(255) NULL',
         'ref_all_responding_stations' => 'TINYINT(1) NOT NULL DEFAULT 0',
         'ref_case_id' => 'VARCHAR(64) NULL',
+        'handling_coml_user_id' => 'INT NULL',
+        'handling_coml_at' => 'DATETIME NULL',
+        'handling_coml_station_id' => 'INT NULL',
     ];
     foreach ($routeCols as $col => $definition) {
         if (!firenet_mail_table_column_exists($pdo, 'station_mail_request_routes', $col)) {
             $pdo->exec('ALTER TABLE station_mail_request_routes ADD COLUMN `' . $col . '` ' . $definition);
         }
     }
+}
+
+function firenet_mail_route_active_coml_station_id(array $route): int
+{
+    $status = strtolower((string) ($route['status'] ?? ''));
+    if ($status === 'pending_origin_review') {
+        return (int) ($route['origin_station_id'] ?? 0);
+    }
+    if (in_array($status, ['approved', 'forwarded_to_target', 'routed_to_user', 'file_returned_to_coml', 'returned_to_origin'], true)) {
+        return (int) ($route['target_station_id'] ?? 0);
+    }
+
+    return 0;
+}
+
+function firenet_mail_clear_route_handler(PDO $pdo, int $routeId): void
+{
+    if ($routeId < 1) {
+        return;
+    }
+
+    $stmt = $pdo->prepare('
+        UPDATE station_mail_request_routes
+        SET handling_coml_user_id = NULL,
+            handling_coml_at = NULL,
+            handling_coml_station_id = NULL,
+            updated_at = NOW()
+        WHERE route_id = ?
+    ');
+    $stmt->execute([$routeId]);
+}
+
+function firenet_mail_claim_route(PDO $pdo, array $route, int $userId, int $stationId, bool $force = false): bool
+{
+    $routeId = (int) ($route['route_id'] ?? 0);
+    $activeStationId = firenet_mail_route_active_coml_station_id($route);
+    if ($routeId < 1 || $activeStationId < 1 || $stationId !== $activeStationId) {
+        return false;
+    }
+
+    if ($force) {
+        $stmt = $pdo->prepare('
+            UPDATE station_mail_request_routes
+            SET handling_coml_user_id = ?, handling_coml_at = NOW(), handling_coml_station_id = ?, updated_at = NOW()
+            WHERE route_id = ?
+        ');
+        $stmt->execute([$userId, $stationId, $routeId]);
+        return true;
+    }
+
+    $stmt = $pdo->prepare('
+        UPDATE station_mail_request_routes
+        SET handling_coml_user_id = ?, handling_coml_at = NOW(), handling_coml_station_id = ?, updated_at = NOW()
+        WHERE route_id = ?
+          AND (handling_coml_user_id IS NULL OR handling_coml_user_id = ?)
+    ');
+    $stmt->execute([$userId, $stationId, $routeId, $userId]);
+
+    return $stmt->rowCount() > 0 || (int) ($route['handling_coml_user_id'] ?? 0) === $userId;
+}
+
+function firenet_mail_assert_coml_route_handler(PDO $pdo, array $route, int $userId, int $stationId, array $userProfile): void
+{
+    if (!firenet_mail_is_coml_position($userProfile)) {
+        return;
+    }
+
+    $activeStationId = firenet_mail_route_active_coml_station_id($route);
+    if ($activeStationId < 1 || $stationId !== $activeStationId) {
+        return;
+    }
+
+    $handlerId = (int) ($route['handling_coml_user_id'] ?? 0);
+    if ($handlerId < 1) {
+        firenet_mail_fail('Claim this request before taking action on it.', 422);
+    }
+
+    if ($handlerId !== $userId) {
+        $handlerName = trim((string) ($route['handling_coml_username'] ?? ''));
+        if ($handlerName === '') {
+            $nameStmt = $pdo->prepare('SELECT username FROM users WHERE user_id = ? LIMIT 1');
+            $nameStmt->execute([$handlerId]);
+            $handlerName = trim((string) ($nameStmt->fetchColumn() ?: 'another ComL user'));
+        }
+        firenet_mail_fail('This request is already being handled by ' . $handlerName . '. Use Take over only if you need to continue their work.', 409);
+    }
+}
+
+function firenet_mail_load_request_route(PDO $pdo, int $routeId, int $threadId = 0): ?array
+{
+    if ($routeId < 1 && $threadId < 1) {
+        return null;
+    }
+
+    if ($routeId > 0) {
+        $stmt = $pdo->prepare('
+            SELECT rr.*, handler.username AS handling_coml_username
+            FROM station_mail_request_routes rr
+            LEFT JOIN users handler ON handler.user_id = rr.handling_coml_user_id
+            WHERE rr.route_id = ?
+            LIMIT 1
+        ');
+        $stmt->execute([$routeId]);
+    } else {
+        $stmt = $pdo->prepare('
+            SELECT rr.*, handler.username AS handling_coml_username
+            FROM station_mail_request_routes rr
+            LEFT JOIN users handler ON handler.user_id = rr.handling_coml_user_id
+            WHERE rr.thread_id = ?
+            ORDER BY rr.created_at DESC
+            LIMIT 1
+        ');
+        $stmt->execute([$threadId]);
+    }
+
+    $route = $stmt->fetch(PDO::FETCH_ASSOC);
+    return $route ?: null;
 }
 
 function firenet_mail_cloudinary_section(array $appConfig): array
@@ -806,6 +926,10 @@ function firenet_mail_request_route_by_thread(PDO $pdo, int $threadId): array
             rr.ref_responding_station_ids,
             rr.ref_all_responding_stations,
             rr.ref_case_id,
+            rr.handling_coml_user_id,
+            rr.handling_coml_at,
+            rr.handling_coml_station_id,
+            handler.username AS handling_coml_username,
             request_user.username AS request_username,
             origin_station.station_name AS origin_station_name,
             origin_station.station_code AS origin_station_code,
@@ -822,6 +946,7 @@ function firenet_mail_request_route_by_thread(PDO $pdo, int $threadId): array
         LEFT JOIN stations responding_station ON responding_station.station_id = rr.ref_responding_station_id
         LEFT JOIN users origin_reviewer ON origin_reviewer.user_id = rr.origin_reviewed_by
         LEFT JOIN users target_reviewer ON target_reviewer.user_id = rr.target_reviewed_by
+        LEFT JOIN users handler ON handler.user_id = rr.handling_coml_user_id
         WHERE rr.thread_id = ?
         LIMIT 1
     ');
@@ -912,7 +1037,11 @@ function firenet_mail_request_route_by_thread(PDO $pdo, int $threadId): array
         'originReviewerUsername' => (string) ($row['origin_reviewer_username'] ?? ''),
         'targetReviewerUsername' => (string) ($row['target_reviewer_username'] ?? ''),
         'assignedUserId' => $assignedUserId,
-        'assignedUsername' => $assignedUsername
+        'assignedUsername' => $assignedUsername,
+        'handlingComlUserId' => (int) ($row['handling_coml_user_id'] ?? 0),
+        'handlingComlAt' => (string) ($row['handling_coml_at'] ?? ''),
+        'handlingComlStationId' => (int) ($row['handling_coml_station_id'] ?? 0),
+        'handlingComlUsername' => (string) ($row['handling_coml_username'] ?? '')
     ];
 }
 
@@ -928,6 +1057,9 @@ function firenet_mail_request_tracking(PDO $pdo, int $userId, int $stationId, ar
                 rr.thread_id,
                 rr.status,
                 rr.updated_at,
+                rr.handling_coml_user_id,
+                rr.handling_coml_station_id,
+                handler.username AS handling_coml_username,
                 t.subject AS thread_subject,
                 origin_station.station_name AS origin_station_name,
                 target_station.station_name AS target_station_name
@@ -935,6 +1067,7 @@ function firenet_mail_request_tracking(PDO $pdo, int $userId, int $stationId, ar
             JOIN station_mail_threads t ON t.thread_id = rr.thread_id
             LEFT JOIN stations origin_station ON origin_station.station_id = rr.origin_station_id
             LEFT JOIN stations target_station ON target_station.station_id = rr.target_station_id
+            LEFT JOIN users handler ON handler.user_id = rr.handling_coml_user_id
             WHERE rr.target_station_id = ?
             ORDER BY rr.updated_at DESC, rr.route_id DESC
             LIMIT 50
@@ -969,7 +1102,10 @@ function firenet_mail_request_tracking(PDO $pdo, int $userId, int $stationId, ar
             'subject' => (string) ($row['thread_subject'] ?? '(No subject)'),
             'originStationName' => (string) ($row['origin_station_name'] ?? ''),
             'targetStationName' => (string) ($row['target_station_name'] ?? ''),
-            'updatedAt' => (string) ($row['updated_at'] ?? '')
+            'updatedAt' => (string) ($row['updated_at'] ?? ''),
+            'handlingComlUserId' => (int) ($row['handling_coml_user_id'] ?? 0),
+            'handlingComlStationId' => (int) ($row['handling_coml_station_id'] ?? 0),
+            'handlingComlUsername' => (string) ($row['handling_coml_username'] ?? '')
         ];
     }, $stmt->fetchAll(PDO::FETCH_ASSOC));
 }
@@ -1234,6 +1370,7 @@ SELECT
     COALESCE(sender_station.station_name, CONCAT('Station ', m.sender_station_id)) AS sender_station_name,
     r.recipient_id,
     r.read_at,
+    rr.status AS route_status,
     (
         SELECT COUNT(*)
         FROM station_mail_attachments a
@@ -1243,6 +1380,7 @@ FROM station_mail_messages m
 JOIN station_mail_recipients r ON r.mail_id = m.mail_id
 LEFT JOIN users sender ON sender.user_id = m.sender_user_id
 LEFT JOIN stations sender_station ON sender_station.station_id = m.sender_station_id
+LEFT JOIN station_mail_request_routes rr ON rr.thread_id = m.thread_id
 WHERE m.is_draft = 0
   AND r.deleted_at IS NULL
   AND (
@@ -1258,6 +1396,15 @@ SQL);
         $subject = trim((string) ($row['subject'] ?? ''));
         $senderStation = trim((string) ($row['sender_station_name'] ?? 'MCFS'));
         $attachmentCount = (int) ($row['attachment_count'] ?? 0);
+        $bodyText = trim(strip_tags((string) ($row['body'] ?? '')));
+        $bodyLower = strtolower($bodyText);
+        $routeStatus = strtolower(trim((string) ($row['route_status'] ?? '')));
+        if ($routeStatus === '' && str_contains($bodyLower, 'rejected the request')) {
+            $routeStatus = 'rejected';
+        }
+        if ($routeStatus === '' && (str_contains($bodyLower, 'request completed') || str_contains($bodyLower, 'file sent to the requester'))) {
+            $routeStatus = 'completed';
+        }
         $title = $subject !== '' ? $subject : 'Operational mail update';
         if ($attachmentCount > 0) {
             $title = $senderStation . ' sent ' . $attachmentCount . ' file' . ($attachmentCount > 1 ? 's' : '') . ': ' . $title;
@@ -1272,7 +1419,8 @@ SQL);
             'url' => $mailPageUrl . '?thread=' . (int) ($row['thread_id'] ?? 0),
             'createdAt' => (string) (($row['sent_at'] ?? '') ?: ($row['created_at'] ?? '')),
             'read' => trim((string) ($row['read_at'] ?? '')) !== '',
-            'message' => trim(strip_tags((string) ($row['body'] ?? '')))
+            'message' => $bodyText,
+            'requestStatus' => $routeStatus
         ];
     }, $stmt->fetchAll(PDO::FETCH_ASSOC));
 }
@@ -1389,7 +1537,12 @@ function firenet_mail_can_view_thread(PDO $pdo, int $threadId, int $userId, int 
             return true;
         }
 
-        return false;
+        if ((int) ($route['originStationId'] ?? 0) === $stationId) {
+            $userProfile = firenet_mail_current_user_profile($pdo, $userId);
+            if (firenet_mail_is_coml_position($userProfile)) {
+                return true;
+            }
+        }
     }
 
     $stmt = $pdo->prepare('
@@ -1428,6 +1581,9 @@ function firenet_mail_fetch_list(PDO $pdo, int $userId, int $stationId, string $
                     break;
                 case 'high':
                     $filterForMessages .= " AND m.importance IN ('high','urgent')";
+                    break;
+                case 'request':
+                    $filterForMessages .= " AND m.mail_type = 'request'";
                     break;
                 case 'station':
                     $filterForMessages .= ' AND m.sender_station_id = :filterStationId';
@@ -2457,6 +2613,99 @@ try {
         exit;
     }
 
+    if ($action === 'request-claim' || $action === 'request-takeover') {
+        $currentUserProfile = firenet_mail_current_user_profile($pdo, $currentUserId);
+        if (!firenet_mail_is_coml_position($currentUserProfile)) {
+            firenet_mail_fail('Only ComL users can claim operational requests.', 403);
+        }
+
+        $input = array_merge($_POST, firenet_mail_parse_json_input());
+        $routeId = (int) ($input['routeId'] ?? 0);
+        $threadId = (int) ($input['threadId'] ?? 0);
+        $route = firenet_mail_load_request_route($pdo, $routeId, $threadId);
+        if (!$route) {
+            firenet_mail_fail('Request route not found.', 404);
+        }
+
+        $routeId = (int) ($route['route_id'] ?? 0);
+        $threadId = (int) ($route['thread_id'] ?? 0);
+        $force = $action === 'request-takeover';
+        $previousHandlerId = (int) ($route['handling_coml_user_id'] ?? 0);
+
+        if ($force && $previousHandlerId > 0 && $previousHandlerId === $currentUserId) {
+            echo json_encode([
+                'ok' => true,
+                'message' => 'You are already handling this request.',
+                'data' => ['requestRoute' => firenet_mail_request_route_by_thread($pdo, $threadId)],
+            ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+            exit;
+        }
+
+        if (!firenet_mail_claim_route($pdo, $route, $currentUserId, $currentStationId, $force)) {
+            $handlerName = trim((string) ($route['handling_coml_username'] ?? 'another ComL user'));
+            firenet_mail_fail('This request is already being handled by ' . $handlerName . '.', 409);
+        }
+
+        firenet_mail_operational_audit(
+            $pdo,
+            $threadId,
+            $routeId,
+            $currentUserId,
+            $currentStationId,
+            $force ? 'coml_takeover' : 'coml_claim',
+            $force && $previousHandlerId > 0 ? ['previousHandlerUserId' => $previousHandlerId] : []
+        );
+
+        echo json_encode([
+            'ok' => true,
+            'message' => $force ? 'You have taken over this request.' : 'You are now handling this request.',
+            'data' => ['requestRoute' => firenet_mail_request_route_by_thread($pdo, $threadId)],
+        ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
+    if ($action === 'request-release') {
+        $currentUserProfile = firenet_mail_current_user_profile($pdo, $currentUserId);
+        if (!firenet_mail_is_coml_position($currentUserProfile)) {
+            firenet_mail_fail('Only ComL users can release operational requests.', 403);
+        }
+
+        $input = array_merge($_POST, firenet_mail_parse_json_input());
+        $routeId = (int) ($input['routeId'] ?? 0);
+        $threadId = (int) ($input['threadId'] ?? 0);
+        $route = firenet_mail_load_request_route($pdo, $routeId, $threadId);
+        if (!$route) {
+            firenet_mail_fail('Request route not found.', 404);
+        }
+
+        $routeId = (int) ($route['route_id'] ?? 0);
+        $threadId = (int) ($route['thread_id'] ?? 0);
+        $handlerId = (int) ($route['handling_coml_user_id'] ?? 0);
+        $status = strtolower((string) ($route['status'] ?? ''));
+
+        if (in_array($status, ['completed', 'rejected'], true)) {
+            firenet_mail_fail('Finished requests cannot be released back to the queue.', 422);
+        }
+
+        if ($handlerId < 1) {
+            firenet_mail_fail('This request is not currently claimed.', 422);
+        }
+
+        if ($handlerId !== $currentUserId) {
+            firenet_mail_fail('Only the ComL handling this request can release it back to the queue.', 403);
+        }
+
+        firenet_mail_clear_route_handler($pdo, $routeId);
+        firenet_mail_operational_audit($pdo, $threadId, $routeId, $currentUserId, $currentStationId, 'coml_release', []);
+
+        echo json_encode([
+            'ok' => true,
+            'message' => 'Request released back to the queue.',
+            'data' => ['requestRoute' => firenet_mail_request_route_by_thread($pdo, $threadId)],
+        ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
     if ($action === 'request-edit' || $action === 'request-approve' || $action === 'request-reject' || $action === 'request-target-assign' || $action === 'request-target-confirm-confidential' || $action === 'request-target-reject' || $action === 'request-target-edit' || $action === 'request-target-file-returned' || $action === 'request-target-return-origin' || $action === 'request-origin-assign' || $action === 'request-central-fulfill') {
         $currentUserProfile = firenet_mail_current_user_profile($pdo, $currentUserId);
         if (!firenet_mail_is_coml_position($currentUserProfile)) {
@@ -2512,6 +2761,12 @@ try {
         if (!$route) {
             firenet_mail_fail('Request route not found.', 404);
         }
+
+        $handlerRoute = firenet_mail_load_request_route($pdo, (int) ($route['route_id'] ?? 0), (int) ($route['thread_id'] ?? 0));
+        if ($handlerRoute) {
+            $route = array_merge($route, $handlerRoute);
+        }
+        firenet_mail_assert_coml_route_handler($pdo, $route, $currentUserId, $currentStationId, $currentUserProfile);
 
         if ($action === 'request-target-confirm-confidential') {
             $targetStationId = (int) ($route['target_station_id'] ?? 0);
@@ -2641,7 +2896,7 @@ try {
 
                 $routeUpdateStmt = $pdo->prepare('
                     UPDATE station_mail_request_routes
-                    SET status = "rejected", target_reviewed_by = ?, target_reviewed_at = NOW(), target_review_notes = ?, updated_at = NOW()
+                    SET status = "rejected", target_reviewed_by = ?, target_reviewed_at = NOW(), target_review_notes = ?, handling_coml_user_id = NULL, handling_coml_at = NULL, handling_coml_station_id = NULL, updated_at = NOW()
                     WHERE route_id = ?
                 ');
                 $routeUpdateStmt->execute([$currentUserId, $reason, $routeId]);
@@ -2653,10 +2908,14 @@ try {
             }
 
             $originComlIds = firenet_mail_station_coml_user_ids($pdo, (int) ($route['origin_station_id'] ?? 0));
+            $requestUserId = (int) ($route['request_user_id'] ?? 0);
+            $notifyUserIds = array_values(array_unique(array_filter(array_merge($originComlIds, [$requestUserId]), static function (int $value): bool {
+                return $value > 0;
+            })));
             $threadIdT = (int) ($route['thread_id'] ?? 0);
             $subjectT = (string) ($route['edited_subject'] ?: $route['thread_subject'] ?: '(No subject)');
             $bodyT = 'Target ComL rejected the request. Reason: ' . $reason;
-            firenet_mail_notify_route_users($pdo, $threadIdT, (int) ($route['request_mail_id'] ?? 0), $currentUserId, $currentStationId, $subjectT, $bodyT, $originComlIds);
+            firenet_mail_notify_route_users($pdo, $threadIdT, (int) ($route['request_mail_id'] ?? 0), $currentUserId, $currentStationId, $subjectT, $bodyT, $notifyUserIds);
             firenet_mail_operational_audit($pdo, $threadIdT, $routeId, $currentUserId, $currentStationId, 'target_reject', ['reason' => $reason]);
 
             echo json_encode(['ok' => true, 'message' => 'Request rejected by target ComL.'], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
@@ -2935,7 +3194,7 @@ try {
 
                 $routeUpdateStmt = $pdo->prepare('
                     UPDATE station_mail_request_routes
-                    SET status = "completed", target_reviewed_by = ?, target_reviewed_at = NOW(), updated_at = NOW()
+                    SET status = "completed", target_reviewed_by = ?, target_reviewed_at = NOW(), handling_coml_user_id = NULL, handling_coml_at = NULL, handling_coml_station_id = NULL, updated_at = NOW()
                     WHERE route_id = ?
                 ');
                 $routeUpdateStmt->execute([$currentUserId, $routeId]);
@@ -3029,6 +3288,9 @@ try {
                         released_access_mode = ?,
                         confidential_acknowledged_at = NULL,
                         origin_review_notes = COALESCE(?, origin_review_notes),
+                        handling_coml_user_id = NULL,
+                        handling_coml_at = NULL,
+                        handling_coml_station_id = NULL,
                         updated_at = NOW()
                     WHERE route_id = ?
                 ');
@@ -3104,7 +3366,7 @@ try {
             $reason = firenet_mail_clean_text((string) ($input['reason'] ?? ''));
             $rejectStmt = $pdo->prepare('
                 UPDATE station_mail_request_routes
-                SET status = "rejected", origin_reviewed_by = ?, origin_reviewed_at = NOW(), origin_review_notes = ?, updated_at = NOW()
+                SET status = "rejected", origin_reviewed_by = ?, origin_reviewed_at = NOW(), origin_review_notes = ?, handling_coml_user_id = NULL, handling_coml_at = NULL, handling_coml_station_id = NULL, updated_at = NOW()
                 WHERE route_id = ?
             ');
             $rejectStmt->execute([$currentUserId, $reason, $routeId]);
@@ -3168,8 +3430,22 @@ try {
                 $recipientStmt->execute([$forwardMailId, $targetComlUserId]);
             }
 
-            $routeUpdateStmt = $pdo->prepare('UPDATE station_mail_request_routes SET forwarded_mail_id = ?, forwarded_at = NOW(), status = "forwarded_to_target" WHERE route_id = ?');
+            $routeUpdateStmt = $pdo->prepare('UPDATE station_mail_request_routes SET forwarded_mail_id = ?, forwarded_at = NOW(), status = "forwarded_to_target", handling_coml_user_id = NULL, handling_coml_at = NULL, handling_coml_station_id = NULL WHERE route_id = ?');
             $routeUpdateStmt->execute([$forwardMailId, $routeId]);
+
+            firenet_mail_operational_audit(
+                $pdo,
+                $threadId,
+                $routeId,
+                $currentUserId,
+                $currentStationId,
+                'origin_approve',
+                [
+                    'targetStationId' => $targetStationId,
+                    'forwardedMailId' => $forwardMailId,
+                    'isConfidential' => $isConfidential === 1,
+                ]
+            );
 
             $pdo->commit();
         } catch (Throwable $error) {

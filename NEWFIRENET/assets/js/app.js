@@ -140,6 +140,44 @@ function getNotificationParts(notification) {
 	return { label: label, title: title };
 }
 
+function resolveNotificationRequestStatus(notification) {
+	let status = String(notification && notification.requestStatus || '').toLowerCase();
+	if (status) {
+		return status;
+	}
+	const haystack = String((notification && notification.message) || '') + ' ' + String((notification && notification.title) || '');
+	const text = haystack.toLowerCase();
+	if (text.indexOf('rejected the request') !== -1 || text.indexOf('was rejected') !== -1) {
+		return 'rejected';
+	}
+	if (text.indexOf('request completed') !== -1 || text.indexOf('file sent to the requester') !== -1) {
+		return 'completed';
+	}
+	return '';
+}
+
+function renderNotificationStatusBadge(notification) {
+	const status = resolveNotificationRequestStatus(notification);
+	if (status === 'rejected') {
+		return '<span class="alerts-menu-item-status alerts-menu-item-status--rejected"><i class="bi bi-x-circle-fill" aria-hidden="true"></i><span>Rejected</span></span>';
+	}
+	if (status === 'completed') {
+		return '<span class="alerts-menu-item-status alerts-menu-item-status--completed"><i class="bi bi-check-circle-fill" aria-hidden="true"></i><span>Delivered</span></span>';
+	}
+	return '';
+}
+
+function notificationOutcomeClass(notification) {
+	const status = resolveNotificationRequestStatus(notification);
+	if (status === 'rejected') {
+		return ' is-request-rejected';
+	}
+	if (status === 'completed') {
+		return ' is-request-completed';
+	}
+	return '';
+}
+
 function renderNotifications() {
 	if (!alertsToggle || !alertsMenu || !alertsMenuList) {
 		return;
@@ -170,14 +208,18 @@ function renderNotifications() {
 
 	alertsMenuList.innerHTML = notifications.slice(0, 5).map(function (notification) {
 		const isRead = notification.read === true;
-		const className = isRead ? 'is-read' : 'is-unread';
+		const className = (isRead ? 'is-read' : 'is-unread') + notificationOutcomeClass(notification);
 		const subtitle = notification.createdAt ? new Date(notification.createdAt).toLocaleString() : '';
 		const href = String(notification.url || '#');
 		const parts = getNotificationParts(notification);
+		const statusBadge = renderNotificationStatusBadge(notification);
 		return (
 			'<li>' +
 				'<a class="alerts-menu-item ' + className + '" href="' + href + '" data-notification-id="' + escapeHtml(String(notification.id || '')) + '">' +
-					'<span class="alerts-menu-item-kicker">' + escapeHtml(parts.label) + '</span>' +
+					'<span class="alerts-menu-item-head">' +
+						'<span class="alerts-menu-item-kicker">' + escapeHtml(parts.label) + '</span>' +
+						statusBadge +
+					'</span>' +
 					'<span class="alerts-menu-item-title">' + escapeHtml(parts.title) + '</span>' +
 					'<span class="alerts-menu-item-meta">' + escapeHtml(subtitle) + '</span>' +
 				'</a>' +
