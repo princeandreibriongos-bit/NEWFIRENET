@@ -209,8 +209,9 @@ function firenet_incident_report_pdf_filename(array $report): string
 {
     $caseId = (int) ($report['incident_case_id'] ?? $report['report_id'] ?? 0);
     $reportId = (int) ($report['report_id'] ?? 0);
+    $stationCode = strtoupper(trim((string) ($report['station_code'] ?? '')));
 
-    return 'firenet_case_' . $caseId . '_report_' . $reportId . '.pdf';
+    return firenet_r2_prefixed_safe_filename($stationCode, 'case_' . $caseId . '_report_' . $reportId . '.pdf');
 }
 
 function firenet_stream_incident_report_pdf(PDO $pdo, int $reportId, int $userId, int $sessionStationId): void
@@ -261,7 +262,7 @@ function firenet_backup_incident_report_to_r2(PDO $pdo, int $reportId, int $user
     }
 
     $caseId = (int) ($report['incident_case_id'] ?? $reportId);
-    $fileName = 'case_' . $caseId . '_report_' . $reportId . '.pdf';
+    $fileName = firenet_r2_prefixed_safe_filename($stationCode, 'case_' . $caseId . '_report_' . $reportId . '.pdf');
     $stationKey = firenet_r2_reports_prefix($stationCode) . '/' . $fileName;
     $centralKey = firenet_r2_reports_prefix('MCFS') . '/archive/' . $stationCode . '/' . $fileName;
 

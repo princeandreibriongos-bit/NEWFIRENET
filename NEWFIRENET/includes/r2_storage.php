@@ -71,6 +71,22 @@ function firenet_r2_station_code(PDO $pdo, int $stationId): string
     return $code !== '' ? $code : ('STATION_' . $stationId);
 }
 
+function firenet_r2_prefixed_safe_filename(string $stationCode, string $originalName): string
+{
+    $code = strtoupper(trim(preg_replace('/[^A-Z0-9_-]+/i', '', $stationCode) ?: ''));
+    $safeName = preg_replace('/[^A-Za-z0-9._-]+/', '_', basename($originalName)) ?: 'upload.bin';
+    if ($code === '') {
+        return $safeName;
+    }
+
+    $prefix = $code . '_';
+    if (stripos($safeName, $prefix) === 0) {
+        return $safeName;
+    }
+
+    return $prefix . $safeName;
+}
+
 function firenet_r2_is_central_station(PDO $pdo, int $stationId): bool
 {
     return strtolower(firenet_r2_station_code($pdo, $stationId)) === 'mcfs';

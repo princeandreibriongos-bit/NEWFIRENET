@@ -2,7 +2,6 @@
   <?php if (isset($_SESSION['user'])): ?>
     </div>
   <?php endif; ?>
-  <script src="/firenet/NEWFIRENET/assets/js/cloudinary-upload.js"></script>
   <script src="/firenet/NEWFIRENET/assets/js/app.js"></script>
   <?php if (isset($pageScripts) && is_array($pageScripts)): ?>
     <?php foreach ($pageScripts as $scriptPath): ?>

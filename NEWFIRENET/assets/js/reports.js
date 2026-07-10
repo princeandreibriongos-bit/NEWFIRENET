@@ -83,6 +83,9 @@
   let stationLabelOverlays = [];
   let manualPinMode = false;
   let locateDebounceTimer = null;
+  let locateSeq = 0;
+  let locateActive = false;
+  let googleGeocodeDisabled = true;
   let activeReportStep = 'details';
   let reportsScope = 'mine';
   const STATION_PROXIMITY_RADIUS_METERS = 1200;
@@ -203,6 +206,8 @@
   if (!context) {
     return;
   }
+
+  googleGeocodeDisabled = context.googleGeocodingEnabled !== true;
 
   function escapeHtml(value) {
     return String(value)
@@ -493,12 +498,170 @@
     return Array.from(new Set([input, expanded, abbreviated, stripped].filter(Boolean)));
   }
 
+  function normalizeAddressText(value) {
+    return String(value || '')
+      .replace(/\r\n/g, '\n')
+      .replace(/\n+/g, ', ')
+      .replace(/\s{2,}/g, ' ')
+      .replace(/,\s*,+/g, ', ')
+      .trim();
+  }
+
+  function isAddressLocalityPart(part) {
+    return /^(?:makati(?:\s+city)?|city\s+of\s+makati|metro\s+manila|philippines|\d{4,5}(?:\s+metro\s+manila)?)$/i.test(String(part || '').replace(/\s{2,}/g, ' ').trim());
+  }
+
+  function addressLooksLikeStreet(part) {
+    return /\b(?:street|st\.?|avenue|ave\.?|road|rd\.?|boulevard|blvd\.?|drive|dr\.?|highway|hwy\.?|corner|cor\.?)\b|\d{2,5}\s+\S+/i.test(String(part || ''));
+  }
+
+  function addressLooksLikeBuilding(part) {
+    return /\b(?:tower|center|centre|plaza|building|bldg\.?|mall|arcade|suites?)\b/i.test(String(part || ''));
+  }
+
+  function addressLooksLikeVillage(part) {
+    return /\bvillage\b/i.test(String(part || ''));
+  }
+
+  function parseComplexAddress(raw) {
+    const fullNormalized = normalizeAddressText(raw);
+    if (fullNormalized === '') {
+      return {
+        building: '',
+        street: '',
+        area: '',
+        barangay: '',
+        segments: [],
+        fullNormalized: ''
+      };
+    }
+
+    const parts = fullNormalized.split(',').map(function (part) {
+      return String(part || '').trim();
+    }).filter(Boolean);
+
+    let building = '';
+    let street = '';
+    let area = '';
+    let barangay = '';
+    const segments = [];
+
+    parts.forEach(function (part) {
+      if (isAddressLocalityPart(part)) {
+        return;
+      }
+
+      if (/^(?:barangay|brgy\.?)\s+/i.test(part)) {
+        barangay = part.replace(/^(?:barangay|brgy\.?)\s*/i, '').replace(/\s+makati(?:\s+city)?$/i, '').trim();
+        if (barangay !== '') {
+          segments.push('Barangay ' + barangay);
+        }
+        return;
+      }
+
+      const compoundMatch = part.match(/^(.+?),\s*(?:barangay|brgy\.?)\s+(.+)$/i);
+      if (compoundMatch) {
+        const left = String(compoundMatch[1] || '').trim();
+        barangay = String(compoundMatch[2] || '').trim().replace(/\s+makati(?:\s+city)?$/i, '').trim();
+        if (left !== '') {
+          if (addressLooksLikeVillage(left) || !addressLooksLikeStreet(left)) {
+            area = area !== '' ? area + ', ' + left : left;
+          } else {
+            street = street !== '' ? street : left;
+          }
+          segments.push(left);
+        }
+        if (barangay !== '') {
+          segments.push('Barangay ' + barangay);
+        }
+        return;
+      }
+
+      if (addressLooksLikeVillage(part)) {
+        area = area !== '' ? area + ', ' + part : part;
+        segments.push(part);
+        return;
+      }
+
+      if (addressLooksLikeStreet(part)) {
+        street = street !== '' ? street : part;
+        segments.push(part);
+        return;
+      }
+
+      if (addressLooksLikeBuilding(part) && street === '') {
+        building = building !== '' ? building : part;
+        segments.push(part);
+        return;
+      }
+
+      if (building === '' && street === '' && area === '') {
+        building = part;
+      } else if (street === '' && /\d/.test(part)) {
+        street = part;
+      } else if (area === '') {
+        area = part;
+      }
+      segments.push(part);
+    });
+
+    if (barangay === '' && /(?:barangay|brgy\.?)\s+([^,]+)/i.test(fullNormalized)) {
+      const inlineMatch = fullNormalized.match(/(?:barangay|brgy\.?)\s+([^,]+)/i);
+      if (inlineMatch && inlineMatch[1]) {
+        barangay = String(inlineMatch[1]).trim().replace(/\s+makati(?:\s+city)?$/i, '').trim();
+      }
+    }
+
+    return {
+      building: building,
+      street: street,
+      area: area,
+      barangay: barangay,
+      segments: Array.from(new Set(segments.filter(Boolean))),
+      fullNormalized: fullNormalized
+    };
+  }
+
+  function resolveAddressPartsForLocate(street, landmark, barangayValue, altAddress) {
+    const parsed = parseComplexAddress(altAddress);
+    let resolvedStreet = String(street || '').trim() || parsed.street;
+    let resolvedLandmark = String(landmark || '').trim() || parsed.building;
+    let resolvedBarangay = String(barangayValue || '').trim() || parsed.barangay;
+    const resolvedAlt = parsed.fullNormalized || normalizeAddressText(altAddress);
+
+    if (resolvedLandmark === '' && parsed.area !== '') {
+      resolvedLandmark = parsed.area;
+    }
+
+    if (resolvedStreet === '' && parsed.segments.length > 0) {
+      const streetSegment = parsed.segments.find(function (segment) {
+        return addressLooksLikeStreet(segment);
+      });
+      resolvedStreet = streetSegment || parsed.segments[0];
+    }
+
+    return {
+      streetName: resolvedStreet,
+      landmark: resolvedLandmark,
+      barangay: resolvedBarangay,
+      altAddress: resolvedAlt,
+      segments: parsed.segments
+    };
+  }
+
   function buildAddressCandidates(street, landmark, barangayValue, altAddress) {
-    const streetVariants = buildStreetVariants(street);
-    const altVariants = buildStreetVariants(altAddress);
+    const resolved = resolveAddressPartsForLocate(street, landmark, barangayValue, altAddress);
+    const streetVariants = buildStreetVariants(resolved.streetName);
+    const altVariants = buildStreetVariants(resolved.altAddress);
+    const segmentVariants = [];
+    resolved.segments.forEach(function (segment) {
+      buildStreetVariants(segment).forEach(function (variant) {
+        segmentVariants.push(variant);
+      });
+    });
     const barangayVariants = Array.from(new Set([
-      String(barangayValue || '').trim(),
-      String(barangayValue || '').trim() ? ('Barangay ' + String(barangayValue || '').trim()) : ''
+      String(resolved.barangay || '').trim(),
+      String(resolved.barangay || '').trim() ? ('Barangay ' + String(resolved.barangay || '').trim()) : ''
     ].filter(Boolean)));
 
     const localityVariants = [
@@ -527,11 +690,29 @@
     }
 
     localityVariants.forEach(function (locality) {
+      if (resolved.altAddress) {
+        pushCandidate([resolved.altAddress], locality);
+      }
+
+      const combinedParts = [resolved.landmark, resolved.streetName, resolved.barangay].filter(function (part) {
+        return String(part || '').trim() !== '';
+      });
+      if (combinedParts.length >= 2) {
+        pushCandidate(combinedParts, locality);
+      }
+
+      segmentVariants.forEach(function (segment) {
+        pushCandidate([segment], locality);
+        barangayVariants.forEach(function (bg) {
+          pushCandidate([segment, bg], locality);
+        });
+      });
+
       streetVariants.forEach(function (sv) {
         barangayVariants.forEach(function (bg) {
-          pushCandidate([sv, landmark, bg], locality);
+          pushCandidate([sv, resolved.landmark, bg], locality);
           pushCandidate([sv, bg], locality);
-          pushCandidate([sv, landmark], locality);
+          pushCandidate([sv, resolved.landmark], locality);
         });
         pushCandidate([sv], locality);
       });
@@ -539,7 +720,7 @@
       altVariants.forEach(function (av) {
         barangayVariants.forEach(function (bg) {
           pushCandidate([av, bg], locality);
-          pushCandidate([av, landmark, bg], locality);
+          pushCandidate([av, resolved.landmark, bg], locality);
         });
         pushCandidate([av], locality);
       });
@@ -553,20 +734,20 @@
         });
       });
 
-      if (landmark) {
+      if (resolved.landmark) {
         barangayVariants.forEach(function (bg) {
-          pushCandidate([landmark, bg], locality);
+          pushCandidate([resolved.landmark, bg], locality);
         });
-        pushCandidate([landmark], locality);
+        pushCandidate([resolved.landmark], locality);
       }
     });
 
-    return Array.from(new Set(candidates)).slice(0, 30);
+    return Array.from(new Set(candidates)).slice(0, 36);
   }
 
   function geocodeWithGoogleMaps(address) {
     return new Promise(function (resolve) {
-      if (!isGoogleMapsReady() || !address) {
+      if (googleGeocodeDisabled || !isGoogleMapsReady() || !address) {
         resolve(null);
         return;
       }
@@ -592,6 +773,11 @@
         }
 
         geocoder.geocode(requests[index], function (results, status) {
+          if (status === 'REQUEST_DENIED' || status === 'OVER_QUERY_LIMIT') {
+            googleGeocodeDisabled = true;
+            resolve(null);
+            return;
+          }
           if (status !== 'OK' || !Array.isArray(results) || results.length === 0) {
             index += 1;
             runNext();
@@ -817,13 +1003,67 @@
     const street = String(streetName.value || '').trim();
     const barangayValue = String(barangay.value || '').trim();
     const landmarkValue = String(landmarkInput.value || '').trim();
-    const altAddressValue = String(altAddressInput.value || '').trim();
-    return street !== '' || barangayValue !== '' || landmarkValue !== '' || altAddressValue !== '';
+    const altAddressValue = normalizeAddressText(altAddressInput.value);
+    const resolved = resolveAddressPartsForLocate(street, landmarkValue, barangayValue, altAddressValue);
+    return resolved.streetName !== '' || resolved.barangay !== '' || resolved.landmark !== '' || resolved.altAddress !== '';
   }
 
   function setCoordinateFields(latitude, longitude) {
     incidentLatitudeInput.value = latitude == null ? '' : Number(latitude).toFixed(7);
     incidentLongitudeInput.value = longitude == null ? '' : Number(longitude).toFixed(7);
+  }
+
+  function coordinateDistanceKm(lat1, lon1, lat2, lon2) {
+    const toRad = function (value) {
+      return value * (Math.PI / 180);
+    };
+    const earthRadiusKm = 6371;
+    const dLat = toRad(lat2 - lat1);
+    const dLon = toRad(lon2 - lon1);
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2)
+      + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    return earthRadiusKm * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
+  }
+
+  function clearIncidentLocationForRelocate() {
+    setCoordinateFields(null, null);
+    if (incidentMarker) {
+      incidentMarker.setMap(null);
+      incidentMarker = null;
+    }
+    if (incidentProximityCircle) {
+      incidentProximityCircle.setMap(null);
+      incidentProximityCircle = null;
+    }
+    setAssignmentPreview('Responsible station will appear after successful lookup.');
+    setResponderStationText('', '', null);
+  }
+
+  async function fetchLocateWithTimeout(params, timeoutMs) {
+    const controller = new AbortController();
+    const timer = window.setTimeout(function () {
+      controller.abort();
+    }, timeoutMs || 18000);
+
+    try {
+      const response = await fetch(getLocateUrl(params), {
+        method: 'GET',
+        credentials: 'same-origin',
+        signal: controller.signal
+      });
+      const raw = await response.text();
+      return {
+        response: response,
+        payload: raw ? JSON.parse(raw) : null
+      };
+    } catch (error) {
+      return {
+        response: null,
+        payload: null
+      };
+    } finally {
+      window.clearTimeout(timer);
+    }
   }
 
   function getAlarmPriorityMeta(level) {
@@ -1066,45 +1306,48 @@
     const street = String(streetName.value || '').trim();
     const barangayValue = String(barangay.value || '').trim();
     const landmarkValue = String(landmarkInput.value || '').trim();
-    const altAddressValue = String(altAddressInput.value || '').trim();
+    const altAddressValue = normalizeAddressText(altAddressInput.value);
+    const resolved = resolveAddressPartsForLocate(street, landmarkValue, barangayValue, altAddressValue);
 
-    if (street === '' && landmarkValue === '' && altAddressValue === '') {
-      setMapStatus('Type at least a street or landmark to locate this incident.');
+    if (resolved.streetName === '' && resolved.landmark === '' && resolved.altAddress === '') {
+      locateActive = false;
+      setMapStatus('Type at least a street, building, village, or full address to locate this incident.');
       return;
     }
 
+    const seq = ++locateSeq;
+    locateActive = true;
     setMapStatus('Locating address on map...');
-    try {
-      const addressCandidates = buildAddressCandidates(street, landmarkValue, barangayValue, altAddressValue);
 
+    try {
+      const addressCandidates = buildAddressCandidates(
+        resolved.streetName,
+        resolved.landmark,
+        resolved.barangay,
+        resolved.altAddress
+      );
       const params = new URLSearchParams({
-        barangay: barangayValue,
-        streetName: street,
-        landmark: landmarkValue,
-        altAddress: altAddressValue,
+        barangay: resolved.barangay,
+        streetName: resolved.streetName,
+        landmark: resolved.landmark,
+        altAddress: resolved.altAddress,
         alarmLevel: String(alarmLevel.value || '1')
       });
-      let response = null;
-      let payload = null;
-      try {
-        response = await fetch(getLocateUrl(params), {
-          method: 'GET',
-          credentials: 'same-origin'
-        });
 
-        const raw = await response.text();
-        payload = raw ? JSON.parse(raw) : null;
-      } catch (backendError) {
-        response = null;
-        payload = null;
+      const backendResult = await fetchLocateWithTimeout(params, 18000);
+
+      if (seq !== locateSeq) {
+        return;
       }
 
+      const response = backendResult.response;
+      const payload = backendResult.payload;
       let latitude = payload && payload.latitude != null ? Number(payload.latitude) : null;
       let longitude = payload && payload.longitude != null ? Number(payload.longitude) : null;
       let displayAddress = payload && payload.displayAddress ? String(payload.displayAddress) : '';
-      const backendOk = Boolean(response && response.ok && payload && payload.ok === true);
+      let backendOk = Boolean(response && response.ok && payload && payload.ok === true && latitude != null && longitude != null);
 
-      if ((!backendOk || latitude == null || longitude == null) && addressCandidates.length > 0) {
+      if (!backendOk && addressCandidates.length > 0 && !googleGeocodeDisabled) {
         const googleResult = await geocodeCandidatesWithGoogleMaps(addressCandidates);
         if (googleResult) {
           latitude = Number(googleResult.latitude);
@@ -1112,10 +1355,11 @@
           if (!displayAddress) {
             displayAddress = String(googleResult.displayAddress || '');
           }
+          backendOk = false;
         }
       }
 
-      if (latitude == null || longitude == null) {
+      if (latitude == null || longitude == null || !Number.isFinite(latitude) || !Number.isFinite(longitude)) {
         setMapStatus((payload && payload.message) ? payload.message : 'Address lookup did not return coordinates. Try Street + Barangay + Alternative Address.');
         setAssignmentPreview('Responsible station will appear after successful lookup.');
         setResponderStationText('', '', null);
@@ -1128,18 +1372,25 @@
 
       if (!mapInstance) {
         setTimeout(function () {
+          if (seq !== locateSeq) {
+            return;
+          }
           ensureMapReady();
           placeIncidentMarker(latitude, longitude);
         }, 200);
       }
 
-      const stations = buildStationsFromPayload(payload);
-      if (stations.length > 0) {
-        setAssignmentPreview('Responsible stations (' + String(stations.length) + '): ' + formatStationsSummary(stations));
-        setResponderStationsText(stations);
+      if (backendOk) {
+        const stations = buildStationsFromPayload(payload);
+        if (stations.length > 0) {
+          setAssignmentPreview('Responsible stations (' + String(stations.length) + '): ' + formatStationsSummary(stations));
+          setResponderStationsText(stations);
+        } else {
+          setAssignmentPreview('No active station assignments found for this location.');
+          setResponderStationText('', '', null);
+        }
       } else {
-        setAssignmentPreview('No active station assignments found for this location.');
-        setResponderStationText('', '', null);
+        lookupByCoordinates(latitude, longitude);
       }
 
       if (displayAddress) {
@@ -1148,15 +1399,25 @@
         setMapStatus('Address pin updated successfully.');
       }
     } catch (error) {
+      if (seq !== locateSeq) {
+        return;
+      }
       setMapStatus('Unable to locate this address right now.');
       setAssignmentPreview('Responsible station will appear after successful lookup.');
       setResponderStationText('', '', null);
+    } finally {
+      if (seq === locateSeq) {
+        locateActive = false;
+      }
     }
   }
 
   function queueAddressLocate() {
     if (locateDebounceTimer) {
       clearTimeout(locateDebounceTimer);
+    }
+    if (hasAddressDetails()) {
+      clearIncidentLocationForRelocate();
     }
     locateDebounceTimer = setTimeout(function () {
       locateAddressFromForm();
@@ -1788,11 +2049,27 @@
       return false;
     }
 
+    if (typeof item.canEdit === 'boolean') {
+      return item.canEdit;
+    }
+
     if (item.type !== 'incident_report') {
       return true;
     }
 
     return !isIncidentCompleted(item) && !hasIncidentFirstProgressUpdate(item);
+  }
+
+  function canProgressIncidentReport(item) {
+    if (!item || (item.type || '') !== 'incident_report') {
+      return false;
+    }
+
+    if (typeof item.canProgress === 'boolean') {
+      return item.canProgress;
+    }
+
+    return isIncidentActive(item) && canUpdateIncidentReports;
   }
 
   function formatReportTitle(item) {
@@ -1841,7 +2118,8 @@
 
         if ((item.type || '') === 'incident_report') {
           const isCompleted = isIncidentCompleted(item);
-          if (isIncidentActive(item) && canUpdateIncidentReports) {
+          const canProgress = canProgressIncidentReport(item);
+          if (canProgress) {
             actionsHtml +=
               '<button type="button" class="table-action-btn progress" data-action="progress" data-id="' + escapeHtml(itemId) + '">Update Incident</button>' +
               '<span class="incident-ongoing-note" title="This incident is active and needs continuous monitoring">' +
@@ -1850,9 +2128,11 @@
               '</span>';
           } else if (isIncidentActive(item)) {
             actionsHtml +=
-              '<span class="incident-ongoing-note" title="This incident is active and waiting for a Position 1 update">' +
+              '<span class="incident-ongoing-note" title="This incident is active at your station">' +
               '<span class="incident-ongoing-dot" aria-hidden="true"></span>' +
-              'Awaiting Update' +
+              (item.isAssignedResponder === false
+                ? 'Dispatched to responders'
+                : 'Awaiting Update') +
               '</span>';
           } else {
             actionsHtml +=
@@ -1903,11 +2183,11 @@
     }
 
     const activeCount = Array.isArray(reports)
-      ? reports.filter(isIncidentActive).length
+      ? reports.filter(canProgressIncidentReport).length
       : 0;
 
     if (activeCount === 0) {
-      reportsOngoingHint.textContent = 'No ongoing incidents — progression updates appear when an incident is active.';
+      reportsOngoingHint.textContent = 'No ongoing incidents assigned to your station for progression updates.';
       reportsOngoingHint.classList.remove('is-active');
       return;
     }
@@ -1951,7 +2231,7 @@
     }
 
     const item = reportsById.get(String(id));
-    if (!item || (item.type || '') !== 'incident_report' || isIncidentCompleted(item)) {
+    if (!item || !canProgressIncidentReport(item)) {
       return false;
     }
 
@@ -2002,6 +2282,13 @@
   landmarkInput.addEventListener('input', queueAddressLocate);
   altAddressInput.addEventListener('input', queueAddressLocate);
   locateIncidentBtn.addEventListener('click', function () {
+    if (locateDebounceTimer) {
+      clearTimeout(locateDebounceTimer);
+      locateDebounceTimer = null;
+    }
+    if (hasAddressDetails()) {
+      clearIncidentLocationForRelocate();
+    }
     locateAddressFromForm();
   });
   manualPinToggle.addEventListener('click', function () {
@@ -2339,6 +2626,8 @@
     const remarksInput = reportRemarks.value.trim();
     const street = streetName.value.trim();
     const landmark = landmarkInput.value.trim();
+    const altAddressValue = normalizeAddressText(altAddressInput.value);
+    const resolvedAddress = resolveAddressPartsForLocate(street, landmark, barangay.value, altAddressValue);
 
     const isIncident = reportType.value === 'incident_report';
     const isCallIntake = isIncident && incidentStage.value === 'call_intake';
@@ -2353,9 +2642,9 @@
     const equipmentRecommendationValue = String(equipmentRecommendation.value || '').trim();
 
     let remarks = remarksInput;
-    let payloadStreet = street;
-    let payloadLandmark = landmark;
-    let payloadBarangay = barangay.value;
+    let payloadStreet = resolvedAddress.streetName || street;
+    let payloadLandmark = resolvedAddress.landmark || landmark;
+    let payloadBarangay = resolvedAddress.barangay || barangay.value;
     let payloadCallerName = callerNameInput.value.trim();
     let payloadStartedAt = incidentStartedAtInput.value;
     let payloadLatitude = incidentLatitudeInput.value;
@@ -2377,8 +2666,13 @@
       payloadLongitude = '';
     }
 
-    if (isIncident && !isProgression && !isCallIntake && (title === '' || remarks === '' || street === '')) {
-      formMessage.textContent = 'Please complete title, street, and remarks before submitting.';
+    if (isIncident && !isProgression && !isCallIntake && (title === '' || remarks === '')) {
+      formMessage.textContent = 'Please complete title and remarks before submitting.';
+      return;
+    }
+
+    if (isIncident && !isProgression && !isCallIntake && payloadStreet === '' && altAddressValue === '') {
+      formMessage.textContent = 'Please provide a street or paste a full address before submitting.';
       return;
     }
 
@@ -2501,11 +2795,8 @@
       if (!canCreate) {
         return;
       }
-      if ((item.type || '') !== 'incident_report') {
-        return;
-      }
-      if (isIncidentCompleted(item)) {
-        window.alert('This incident is already completed and can no longer be updated.');
+      if (!canProgressIncidentReport(item)) {
+        window.alert('Only assigned responding stations can update incident progress on their station report.');
         return;
       }
       populateFormForEdit(item);
@@ -2527,57 +2818,6 @@
       generateReportPdf(item);
       return;
     }
-
-    function openUploadWidget(stationName, reportId, reportTitle, folderPath) {
-      try {
-        console.log('Creating upload widget...');
-        console.log('Config check - cloudName:', window.CLOUDINARY_CONFIG.cloudName);
-        console.log('Config check - preset:', window.CLOUDINARY_CONFIG.uploadPresets[stationName]);
-
-        const uploadWidget = window.cloudinary.createUploadWidget(
-          {
-            cloudName: window.CLOUDINARY_CONFIG.cloudName,
-            uploadPreset: window.CLOUDINARY_CONFIG.uploadPresets[stationName],
-            multiple: false,
-            maxFileSize: 52428800,
-            resourceType: 'auto',
-            folder: folderPath,
-            tags: [stationName, 'incident_report', reportId],
-            publicId: reportId + '_' + Date.now(),
-            clientAllowedFormats: ['image', 'video', 'pdf', 'doc', 'docx', 'txt', 'xlsx', 'pptx'],
-            context: { reportId: reportId, stationType: stationName, title: reportTitle }
-          },
-          function(error, result) {
-            if (error) {
-              console.error('Cloudinary error during upload:', error);
-            } else if (result && result.event === 'success') {
-              const fileName = String(result.info.display_name || result.info.public_id || 'file');
-              const messageEl = document.getElementById('reportsUploadMessage');
-              if (messageEl) {
-                messageEl.textContent = 'File uploaded successfully to: ' + folderPath;
-                messageEl.hidden = false;
-                messageEl.style.color = '#1f5e2d';
-                setTimeout(function() {
-                  messageEl.hidden = true;
-                }, 5000);
-              }
-              console.log('Report attachment uploaded:', result.info);
-            }
-          }
-        );
-        console.log('Widget created, opening...');
-        uploadWidget.open();
-      } catch (err) {
-        console.error('Error creating upload widget:', err);
-        console.error('Error details:', {
-          message: err.message,
-          stack: err.stack,
-          cloudName: window.CLOUDINARY_CONFIG ? window.CLOUDINARY_CONFIG.cloudName : 'undefined',
-          presets: window.CLOUDINARY_CONFIG ? Object.keys(window.CLOUDINARY_CONFIG.uploadPresets) : 'undefined'
-        });
-        window.alert('Error opening upload dialog:\n' + err.message + '\n\nPlease check the browser console for more details.');
-      }
-    }
   });
 
   (async function initReportsPage() {
@@ -2590,16 +2830,6 @@
     if (context.quickMode === 'intake' && canCreateIncidentReports) {
       openQuickIntake();
     }
-
-    // Initialize Cloudinary upload
-    const stationName = String(context.stationName || 'AYALA');
-    createUploadButton(stationName, 'reportsCloudinaryContainer', function(uploadInfo) {
-      const messageEl = document.getElementById('reportsCloudinaryMessage');
-      if (messageEl) {
-        messageEl.textContent = 'File uploaded successfully: ' + (uploadInfo.display_name || uploadInfo.public_id);
-        messageEl.style.color = '#1f5e2d';
-      }
-    });
   })();
 })();
 

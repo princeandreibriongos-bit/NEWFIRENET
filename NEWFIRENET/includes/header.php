@@ -12,7 +12,7 @@ if (!headers_sent()) {
   header('Referrer-Policy: no-referrer-when-downgrade');
   header('Permissions-Policy: geolocation=(), microphone=()');
   header('Strict-Transport-Security: max-age=31536000; includeSubDomains; preload');
-  header("Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://maps.googleapis.com https://www.gstatic.com https://accounts.google.com https://apis.google.com https://cdn.jsdelivr.net https://upload-widget.cloudinary.com https://product-uploads.s3.amazonaws.com https://unpkg.com https://js.cloudinary.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net https://upload-widget.cloudinary.com https://unpkg.com; font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net data:; img-src 'self' data: https:; connect-src 'self' https://maps.googleapis.com https://accounts.google.com https://www.googleapis.com https://api.cloudinary.com https://upload.cloudinary.com; frame-src 'self' https://accounts.google.com https://www.google.com;");
+  header("Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://maps.googleapis.com https://www.gstatic.com https://accounts.google.com https://apis.google.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net data:; img-src 'self' data: https:; connect-src 'self' https://maps.googleapis.com https://accounts.google.com https://www.googleapis.com; frame-src 'self' https://accounts.google.com https://www.google.com;");
 }
 
 $currentPath = (string) parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH);

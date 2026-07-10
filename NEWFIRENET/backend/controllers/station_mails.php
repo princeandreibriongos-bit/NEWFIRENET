@@ -544,7 +544,7 @@ function firenet_mail_orgmail_upload_for_station(PDO $pdo, int $stationId, strin
 {
     if (firenet_r2_enabled()) {
         $stationCode = firenet_r2_station_code($pdo, $stationId);
-        $safeName = preg_replace('/[^A-Za-z0-9._-]+/', '_', basename($originalName)) ?: 'upload.bin';
+        $safeName = firenet_r2_prefixed_safe_filename($stationCode, $originalName);
         $objectKey = firenet_r2_orgmail_prefix($stationCode) . '/' . gmdate('Ymd_His') . '_' . $safeName;
         $client = FirenetR2Client::fromConfig();
         $client->putObject($objectKey, $tmpPath, $mime !== '' ? $mime : 'application/octet-stream');
@@ -1886,7 +1886,36 @@ function firenet_mail_notify_route_users(PDO $pdo, int $threadId, int $parentMai
     $threadStmt->execute([$subject, $threadId]);
 }
 
-function firenet_mail_save_attachments(PDO $pdo, int $mailId, int $userId): array
+function firenet_mail_collect_cloudinary_urls(array $input): array
+{
+    $urls = [];
+    $rawUrls = $input['cloudinaryUrls'] ?? $input['cloudinaryUrls[]'] ?? [];
+    if (is_string($rawUrls)) {
+        $rawUrls = [$rawUrls];
+    }
+    if (is_array($rawUrls)) {
+        foreach ($rawUrls as $entry) {
+            $value = trim((string) $entry);
+            if ($value !== '') {
+                $urls[] = $value;
+            }
+        }
+    }
+
+    $single = trim((string) ($input['cloudinaryUrl'] ?? ''));
+    if ($single !== '') {
+        foreach (preg_split('/\r\n|\n|\r/', $single) ?: [] as $line) {
+            $value = trim((string) $line);
+            if ($value !== '') {
+                $urls[] = $value;
+            }
+        }
+    }
+
+    return array_values(array_unique($urls));
+}
+
+function firenet_mail_save_attachments(PDO $pdo, int $mailId, int $userId, int $stationId = 0): array
 {
     $saved = [];
     if (empty($_FILES['attachments']) || !is_array($_FILES['attachments'])) {
@@ -1924,6 +1953,9 @@ function firenet_mail_save_attachments(PDO $pdo, int $mailId, int $userId): arra
         $detectedMime = $finfo ? (string) finfo_file($finfo, $tmpName) : '';
         $mimeType = $detectedMime !== '' ? $detectedMime : (string) ($types[$index] ?? 'application/octet-stream');
         $safeOriginal = preg_replace('/[^A-Za-z0-9._-]+/', '_', (string) $originalName) ?: 'attachment';
+        if ($stationId > 0) {
+            $safeOriginal = firenet_r2_prefixed_safe_filename(firenet_r2_station_code($pdo, $stationId), $safeOriginal);
+        }
         $storedFileName = 'mail_' . bin2hex(random_bytes(16)) . '.bin';
         $relativePath = 'uploads/mails/' . $storedFileName;
         $fullPath = $uploadDir . '/' . $storedFileName;
@@ -2007,7 +2039,8 @@ function firenet_mail_store_message(PDO $pdo, array $input, int $currentUserId, 
     $mailType = strtolower(trim((string) ($input['mailType'] ?? 'message')));
     $importance = strtolower(trim((string) ($input['importance'] ?? 'normal')));
     $requestFiles = !empty($input['requestFiles']) ? 1 : 0;
-    $cloudinaryUrl = trim((string) ($input['cloudinaryUrl'] ?? ''));
+    $cloudinaryUrls = firenet_mail_collect_cloudinary_urls($input);
+    $cloudinaryUrl = $cloudinaryUrls[0] ?? '';
     $sourceStationId = (int) ($input['sourceStationId'] ?? $currentStationId);
     if ($sourceStationId < 1) {
         $sourceStationId = $currentStationId;
@@ -2160,7 +2193,7 @@ function firenet_mail_store_message(PDO $pdo, array $input, int $currentUserId, 
         }
     }
 
-    if (!$isComl && !$asDraft && !firenet_mail_body_has_content($body) && empty($_FILES['attachments']['name']) && $cloudinaryUrl === '') {
+    if (!$isComl && !$asDraft && !firenet_mail_body_has_content($body) && empty($_FILES['attachments']['name']) && $cloudinaryUrls === []) {
         firenet_mail_fail('Write a message or attach a file before sending.', 422);
     }
 
@@ -2277,7 +2310,7 @@ function firenet_mail_store_message(PDO $pdo, array $input, int $currentUserId, 
         }
 
         $attachments = [];
-        if ($cloudinaryUrl !== '') {
+        if ($cloudinaryUrls !== []) {
             // A cloud file is only attached when returning files to ComL (reply) or when a
             // sender explicitly picks one from a station folder. The "Files from station"
             // field on a new request is just a reference hint for central, not an upload,
@@ -2292,9 +2325,17 @@ function firenet_mail_store_message(PDO $pdo, array $input, int $currentUserId, 
                 $orgmailValidateStationCode = firenet_mail_station_code($pdo, $sourceStationId);
             }
 
-            $attachments[] = firenet_mail_save_remote_attachment($pdo, $mailId, $currentUserId, $cloudinaryUrl, $orgmailValidateStationCode !== null && trim($orgmailValidateStationCode) !== '' ? $orgmailValidateStationCode : null);
+            foreach ($cloudinaryUrls as $remoteUrl) {
+                $attachments[] = firenet_mail_save_remote_attachment(
+                    $pdo,
+                    $mailId,
+                    $currentUserId,
+                    $remoteUrl,
+                    $orgmailValidateStationCode !== null && trim($orgmailValidateStationCode) !== '' ? $orgmailValidateStationCode : null
+                );
+            }
         } else {
-            $attachments = firenet_mail_save_attachments($pdo, $mailId, $currentUserId);
+            $attachments = firenet_mail_save_attachments($pdo, $mailId, $currentUserId, $currentStationId);
         }
 
         $pdo->commit();

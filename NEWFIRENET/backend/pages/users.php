@@ -26,8 +26,16 @@ $adminSettingsContext = [
     'stationId' => $stationId,
     'stationName' => $stationName,
     'adminSettingsApiUrl' => '/firenet/NEWFIRENET/backend/controllers/users.php',
-    'googleMapsConfigured' => false
+    'geocodeEndpoint' => '/firenet/NEWFIRENET/backend/controllers/reports.php?action=locate',
+    'googleMapsConfigured' => false,
+    'googleGeocodingEnabled' => false
 ];
+
+$initialUsersTab = strtolower(trim((string) ($_GET['tab'] ?? 'accounts')));
+if (!in_array($initialUsersTab, ['accounts', 'news', 'notices', 'substations'], true)) {
+    $initialUsersTab = 'accounts';
+}
+$adminSettingsContext['activeTab'] = $initialUsersTab;
 
 $googleMapsApiKey = '';
 try {
@@ -54,5 +62,5 @@ require_once __DIR__ . '/../../includes/header.php';
 ?>
 <script id="adminSettingsContext" type="application/json"><?php echo json_encode($adminSettingsContext, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE); ?></script>
 <?php
-readfile(__DIR__ . '/../../pages/users.html');
+require __DIR__ . '/../../pages/users.php';
 require_once __DIR__ . '/../../includes/footer.php';

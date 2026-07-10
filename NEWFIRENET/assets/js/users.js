@@ -68,7 +68,11 @@
   const barangayForm = document.getElementById('barangayForm');
   const barangayNameInput = document.getElementById('barangayNameInput');
   const barangayCodeInput = document.getElementById('barangayCodeInput');
-  const barangayLocationInput = document.getElementById('barangayLocationInput');
+  const barangayFullAddressInput = document.getElementById('barangayFullAddressInput');
+  const barangayStreetInput = document.getElementById('barangayStreetInput');
+  const barangayBarangayInput = document.getElementById('barangayBarangayInput');
+  const barangayLandmarkInput = document.getElementById('barangayLandmarkInput');
+  const locateBarangayBtn = document.getElementById('locateBarangayBtn');
   const barangayLatitudeInput = document.getElementById('barangayLatitudeInput');
   const barangayLongitudeInput = document.getElementById('barangayLongitudeInput');
   const barangayStatusInput = document.getElementById('barangayStatusInput');
@@ -85,7 +89,10 @@
   const barangayAdminPasswordInput = document.getElementById('barangayAdminPasswordInput');
   const barangayFormMessage = document.getElementById('barangayFormMessage');
   const barangayStationIdInput = document.getElementById('barangayStationIdInput');
-  const resetBarangayBtn = document.getElementById('resetBarangayBtn');
+  const saveBarangayBtn = document.getElementById('saveBarangayBtn');
+  const cancelBarangayBtn = document.getElementById('cancelBarangayBtn');
+  const barangayAdminToggleWrap = document.getElementById('barangayAdminToggleWrap');
+  const barangayAdminHelpText = document.getElementById('barangayAdminHelpText');
   const substationsTableBody = document.getElementById('substationsTableBody');
   const substationTotalCount = document.getElementById('substationTotalCount');
 
@@ -162,8 +169,12 @@
   let barangayGeocoder = null;
   let barangayGeocodeTimer = null;
   let barangayGeocodeSeq = 0;
+  let barangayGeocodeActive = false;
+  let googleGeocodeDisabled = true;
   let barangayIsPopulating = false;
   let toastHost = null;
+
+  googleGeocodeDisabled = context.googleGeocodingEnabled !== true;
 
   function ensureToastHost() {
     if (toastHost) {
@@ -207,6 +218,26 @@
     } catch (error) {
       return '';
     }
+  }
+
+  function getPreferredUsersTab() {
+    const fromContext = String(context.activeTab || '').toLowerCase();
+    if (['accounts', 'news', 'notices', 'substations'].indexOf(fromContext) >= 0) {
+      return fromContext;
+    }
+    const fromUrl = readRequestedTab();
+    if (fromUrl !== '') {
+      return fromUrl;
+    }
+    try {
+      const stored = String(localStorage.getItem(usersTabStorageKey) || '').toLowerCase();
+      if (['accounts', 'news', 'notices', 'substations'].indexOf(stored) >= 0) {
+        return stored;
+      }
+    } catch (error) {
+      // ignore storage failures
+    }
+    return 'accounts';
   }
 
   function setActiveTab(tabName) {
@@ -301,6 +332,7 @@
       const lat = event.latLng.lat();
       const lng = event.latLng.lng();
       setBarangayCoordinates(lat, lng);
+      updateBarangayMapPreviewFromInputs();
 
       if (barangayMapMarker) {
         barangayMapMarker.setMap(null);
@@ -372,6 +404,64 @@
     barangayAdminFields.hidden = !createBarangayAdminInput.checked;
   }
 
+  function readBarangayAdminDraft() {
+    return {
+      username: String(barangayAdminUsernameInput ? barangayAdminUsernameInput.value : '').trim(),
+      email: String(barangayAdminEmailInput ? barangayAdminEmailInput.value : '').trim(),
+      password: String(barangayAdminPasswordInput ? barangayAdminPasswordInput.value : '')
+    };
+  }
+
+  function shouldCreateBarangayAdmin() {
+    const draft = readBarangayAdminDraft();
+    const hasFieldInput = draft.username !== '' || draft.email !== '' || draft.password.trim() !== '';
+    return Boolean(createBarangayAdminInput && createBarangayAdminInput.checked) || hasFieldInput;
+  }
+
+  function syncBarangayAdminToggle() {
+    if (!createBarangayAdminInput) {
+      return;
+    }
+    const draft = readBarangayAdminDraft();
+    const hasFieldInput = draft.username !== '' || draft.email !== '' || draft.password.trim() !== '';
+    if (hasFieldInput && !createBarangayAdminInput.checked) {
+      createBarangayAdminInput.checked = true;
+      toggleBarangayAdminFields();
+    }
+  }
+
+  function clearBarangayAdminFields() {
+    if (barangayAdminUsernameInput) {
+      barangayAdminUsernameInput.value = '';
+    }
+    if (barangayAdminEmailInput) {
+      barangayAdminEmailInput.value = '';
+    }
+    if (barangayAdminPasswordInput) {
+      barangayAdminPasswordInput.value = '';
+    }
+    if (createBarangayAdminInput) {
+      createBarangayAdminInput.checked = false;
+    }
+    toggleBarangayAdminFields();
+  }
+
+  function isBarangayEditMode() {
+    return String(barangayStationIdInput ? barangayStationIdInput.value : '').trim() !== '';
+  }
+
+  function updateBarangayFormActions() {
+    const editing = isBarangayEditMode();
+    if (saveBarangayBtn) {
+      saveBarangayBtn.textContent = editing ? 'Save Changes' : 'Create Substation';
+    }
+    if (barangayAdminHelpText) {
+      barangayAdminHelpText.textContent = editing
+        ? 'Turn on, then enter details to add an admin for this substation.'
+        : 'Turn on, then enter username, email, and password for the new substation admin.';
+    }
+  }
+
   function resetBarangayForm() {
     barangayIsPopulating = true;
     if (barangayForm) {
@@ -386,10 +476,7 @@
     if (barangayAorRadiusInput) {
       barangayAorRadiusInput.value = '2.5';
     }
-    if (createBarangayAdminInput) {
-      createBarangayAdminInput.checked = false;
-    }
-    toggleBarangayAdminFields();
+    clearBarangayAdminFields();
     if (barangayMapMarker) {
       barangayMapMarker.setMap(null);
       barangayMapMarker = null;
@@ -410,6 +497,7 @@
       window.clearTimeout(barangayAutosaveTimer);
       barangayAutosaveTimer = null;
     }
+    updateBarangayFormActions();
     barangayIsPopulating = false;
   }
 
@@ -443,8 +531,8 @@
       return;
     }
 
-    const stationLat = Number(station.latitude);
-    const stationLng = Number(station.longitude);
+    const stationLat = station.latitude != null ? Number(station.latitude) : NaN;
+    const stationLng = station.longitude != null ? Number(station.longitude) : NaN;
     if (!Number.isFinite(stationLat) || !Number.isFinite(stationLng)) {
       return;
     }
@@ -493,94 +581,441 @@
     }
   }
 
+  function readBarangayCoordinateValue(input) {
+    if (!input) {
+      return null;
+    }
+    const raw = String(input.value || '').trim();
+    if (raw === '') {
+      return null;
+    }
+    const value = Number(raw);
+    return Number.isFinite(value) ? value : null;
+  }
+
   function readBarangayDraft() {
     return {
       stationId: String(barangayStationIdInput ? barangayStationIdInput.value : '').trim(),
       stationName: String(barangayNameInput ? barangayNameInput.value : '').trim(),
       stationCode: String(barangayCodeInput ? barangayCodeInput.value : '').trim(),
-      location: String(barangayLocationInput ? barangayLocationInput.value : '').trim(),
-      latitude: barangayLatitudeInput ? Number(barangayLatitudeInput.value || 0) : 0,
-      longitude: barangayLongitudeInput ? Number(barangayLongitudeInput.value || 0) : 0,
+      location: composeBarangayLocationString(readBarangayAddressParts()),
+      latitude: readBarangayCoordinateValue(barangayLatitudeInput),
+      longitude: readBarangayCoordinateValue(barangayLongitudeInput),
       status: String(barangayStatusInput ? barangayStatusInput.value : 'active').toLowerCase() === 'inactive' ? 'inactive' : 'active',
       aorRadiusKm: barangayAorRadiusInput ? Number(barangayAorRadiusInput.value || 0) : 0
     };
   }
 
-  function buildBarangayGeocodeQuery() {
-    const address = String(barangayLocationInput ? barangayLocationInput.value : '').trim();
-    const stationName = String(barangayNameInput ? barangayNameInput.value : '').trim();
-    if (address === '') {
-      return '';
-    }
-    const parts = [];
-    if (stationName !== '') {
-      parts.push(stationName);
-    }
-    parts.push(address);
-    const joined = parts.join(', ');
-    if (/makati/i.test(joined)) {
-      return joined;
-    }
-    return joined + ', Makati City, Metro Manila, Philippines';
+  const reportsLocateUrl = '/firenet/NEWFIRENET/backend/controllers/reports.php?action=locate';
+
+  function getSubstationLocateUrl(params) {
+    const endpoint = String(context.geocodeEndpoint || reportsLocateUrl);
+    const separator = endpoint.indexOf('?') === -1 ? '?' : '&';
+    return endpoint + separator + params.toString();
   }
 
-  function buildBarangayGeocodeCandidates() {
-    const address = String(barangayLocationInput ? barangayLocationInput.value : '').trim();
-    const stationName = String(barangayNameInput ? barangayNameInput.value : '').trim();
-    if (address === '') {
+  async function fetchSubstationLocate(params, timeoutMs) {
+    const controller = new AbortController();
+    const timer = window.setTimeout(function () {
+      controller.abort();
+    }, timeoutMs || 18000);
+
+    try {
+      const response = await fetch(getSubstationLocateUrl(params), {
+        method: 'GET',
+        credentials: 'same-origin',
+        signal: controller.signal
+      });
+      const raw = await response.text();
+      return {
+        response: response,
+        payload: raw ? JSON.parse(raw) : null
+      };
+    } catch (error) {
+      return {
+        response: null,
+        payload: null
+      };
+    } finally {
+      window.clearTimeout(timer);
+    }
+  }
+
+  function isBarangayGoogleMapsReady() {
+    return Boolean(window.google && window.google.maps);
+  }
+
+  function buildSubstationStreetVariants(value) {
+    const input = String(value || '').trim();
+    if (input === '') {
       return [];
     }
 
-    const candidates = [];
-    function pushCandidate(parts) {
-      const text = parts.filter(Boolean).join(', ').replace(/\s{2,}/g, ' ').trim();
-      if (text !== '') {
-        candidates.push(text);
-      }
-    }
+    const expanded = input
+      .replace(/\bst\.?\b/gi, 'Street')
+      .replace(/\bave\.?\b/gi, 'Avenue')
+      .replace(/\brd\.?\b/gi, 'Road')
+      .replace(/\bblvd\.?\b/gi, 'Boulevard')
+      .replace(/\bext\.?\b/gi, 'Extension');
 
-    pushCandidate([address]);
-    pushCandidate([address, 'Makati City']);
-    pushCandidate([address, 'Makati City', 'Metro Manila']);
-    pushCandidate([address, 'Makati City', 'Metro Manila', 'Philippines']);
+    const abbreviated = input
+      .replace(/\bstreet\b/gi, 'St')
+      .replace(/\bavenue\b/gi, 'Ave')
+      .replace(/\broad\b/gi, 'Rd')
+      .replace(/\bboulevard\b/gi, 'Blvd')
+      .replace(/\bextension\b/gi, 'Ext');
 
-    if (stationName !== '') {
-      pushCandidate([stationName, address]);
-      pushCandidate([stationName, address, 'Makati City']);
-      pushCandidate([stationName, address, 'Makati City', 'Metro Manila']);
-    }
+    const stripped = input.replace(/\s+(street|st|avenue|ave|road|rd|boulevard|blvd|extension|ext)\.?$/i, '').trim();
 
-    return Array.from(new Set(candidates)).slice(0, 8);
+    return Array.from(new Set([input, expanded, abbreviated, stripped].filter(Boolean)));
   }
 
-  function parseBarangayAddressParts() {
-    const raw = String(barangayLocationInput ? barangayLocationInput.value : '').trim();
-    const parts = raw.split(',').map(function (part) {
+  function normalizeBarangayAddressText(value) {
+    return String(value || '')
+      .replace(/\r\n/g, '\n')
+      .replace(/\n+/g, ', ')
+      .replace(/\s{2,}/g, ' ')
+      .replace(/,\s*,+/g, ', ')
+      .trim();
+  }
+
+  function isBarangayAddressLocalityPart(part) {
+    return /^(?:makati(?:\s+city)?|city\s+of\s+makati|metro\s+manila|philippines|\d{4,5}(?:\s+metro\s+manila)?)$/i.test(String(part || '').replace(/\s{2,}/g, ' ').trim());
+  }
+
+  function barangayAddressLooksLikeStreet(part) {
+    return /\b(?:street|st\.?|avenue|ave\.?|road|rd\.?|boulevard|blvd\.?|drive|dr\.?|highway|hwy\.?|corner|cor\.?)\b|\d{2,5}\s+\S+/i.test(String(part || ''));
+  }
+
+  function barangayAddressLooksLikeBuilding(part) {
+    return /\b(?:tower|center|centre|plaza|building|bldg\.?|mall|arcade|suites?)\b/i.test(String(part || ''));
+  }
+
+  function barangayAddressLooksLikeVillage(part) {
+    return /\bvillage\b/i.test(String(part || ''));
+  }
+
+  function parseBarangayComplexAddress(raw) {
+    const fullNormalized = normalizeBarangayAddressText(raw);
+    if (fullNormalized === '') {
+      return {
+        building: '',
+        street: '',
+        area: '',
+        barangay: '',
+        segments: [],
+        fullNormalized: ''
+      };
+    }
+
+    const parts = fullNormalized.split(',').map(function (part) {
       return String(part || '').trim();
     }).filter(Boolean);
 
-    let streetName = parts[0] || raw;
+    let building = '';
+    let street = '';
+    let area = '';
     let barangay = '';
-    let landmark = '';
+    const segments = [];
 
-    parts.forEach(function (part, index) {
-      if (/^(?:barangay|brgy\.?|brgy)\b/i.test(part)) {
-        barangay = part.replace(/^(?:barangay|brgy\.?|brgy)\s*/i, '').trim();
-      } else if (index > 0) {
-        landmark = landmark ? (landmark + ', ' + part) : part;
+    parts.forEach(function (part) {
+      if (isBarangayAddressLocalityPart(part)) {
+        return;
       }
+
+      if (/^(?:barangay|brgy\.?)\s+/i.test(part)) {
+        barangay = part.replace(/^(?:barangay|brgy\.?)\s*/i, '').replace(/\s+makati(?:\s+city)?$/i, '').trim();
+        if (barangay !== '') {
+          segments.push('Barangay ' + barangay);
+        }
+        return;
+      }
+
+      const compoundMatch = part.match(/^(.+?),\s*(?:barangay|brgy\.?)\s+(.+)$/i);
+      if (compoundMatch) {
+        const left = String(compoundMatch[1] || '').trim();
+        barangay = String(compoundMatch[2] || '').trim().replace(/\s+makati(?:\s+city)?$/i, '').trim();
+        if (left !== '') {
+          if (barangayAddressLooksLikeVillage(left) || !barangayAddressLooksLikeStreet(left)) {
+            area = area !== '' ? area + ', ' + left : left;
+          } else {
+            street = street !== '' ? street : left;
+          }
+          segments.push(left);
+        }
+        if (barangay !== '') {
+          segments.push('Barangay ' + barangay);
+        }
+        return;
+      }
+
+      if (barangayAddressLooksLikeVillage(part)) {
+        area = area !== '' ? area + ', ' + part : part;
+        segments.push(part);
+        return;
+      }
+
+      if (barangayAddressLooksLikeStreet(part)) {
+        street = street !== '' ? street : part;
+        segments.push(part);
+        return;
+      }
+
+      if (barangayAddressLooksLikeBuilding(part) && street === '') {
+        building = building !== '' ? building : part;
+        segments.push(part);
+        return;
+      }
+
+      if (building === '' && street === '' && area === '') {
+        building = part;
+      } else if (street === '' && /\d/.test(part)) {
+        street = part;
+      } else if (area === '') {
+        area = part;
+      }
+      segments.push(part);
     });
 
-    if (barangay === '' && /(?:barangay|brgy\.?|brgy)\s+([a-z0-9\-\s]+)/i.test(raw)) {
-      const match = raw.match(/(?:barangay|brgy\.?|brgy)\s+([a-z0-9\-\s]+)/i);
-      barangay = match && match[1] ? String(match[1]).trim() : '';
+    if (barangay === '' && /(?:barangay|brgy\.?)\s+([^,]+)/i.test(fullNormalized)) {
+      const inlineMatch = fullNormalized.match(/(?:barangay|brgy\.?)\s+([^,]+)/i);
+      if (inlineMatch && inlineMatch[1]) {
+        barangay = String(inlineMatch[1]).trim().replace(/\s+makati(?:\s+city)?$/i, '').trim();
+      }
     }
 
     return {
-      streetName: streetName,
+      building: building,
+      street: street,
+      area: area,
       barangay: barangay,
-      landmark: landmark
+      segments: Array.from(new Set(segments.filter(Boolean))),
+      fullNormalized: fullNormalized
     };
+  }
+
+  function resolveBarangayAddressPartsForLocate(street, landmark, barangayValue, altAddress) {
+    const parsed = parseBarangayComplexAddress(altAddress);
+    let resolvedStreet = String(street || '').trim() || parsed.street;
+    let resolvedLandmark = String(landmark || '').trim() || parsed.building;
+    let resolvedBarangay = String(barangayValue || '').trim() || parsed.barangay;
+    const resolvedAlt = parsed.fullNormalized || normalizeBarangayAddressText(altAddress);
+
+    if (resolvedLandmark === '' && parsed.area !== '') {
+      resolvedLandmark = parsed.area;
+    }
+
+    if (resolvedStreet === '' && parsed.segments.length > 0) {
+      const streetSegment = parsed.segments.find(function (segment) {
+        return barangayAddressLooksLikeStreet(segment);
+      });
+      resolvedStreet = streetSegment || parsed.segments[0];
+    }
+
+    return {
+      streetName: resolvedStreet,
+      landmark: resolvedLandmark,
+      barangay: resolvedBarangay,
+      altAddress: resolvedAlt,
+      segments: parsed.segments
+    };
+  }
+
+  function readBarangayAddressParts() {
+    const street = String(barangayStreetInput ? barangayStreetInput.value : '').trim();
+    const landmark = String(barangayLandmarkInput ? barangayLandmarkInput.value : '').trim();
+    const barangayValue = String(barangayBarangayInput ? barangayBarangayInput.value : '').trim();
+    const altAddress = normalizeBarangayAddressText(barangayFullAddressInput ? barangayFullAddressInput.value : '');
+    return resolveBarangayAddressPartsForLocate(street, landmark, barangayValue, altAddress);
+  }
+
+  function hasBarangayAddressInput() {
+    const resolved = readBarangayAddressParts();
+    return resolved.streetName !== '' || resolved.landmark !== '' || resolved.barangay !== '' || resolved.altAddress !== '';
+  }
+
+  function composeBarangayLocationString(resolved) {
+    const fullAddress = String(resolved.altAddress || '').trim();
+    const combined = [
+      resolved.landmark,
+      resolved.streetName,
+      resolved.barangay ? ('Barangay ' + resolved.barangay) : ''
+    ].filter(function (part) {
+      return String(part || '').trim() !== '';
+    }).join(', ');
+
+    if (fullAddress !== '') {
+      return fullAddress;
+    }
+    return combined;
+  }
+
+  function buildSubstationAddressCandidates(street, landmark, barangayValue, altAddress) {
+    const resolved = resolveBarangayAddressPartsForLocate(street, landmark, barangayValue, altAddress);
+    const streetVariants = buildSubstationStreetVariants(resolved.streetName);
+    const altVariants = buildSubstationStreetVariants(resolved.altAddress);
+    const segmentVariants = [];
+    resolved.segments.forEach(function (segment) {
+      buildSubstationStreetVariants(segment).forEach(function (variant) {
+        segmentVariants.push(variant);
+      });
+    });
+    const barangayVariants = Array.from(new Set([
+      String(resolved.barangay || '').trim(),
+      String(resolved.barangay || '').trim() ? ('Barangay ' + String(resolved.barangay || '').trim()) : ''
+    ].filter(Boolean)));
+
+    const localityVariants = [
+      ['Makati City', 'Metro Manila', 'Philippines'],
+      ['City of Makati', 'Metro Manila', 'Philippines'],
+      ['Makati', 'Metro Manila', 'Philippines'],
+      ['Makati City', 'Philippines'],
+      ['Metro Manila', 'Philippines'],
+      ['Philippines']
+    ];
+
+    const candidates = [];
+    function pushCandidate(parts, locality) {
+      const candidate = parts
+        .concat(locality)
+        .map(function (part) {
+          return String(part || '').trim();
+        })
+        .filter(function (part) {
+          return part !== '';
+        })
+        .join(', ');
+      if (candidate) {
+        candidates.push(candidate);
+      }
+    }
+
+    localityVariants.forEach(function (locality) {
+      if (resolved.altAddress) {
+        pushCandidate([resolved.altAddress], locality);
+      }
+
+      const combinedParts = [resolved.landmark, resolved.streetName, resolved.barangay].filter(function (part) {
+        return String(part || '').trim() !== '';
+      });
+      if (combinedParts.length >= 2) {
+        pushCandidate(combinedParts, locality);
+      }
+
+      segmentVariants.forEach(function (segment) {
+        pushCandidate([segment], locality);
+        barangayVariants.forEach(function (bg) {
+          pushCandidate([segment, bg], locality);
+        });
+      });
+
+      streetVariants.forEach(function (sv) {
+        barangayVariants.forEach(function (bg) {
+          pushCandidate([sv, resolved.landmark, bg], locality);
+          pushCandidate([sv, bg], locality);
+          pushCandidate([sv, resolved.landmark], locality);
+        });
+        pushCandidate([sv], locality);
+      });
+
+      altVariants.forEach(function (av) {
+        barangayVariants.forEach(function (bg) {
+          pushCandidate([av, bg], locality);
+          pushCandidate([av, resolved.landmark, bg], locality);
+        });
+        pushCandidate([av], locality);
+      });
+
+      streetVariants.forEach(function (sv) {
+        altVariants.forEach(function (av) {
+          barangayVariants.forEach(function (bg) {
+            pushCandidate([sv, av, bg], locality);
+            pushCandidate([sv, av], locality);
+          });
+        });
+      });
+
+      if (resolved.landmark) {
+        barangayVariants.forEach(function (bg) {
+          pushCandidate([resolved.landmark, bg], locality);
+        });
+        pushCandidate([resolved.landmark], locality);
+      }
+    });
+
+    return Array.from(new Set(candidates)).slice(0, 36);
+  }
+
+  function geocodeSubstationWithGoogleMaps(address) {
+    return new Promise(function (resolve) {
+      if (googleGeocodeDisabled || !isBarangayGoogleMapsReady() || !address) {
+        resolve(null);
+        return;
+      }
+
+      const geocoder = new window.google.maps.Geocoder();
+      const boundedRequest = {
+        address: address,
+        region: 'ph',
+        componentRestrictions: { country: 'PH' },
+        bounds: new window.google.maps.LatLngBounds(
+          new window.google.maps.LatLng(14.49, 120.98),
+          new window.google.maps.LatLng(14.62, 121.09)
+        )
+      };
+
+      const requests = [
+        boundedRequest,
+        { address: address, region: 'ph', componentRestrictions: { country: 'PH' } },
+        { address: address }
+      ];
+      let index = 0;
+
+      function runNext() {
+        if (index >= requests.length) {
+          resolve(null);
+          return;
+        }
+
+        geocoder.geocode(requests[index], function (results, status) {
+          if (status === 'REQUEST_DENIED' || status === 'OVER_QUERY_LIMIT') {
+            googleGeocodeDisabled = true;
+            resolve(null);
+            return;
+          }
+          if (status !== 'OK' || !Array.isArray(results) || results.length === 0) {
+            index += 1;
+            runNext();
+            return;
+          }
+
+          const location = results[0] && results[0].geometry && results[0].geometry.location;
+          if (!location || typeof location.lat !== 'function' || typeof location.lng !== 'function') {
+            index += 1;
+            runNext();
+            return;
+          }
+
+          resolve({
+            latitude: location.lat(),
+            longitude: location.lng(),
+            displayAddress: String(results[0].formatted_address || address)
+          });
+        });
+      }
+
+      runNext();
+    });
+  }
+
+  async function geocodeSubstationCandidatesWithGoogleMaps(candidates) {
+    for (let i = 0; i < candidates.length; i += 1) {
+      const result = await geocodeSubstationWithGoogleMaps(candidates[i]);
+      if (result) {
+        return result;
+      }
+    }
+    return null;
   }
 
   function updateBarangayInputsFromGeocode(lat, lng, formattedAddress) {
@@ -590,136 +1025,132 @@
     barangayIsPopulating = true;
     barangayLatitudeInput.value = Number(lat).toFixed(8);
     barangayLongitudeInput.value = Number(lng).toFixed(8);
-    if (barangayLocationInput && formattedAddress && String(barangayLocationInput.value || '').trim() === '') {
-      barangayLocationInput.value = formattedAddress;
+    if (barangayFullAddressInput && formattedAddress && String(barangayFullAddressInput.value || '').trim() === '') {
+      barangayFullAddressInput.value = formattedAddress;
     }
     barangayIsPopulating = false;
   }
 
-  function geocodeBarangayAddress() {
-    if (!context.googleMapsConfigured || !window.google || !window.google.maps || !barangayGeocoder) {
+  function coordinateDistanceKm(lat1, lon1, lat2, lon2) {
+    const toRad = function (value) {
+      return value * (Math.PI / 180);
+    };
+    const earthRadiusKm = 6371;
+    const dLat = toRad(lat2 - lat1);
+    const dLon = toRad(lon2 - lon1);
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2)
+      + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    return earthRadiusKm * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
+  }
+
+  function clearBarangayCoordinatesForRelocate() {
+    barangayIsPopulating = true;
+    if (barangayLatitudeInput) {
+      barangayLatitudeInput.value = '';
+    }
+    if (barangayLongitudeInput) {
+      barangayLongitudeInput.value = '';
+    }
+    barangayIsPopulating = false;
+    if (barangayMapMarker) {
+      barangayMapMarker.setMap(null);
+      barangayMapMarker = null;
+    }
+    if (barangayAorCircle) {
+      barangayAorCircle.setMap(null);
+      barangayAorCircle = null;
+    }
+  }
+
+  async function geocodeBarangayAddress() {
+    const resolved = readBarangayAddressParts();
+    const street = resolved.streetName;
+    const barangayValue = resolved.barangay;
+    const landmarkValue = resolved.landmark;
+    const altAddressValue = resolved.altAddress;
+
+    if (street === '' && landmarkValue === '' && altAddressValue === '') {
+      barangayGeocodeActive = false;
+      if (barangayMapMeta) {
+        barangayMapMeta.textContent = 'Type an address to locate this substation on the map.';
+      }
       return;
     }
-    const candidates = buildBarangayGeocodeCandidates();
-    if (candidates.length === 0) {
-      return;
-    }
+
     const seq = ++barangayGeocodeSeq;
+    barangayGeocodeActive = true;
     if (barangayMapMeta) {
       barangayMapMeta.textContent = 'Locating address on the map...';
     }
 
-    const addressParts = parseBarangayAddressParts();
-    const locateUrl = new URL('/firenet/NEWFIRENET/backend/controllers/reports.php', window.location.origin);
-    locateUrl.searchParams.set('action', 'locate');
-    locateUrl.searchParams.set('streetName', addressParts.streetName);
-    if (addressParts.barangay) {
-      locateUrl.searchParams.set('barangay', addressParts.barangay);
-    }
-    if (addressParts.landmark) {
-      locateUrl.searchParams.set('landmark', addressParts.landmark);
-    }
-    locateUrl.searchParams.set('alarmLevel', '1');
+    const addressCandidates = buildSubstationAddressCandidates(street, landmarkValue, barangayValue, altAddressValue);
 
-    fetch(locateUrl.toString(), { method: 'GET', credentials: 'same-origin' })
-      .then(function (response) {
-        return response.text().then(function (text) {
-          return { ok: response.ok, text: text };
-        });
-      })
-      .then(function (result) {
-        if (seq !== barangayGeocodeSeq) {
-          return;
-        }
-        let payload = null;
-        try {
-          payload = result.text ? JSON.parse(result.text) : null;
-        } catch (error) {
-          payload = null;
-        }
-
-        const latitude = payload && payload.latitude != null ? Number(payload.latitude) : null;
-        const longitude = payload && payload.longitude != null ? Number(payload.longitude) : null;
-        const displayAddress = payload && payload.displayAddress ? String(payload.displayAddress) : '';
-        if (result.ok && payload && payload.ok === true && Number.isFinite(latitude) && Number.isFinite(longitude)) {
-          updateBarangayInputsFromGeocode(latitude, longitude, displayAddress);
-          updateBarangayMapPreviewFromInputs();
-          if (barangayMapMeta) {
-            barangayMapMeta.textContent = 'Address located near ' + Number(latitude).toFixed(6) + ', ' + Number(longitude).toFixed(6) + '.';
-          }
-          const stationId = String(barangayStationIdInput ? barangayStationIdInput.value : '').trim();
-          if (stationId !== '') {
-            queueBarangayAutosave();
-          }
-          return;
-        }
-
-        runCandidate(0);
-      })
-      .catch(function () {
-        if (seq !== barangayGeocodeSeq) {
-          return;
-        }
-        runCandidate(0);
+    try {
+      const params = new URLSearchParams({
+        barangay: barangayValue,
+        streetName: street,
+        landmark: landmarkValue,
+        altAddress: altAddressValue,
+        alarmLevel: '1'
       });
 
-    function runCandidate(index) {
+      const backendResult = await fetchSubstationLocate(params, 18000);
+
       if (seq !== barangayGeocodeSeq) {
         return;
       }
-      if (index >= candidates.length) {
+
+      const response = backendResult.response;
+      const payload = backendResult.payload;
+      let latitude = payload && payload.latitude != null ? Number(payload.latitude) : null;
+      let longitude = payload && payload.longitude != null ? Number(payload.longitude) : null;
+      let displayAddress = payload && payload.displayAddress ? String(payload.displayAddress) : '';
+      let backendOk = Boolean(response && response.ok && payload && payload.ok === true && latitude != null && longitude != null);
+
+      if (!backendOk && addressCandidates.length > 0 && !googleGeocodeDisabled) {
+        const googleResult = await geocodeSubstationCandidatesWithGoogleMaps(addressCandidates);
+        if (googleResult) {
+          latitude = Number(googleResult.latitude);
+          longitude = Number(googleResult.longitude);
+          if (!displayAddress) {
+            displayAddress = String(googleResult.displayAddress || '');
+          }
+        }
+      }
+
+      if (latitude == null || longitude == null || !Number.isFinite(latitude) || !Number.isFinite(longitude)) {
         if (barangayMapMeta) {
-          barangayMapMeta.textContent = 'Address could not be located exactly. You can still click the map or enter coordinates manually.';
+          barangayMapMeta.textContent = (payload && payload.message)
+            ? payload.message
+            : 'Address lookup did not return coordinates. Try a more complete street and barangay address.';
         }
         return;
       }
 
-      const address = candidates[index];
-      const requests = [
-        {
-          address: address,
-          region: 'ph',
-          componentRestrictions: { country: 'PH' },
-          bounds: new window.google.maps.LatLngBounds(
-            new window.google.maps.LatLng(14.49, 120.98),
-            new window.google.maps.LatLng(14.62, 121.09)
-          )
-        },
-        { address: address, region: 'ph', componentRestrictions: { country: 'PH' } },
-        { address: address }
-      ];
+      updateBarangayInputsFromGeocode(latitude, longitude, displayAddress);
+      updateBarangayMapPreviewFromInputs();
 
-      function runRequest(requestIndex) {
-        if (requestIndex >= requests.length) {
-          runCandidate(index + 1);
-          return;
-        }
-
-        barangayGeocoder.geocode(requests[requestIndex], function (results, status) {
-          if (seq !== barangayGeocodeSeq) {
-            return;
-          }
-          if (status !== 'OK' || !Array.isArray(results) || results.length === 0 || !results[0].geometry || !results[0].geometry.location) {
-            runRequest(requestIndex + 1);
-            return;
-          }
-
-          const location = results[0].geometry.location;
-          const lat = location.lat();
-          const lng = location.lng();
-          updateBarangayInputsFromGeocode(lat, lng, String(results[0].formatted_address || address));
-          updateBarangayMapPreviewFromInputs();
-          if (barangayMapMeta) {
-            barangayMapMeta.textContent = 'Address located near ' + Number(lat).toFixed(6) + ', ' + Number(lng).toFixed(6) + '.';
-          }
-          const stationId = String(barangayStationIdInput ? barangayStationIdInput.value : '').trim();
-          if (stationId !== '') {
-            queueBarangayAutosave();
-          }
-        });
+      if (barangayMapMeta) {
+        barangayMapMeta.textContent = displayAddress
+          ? ('Located: ' + displayAddress)
+          : ('Address located near ' + Number(latitude).toFixed(6) + ', ' + Number(longitude).toFixed(6) + '.');
       }
 
-      runRequest(0);
+      const stationId = String(barangayStationIdInput ? barangayStationIdInput.value : '').trim();
+      if (stationId !== '') {
+        queueBarangayAutosave();
+      }
+    } catch (error) {
+      if (seq !== barangayGeocodeSeq) {
+        return;
+      }
+      if (barangayMapMeta) {
+        barangayMapMeta.textContent = 'Unable to locate this address right now.';
+      }
+    } finally {
+      if (seq === barangayGeocodeSeq) {
+        barangayGeocodeActive = false;
+      }
     }
   }
 
@@ -727,12 +1158,15 @@
     if (barangayIsPopulating) {
       return;
     }
+    if (hasBarangayAddressInput()) {
+      clearBarangayCoordinatesForRelocate();
+    }
     if (barangayGeocodeTimer) {
       window.clearTimeout(barangayGeocodeTimer);
     }
     barangayGeocodeTimer = window.setTimeout(function () {
       geocodeBarangayAddress();
-    }, 650);
+    }, 700);
   }
 
   function updateBarangayMapPreviewFromInputs() {
@@ -754,7 +1188,7 @@
       aorRadiusKm: safeRadius
     };
     renderBarangayMapSelection(pendingBarangayStation);
-    if (barangayMapMeta) {
+    if (barangayMapMeta && !barangayGeocodeActive) {
       barangayMapMeta.textContent = safeRadius > 0
         ? 'Live preview. Current AOR radius: ' + safeRadius.toFixed(2) + ' km.'
         : 'Live preview. Add an AOR radius to draw the coverage circle.';
@@ -989,8 +1423,17 @@
     if (barangayCodeInput) {
       barangayCodeInput.value = String(station.stationCode || '');
     }
-    if (barangayLocationInput) {
-      barangayLocationInput.value = String(station.location || '');
+    if (barangayFullAddressInput) {
+      barangayFullAddressInput.value = String(station.location || '');
+    }
+    if (barangayStreetInput) {
+      barangayStreetInput.value = '';
+    }
+    if (barangayBarangayInput) {
+      barangayBarangayInput.value = '';
+    }
+    if (barangayLandmarkInput) {
+      barangayLandmarkInput.value = '';
     }
     if (barangayLatitudeInput) {
       barangayLatitudeInput.value = station.latitude == null ? '' : String(station.latitude);
@@ -1007,10 +1450,7 @@
     if (barangayModalTitle) {
       barangayModalTitle.textContent = 'Edit Substation';
     }
-    if (createBarangayAdminInput) {
-      createBarangayAdminInput.checked = false;
-    }
-    toggleBarangayAdminFields();
+    clearBarangayAdminFields();
     pendingBarangayStation = station;
     if (barangayMapMeta) {
       if (station.aorRadiusKm != null && Number(station.aorRadiusKm) > 0) {
@@ -1021,6 +1461,7 @@
     }
     setBarangayMessage('Editing ' + String(station.stationName || 'substation') + '.', false);
     barangayIsPopulating = false;
+    updateBarangayFormActions();
     openBarangayModal();
     if (barangayMapInstance && window.google && window.google.maps) {
       window.setTimeout(function () {
@@ -1413,16 +1854,11 @@
     state.stations = Array.isArray(payload.data.stations) ? payload.data.stations : [];
     state.positions = Array.isArray(payload.data.positions) ? payload.data.positions : [];
     state.users = Array.isArray(payload.data.users) ? payload.data.users : [];
-    if (isSuperadminPage) {
-      usersWelcomeText.textContent = 'Manage substations, assigned admins, personnel accounts, login updates, and public notices across all stations.';
-    } else {
-      usersWelcomeText.textContent = 'Manage users, publishing tools, and station activity for ' + String((payload.data.currentStation && payload.data.currentStation.stationName) || 'your station') + '.';
-    }
     renderOptions();
     renderStats();
     renderTable();
     renderSubstationTable();
-    setActiveTab(readRequestedTab() || localStorage.getItem(usersTabStorageKey) || 'accounts');
+    setActiveTab(getPreferredUsersTab());
   }
 
   async function saveBarangay() {
@@ -1432,28 +1868,27 @@
 
     const stationName = barangayNameInput.value.trim();
     const stationId = String(barangayStationIdInput ? barangayStationIdInput.value : '').trim();
-    const latitude = Number(barangayLatitudeInput.value || 0);
-    const longitude = Number(barangayLongitudeInput.value || 0);
+    const latitude = readBarangayCoordinateValue(barangayLatitudeInput);
+    const longitude = readBarangayCoordinateValue(barangayLongitudeInput);
     const aorRadiusKm = Number(barangayAorRadiusInput ? barangayAorRadiusInput.value || 0 : 0);
-    const createAdmin = Boolean(createBarangayAdminInput && createBarangayAdminInput.checked);
+    syncBarangayAdminToggle();
+    const createAdmin = shouldCreateBarangayAdmin();
 
     if (stationName.length < 2) {
       throw new Error('Substation name is required.');
     }
 
-    if (!Number.isFinite(latitude) || !Number.isFinite(longitude) || Math.abs(latitude) > 90 || Math.abs(longitude) > 180) {
+    if (latitude == null || longitude == null || Math.abs(latitude) > 90 || Math.abs(longitude) > 180) {
       throw new Error('Please pin a valid location on the map.');
     }
     if (!Number.isFinite(aorRadiusKm) || aorRadiusKm <= 0) {
       throw new Error('Please enter a valid AOR radius in kilometers.');
     }
 
-    if (createAdmin && !stationId) {
-      const adminUsername = String(barangayAdminUsernameInput ? barangayAdminUsernameInput.value : '').trim();
-      const adminEmail = String(barangayAdminEmailInput ? barangayAdminEmailInput.value : '').trim();
-      const adminPassword = String(barangayAdminPasswordInput ? barangayAdminPasswordInput.value : '');
-      if (adminUsername === '' || adminEmail === '' || adminPassword.trim() === '') {
-        throw new Error('Admin username, email, and password are required when creating a substation admin.');
+    if (createAdmin) {
+      const adminDraft = readBarangayAdminDraft();
+      if (adminDraft.username === '' || adminDraft.email === '' || adminDraft.password.trim() === '') {
+        throw new Error('Admin username, email, and password are all required to create a substation admin.');
       }
     }
 
@@ -1464,16 +1899,17 @@
     }
     formData.append('stationName', stationName);
     formData.append('stationCode', String(barangayCodeInput ? barangayCodeInput.value : '').trim());
-    formData.append('location', String(barangayLocationInput ? barangayLocationInput.value : '').trim());
+    formData.append('location', composeBarangayLocationString(readBarangayAddressParts()));
     formData.append('latitude', String(latitude));
     formData.append('longitude', String(longitude));
     formData.append('stationStatus', String(barangayStatusInput ? barangayStatusInput.value : 'active'));
     formData.append('aorRadiusKm', String(aorRadiusKm));
     formData.append('createAdmin', createAdmin ? '1' : '0');
-    if (!stationId && createAdmin) {
-      formData.append('adminUsername', String(barangayAdminUsernameInput ? barangayAdminUsernameInput.value : '').trim());
-      formData.append('adminEmail', String(barangayAdminEmailInput ? barangayAdminEmailInput.value : '').trim());
-      formData.append('adminPassword', String(barangayAdminPasswordInput ? barangayAdminPasswordInput.value : ''));
+    if (createAdmin) {
+      const adminDraft = readBarangayAdminDraft();
+      formData.append('adminUsername', adminDraft.username);
+      formData.append('adminEmail', adminDraft.email);
+      formData.append('adminPassword', adminDraft.password);
     }
 
     const response = await fetch(apiUrl, {
@@ -1598,27 +2034,31 @@
     });
   }
 
-  if (isSuperadminPage && barangayPanel) {
-    barangayPanel.hidden = false;
-  }
-
   if (createBarangayAdminInput) {
     createBarangayAdminInput.addEventListener('change', toggleBarangayAdminFields);
     toggleBarangayAdminFields();
   }
 
+  [barangayAdminUsernameInput, barangayAdminEmailInput, barangayAdminPasswordInput].forEach(function (field) {
+    if (!field) {
+      return;
+    }
+    field.addEventListener('input', syncBarangayAdminToggle);
+    field.addEventListener('change', syncBarangayAdminToggle);
+  });
+
   if (barangayForm) {
     barangayForm.addEventListener('submit', function (event) {
       event.preventDefault();
-      setBarangayMessage('Saving substation...', false);
+      setBarangayMessage(isBarangayEditMode() ? 'Saving changes...' : 'Creating substation...', false);
       saveBarangay().catch(function (error) {
         setBarangayMessage(error.message, true);
       });
     });
   }
 
-  if (resetBarangayBtn) {
-    resetBarangayBtn.addEventListener('click', resetBarangayForm);
+  if (cancelBarangayBtn) {
+    cancelBarangayBtn.addEventListener('click', closeBarangayModal);
   }
 
   [
@@ -1636,16 +2076,40 @@
     field.addEventListener('change', queueBarangayAutosave);
   });
 
-  if (barangayLocationInput) {
-    barangayLocationInput.addEventListener('input', function () {
+  if (barangayFullAddressInput) {
+    barangayFullAddressInput.addEventListener('input', function () {
       queueBarangayGeocode();
-      queueBarangayAutosave();
     });
-    barangayLocationInput.addEventListener('change', function () {
+    barangayFullAddressInput.addEventListener('change', function () {
       geocodeBarangayAddress();
-      queueBarangayAutosave();
     });
-    barangayLocationInput.addEventListener('blur', function () {
+    barangayFullAddressInput.addEventListener('blur', function () {
+      geocodeBarangayAddress();
+    });
+  }
+
+  [barangayStreetInput, barangayBarangayInput, barangayLandmarkInput].forEach(function (field) {
+    if (!field) {
+      return;
+    }
+    field.addEventListener('input', function () {
+      queueBarangayGeocode();
+    });
+    field.addEventListener('change', function () {
+      geocodeBarangayAddress();
+    });
+    field.addEventListener('blur', function () {
+      geocodeBarangayAddress();
+    });
+  });
+
+  if (locateBarangayBtn) {
+    locateBarangayBtn.addEventListener('click', function () {
+      if (barangayGeocodeTimer) {
+        window.clearTimeout(barangayGeocodeTimer);
+        barangayGeocodeTimer = null;
+      }
+      clearBarangayCoordinatesForRelocate();
       geocodeBarangayAddress();
     });
   }
@@ -2192,11 +2656,7 @@
     });
   }
 
-  try {
-    setActiveTab(readRequestedTab() || localStorage.getItem(usersTabStorageKey) || 'accounts');
-  } catch (error) {
-    setActiveTab(readRequestedTab() || 'accounts');
-  }
+  setActiveTab(getPreferredUsersTab());
 
   loadBootstrap().catch(function (error) {
     usersTableBody.innerHTML = '<tr><td colspan="7" class="muted-text">Unable to load users.</td></tr>';

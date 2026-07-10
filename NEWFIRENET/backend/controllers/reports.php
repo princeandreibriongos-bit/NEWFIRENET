@@ -385,14 +385,78 @@ function firenet_is_central_station(PDO $pdo, int $stationId): bool {
 }
 
 function firenet_incident_completed_sql(string $stageAlias = 's', string $incidentAlias = 'i'): string {
+    // COALESCE avoids NULL incident_status (call intake) making the predicate unknown and hiding active rows.
     return '('
-        . $stageAlias . ".stage_code = 'after_incident'"
-        . ' OR ' . $incidentAlias . ".incident_status = 'fire_out'"
+        . "COALESCE(" . $stageAlias . ".stage_code, '') = 'after_incident'"
+        . ' OR COALESCE(' . $incidentAlias . ".incident_status, '') = 'fire_out'"
         . ' OR ' . $incidentAlias . '.incident_finished_at IS NOT NULL'
         . ')';
 }
 
+function firenet_incident_report_owned_by_station(PDO $pdo, int $reportId, int $stationId): bool {
+    if ($reportId < 1 || $stationId < 1) {
+        return false;
+    }
+
+    $stmt = $pdo->prepare('
+        SELECT 1
+        FROM incident_reports i
+        JOIN reports r ON r.report_id = i.report_id
+        WHERE i.report_id = ?
+          AND COALESCE(i.station_id, r.station_id) = ?
+        LIMIT 1
+    ');
+    $stmt->execute([$reportId, $stationId]);
+    return (bool) $stmt->fetchColumn();
+}
+
+function firenet_station_is_incident_responder(PDO $pdo, int $incidentReportId, int $stationId): bool {
+    if ($incidentReportId < 1 || $stationId < 1) {
+        return false;
+    }
+
+    $stmt = $pdo->prepare('
+        SELECT 1
+        FROM incident_report_dispatch_stations
+        WHERE incident_report_id = ?
+          AND station_id = ?
+        LIMIT 1
+    ');
+    $stmt->execute([$incidentReportId, $stationId]);
+    if ($stmt->fetchColumn()) {
+        return true;
+    }
+
+    $legacyStmt = $pdo->prepare('
+        SELECT 1
+        FROM incident_reports i
+        WHERE i.incident_report_id = ?
+          AND i.dispatched_station_id = ?
+          AND NOT EXISTS (
+              SELECT 1
+              FROM incident_report_dispatch_stations d
+              WHERE d.incident_report_id = i.incident_report_id
+          )
+        LIMIT 1
+    ');
+    $legacyStmt->execute([$incidentReportId, $stationId]);
+    return (bool) $legacyStmt->fetchColumn();
+}
+
 function firenet_report_belongs_to_station(PDO $pdo, int $reportId, int $stationId): bool {
+    if ($stationId < 1) {
+        return false;
+    }
+
+    if (firenet_incident_report_owned_by_station($pdo, $reportId, $stationId)) {
+        $incidentStmt = $pdo->prepare('SELECT incident_report_id FROM incident_reports WHERE report_id = ? LIMIT 1');
+        $incidentStmt->execute([$reportId]);
+        $incidentReportId = (int) $incidentStmt->fetchColumn();
+        if ($incidentReportId > 0) {
+            return firenet_station_is_incident_responder($pdo, $incidentReportId, $stationId);
+        }
+    }
+
     $stmt = $pdo->prepare('SELECT report_id FROM reports WHERE report_id = ? AND station_id = ? LIMIT 1');
     $stmt->execute([$reportId, $stationId]);
     return (bool) $stmt->fetchColumn();
@@ -656,6 +720,113 @@ function firenet_score_geocode_result(array $result, array $context): float {
     return $score;
 }
 
+function firenet_http_get(string $url, int $timeoutSeconds = 5): ?string {
+    $body = false;
+
+    if (function_exists('curl_init')) {
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT => $timeoutSeconds,
+            CURLOPT_CONNECTTIMEOUT => min(3, $timeoutSeconds),
+            CURLOPT_HTTPHEADER => [
+                'Accept: application/json',
+                'User-Agent: FireNet/1.0 (dispatch-assignment; contact=firenet@local)'
+            ]
+        ]);
+        $body = curl_exec($ch);
+        curl_close($ch);
+    }
+
+    if ($body === false) {
+        $streamContext = stream_context_create([
+            'http' => [
+                'method' => 'GET',
+                'timeout' => $timeoutSeconds,
+                'header' => "Accept: application/json\r\nUser-Agent: FireNet/1.0 (dispatch-assignment; contact=firenet@local)\r\n"
+            ]
+        ]);
+        $body = @file_get_contents($url, false, $streamContext);
+    }
+
+    return is_string($body) && trim($body) !== '' ? $body : null;
+}
+
+function firenet_photon_display_name(array $props): string {
+    $streetLine = trim(trim((string) ($props['housenumber'] ?? '')) . ' ' . trim((string) ($props['street'] ?? '')));
+    $parts = array_values(array_filter([
+        $streetLine,
+        (string) ($props['name'] ?? ''),
+        (string) ($props['locality'] ?? ''),
+        (string) ($props['district'] ?? ''),
+        (string) ($props['city'] ?? ''),
+        (string) ($props['state'] ?? ''),
+        (string) ($props['country'] ?? '')
+    ], static fn ($value) => trim((string) $value) !== ''));
+
+    return implode(', ', array_values(array_unique($parts)));
+}
+
+function firenet_geocode_photon(string $query, array $context = []): ?array {
+    $normalized = strtolower(trim($query));
+    if ($normalized === '') {
+        return null;
+    }
+
+    $url = 'https://photon.komoot.io/api/?q=' . rawurlencode($query)
+        . '&limit=6&lang=en'
+        . '&bbox=120.98,14.49,121.09,14.62';
+
+    $body = firenet_http_get($url, 4);
+    if ($body === null) {
+        return null;
+    }
+
+    $decoded = json_decode($body, true);
+    if (!is_array($decoded) || empty($decoded['features']) || !is_array($decoded['features'])) {
+        return null;
+    }
+
+    $best = null;
+    $bestScore = -INF;
+
+    foreach ($decoded['features'] as $feature) {
+        if (!is_array($feature)) {
+            continue;
+        }
+
+        $geometry = is_array($feature['geometry'] ?? null) ? $feature['geometry'] : [];
+        $coordinates = is_array($geometry['coordinates'] ?? null) ? $geometry['coordinates'] : [];
+        if (count($coordinates) < 2) {
+            continue;
+        }
+
+        $props = is_array($feature['properties'] ?? null) ? $feature['properties'] : [];
+        $displayName = firenet_photon_display_name($props);
+        $entry = [
+            'lat' => (float) $coordinates[1],
+            'lon' => (float) $coordinates[0],
+            'display_name' => $displayName
+        ];
+
+        $score = firenet_score_geocode_result($entry, $context);
+        if ($score > $bestScore) {
+            $bestScore = $score;
+            $best = [
+                'latitude' => (float) $coordinates[1],
+                'longitude' => (float) $coordinates[0],
+                'displayName' => $displayName
+            ];
+        }
+    }
+
+    if (!is_array($best) || $bestScore < 4.0) {
+        return null;
+    }
+
+    return $best;
+}
+
 function firenet_geocode_address(PDO $pdo, string $query, array $context = []): ?array {
     $normalized = strtolower(trim($query));
     if ($normalized === '') {
@@ -686,35 +857,9 @@ function firenet_geocode_address(PDO $pdo, string $query, array $context = []): 
     }
 
     $url = 'https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=5&countrycodes=ph&viewbox=120.98,14.62,121.09,14.49&bounded=0&q=' . rawurlencode($query);
-    $body = false;
+    $body = firenet_http_get($url, 4);
 
-    if (function_exists('curl_init')) {
-        $ch = curl_init($url);
-        curl_setopt_array($ch, [
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT => 10,
-            CURLOPT_CONNECTTIMEOUT => 5,
-            CURLOPT_HTTPHEADER => [
-                'Accept: application/json',
-                'User-Agent: FireNet/1.0 (dispatch-assignment)'
-            ]
-        ]);
-        $body = curl_exec($ch);
-        curl_close($ch);
-    }
-
-    if ($body === false) {
-        $context = stream_context_create([
-            'http' => [
-                'method' => 'GET',
-                'timeout' => 10,
-                'header' => "Accept: application/json\r\nUser-Agent: FireNet/1.0 (dispatch-assignment)\r\n"
-            ]
-        ]);
-        $body = @file_get_contents($url, false, $context);
-    }
-
-    if (!is_string($body) || trim($body) === '') {
+    if ($body === null) {
         return null;
     }
 
@@ -738,7 +883,7 @@ function firenet_geocode_address(PDO $pdo, string $query, array $context = []): 
         }
     }
 
-    if (!is_array($best) || $bestScore < 5.0) {
+    if (!is_array($best) || $bestScore < 4.0) {
         return null;
     }
 
@@ -757,6 +902,159 @@ function firenet_geocode_address(PDO $pdo, string $query, array $context = []): 
         'latitude' => $latitude,
         'longitude' => $longitude,
         'displayName' => $displayName
+    ];
+}
+
+function firenet_normalize_address_text(string $value): string {
+    $value = trim(str_replace(["\r\n", "\r", "\n"], ', ', $value));
+    $value = preg_replace('/\s{2,}/', ' ', $value) ?? '';
+    $value = preg_replace('/,\s*,+/', ', ', $value) ?? '';
+
+    return trim($value, " \t\n\r,");
+}
+
+function firenet_is_address_locality_part(string $part): bool {
+    $normalized = trim(preg_replace('/\s{2,}/', ' ', $part) ?? '');
+
+    return $normalized !== '' && preg_match('/^(?:makati(?:\s+city)?|city\s+of\s+makati|metro\s+manila|philippines|\d{4,5}(?:\s+metro\s+manila)?)$/i', $normalized) === 1;
+}
+
+function firenet_address_looks_like_street(string $part): bool {
+    return preg_match('/\b(?:street|st\.?|avenue|ave\.?|road|rd\.?|boulevard|blvd\.?|drive|dr\.?|highway|hwy\.?|corner|cor\.?)\b|\d{2,5}\s+\S+/i', $part) === 1;
+}
+
+function firenet_address_looks_like_building(string $part): bool {
+    return preg_match('/\b(?:tower|center|centre|plaza|building|bldg\.?|mall|arcade|suites?)\b/i', $part) === 1;
+}
+
+function firenet_address_looks_like_village(string $part): bool {
+    return preg_match('/\bvillage\b/i', $part) === 1;
+}
+
+function firenet_parse_complex_address(string $raw): array {
+    $fullNormalized = firenet_normalize_address_text($raw);
+    if ($fullNormalized === '') {
+        return [
+            'building' => '',
+            'street' => '',
+            'area' => '',
+            'barangay' => '',
+            'segments' => [],
+            'fullNormalized' => ''
+        ];
+    }
+
+    $parts = array_values(array_filter(array_map('trim', explode(',', $fullNormalized)), static fn ($part) => $part !== ''));
+    $building = '';
+    $street = '';
+    $area = '';
+    $barangay = '';
+    $segments = [];
+
+    foreach ($parts as $part) {
+        if (firenet_is_address_locality_part($part)) {
+            continue;
+        }
+
+        if (preg_match('/^(?:barangay|brgy\.?)\s+(.+)$/i', $part, $barangayMatch)) {
+            $barangay = trim(preg_replace('/\s+makati(?:\s+city)?$/i', '', $barangayMatch[1]) ?? $barangayMatch[1]);
+            if ($barangay !== '') {
+                $segments[] = 'Barangay ' . $barangay;
+            }
+            continue;
+        }
+
+        if (preg_match('/^(.+?),\s*(?:barangay|brgy\.?)\s+(.+)$/i', $part, $compoundMatch)) {
+            $left = trim($compoundMatch[1]);
+            $barangay = trim(preg_replace('/\s+makati(?:\s+city)?$/i', '', $compoundMatch[2]) ?? $compoundMatch[2]);
+            if ($left !== '') {
+                if (firenet_address_looks_like_village($left) || !firenet_address_looks_like_street($left)) {
+                    $area = $area !== '' ? $area . ', ' . $left : $left;
+                } else {
+                    $street = $street !== '' ? $street : $left;
+                }
+                $segments[] = $left;
+            }
+            if ($barangay !== '') {
+                $segments[] = 'Barangay ' . $barangay;
+            }
+            continue;
+        }
+
+        if (firenet_address_looks_like_village($part)) {
+            $area = $area !== '' ? $area . ', ' . $part : $part;
+            $segments[] = $part;
+            continue;
+        }
+
+        if (firenet_address_looks_like_street($part)) {
+            $street = $street !== '' ? $street : $part;
+            $segments[] = $part;
+            continue;
+        }
+
+        if (firenet_address_looks_like_building($part) && $street === '') {
+            $building = $building !== '' ? $building : $part;
+            $segments[] = $part;
+            continue;
+        }
+
+        if ($building === '' && $street === '' && $area === '') {
+            $building = $part;
+        } elseif ($street === '' && preg_match('/\d/', $part) === 1) {
+            $street = $part;
+        } elseif ($area === '') {
+            $area = $part;
+        }
+
+        $segments[] = $part;
+    }
+
+    if ($barangay === '' && preg_match('/(?:barangay|brgy\.?)\s+([^,]+)/i', $fullNormalized, $inlineBarangay)) {
+        $barangay = trim(preg_replace('/\s+makati(?:\s+city)?$/i', '', $inlineBarangay[1]) ?? $inlineBarangay[1]);
+    }
+
+    return [
+        'building' => $building,
+        'street' => $street,
+        'area' => $area,
+        'barangay' => $barangay,
+        'segments' => array_values(array_unique(array_filter($segments, static fn ($value) => trim((string) $value) !== ''))),
+        'fullNormalized' => $fullNormalized
+    ];
+}
+
+function firenet_resolve_address_parts_for_locate(string $streetName, string $landmark, string $barangay, string $altAddress = ''): array {
+    $parsed = firenet_parse_complex_address($altAddress);
+    $street = trim($streetName) !== '' ? trim($streetName) : $parsed['street'];
+    $mark = trim($landmark);
+    if ($mark === '') {
+        $mark = trim($parsed['building']);
+        if ($mark === '' && $parsed['area'] !== '') {
+            $mark = $parsed['area'];
+        }
+    }
+    $brgy = trim($barangay) !== '' ? trim($barangay) : $parsed['barangay'];
+    $alt = $parsed['fullNormalized'] !== '' ? $parsed['fullNormalized'] : firenet_normalize_address_text($altAddress);
+
+    if ($street === '' && !empty($parsed['segments'])) {
+        foreach ($parsed['segments'] as $segment) {
+            if (firenet_address_looks_like_street($segment)) {
+                $street = $segment;
+                break;
+            }
+        }
+        if ($street === '') {
+            $street = (string) $parsed['segments'][0];
+        }
+    }
+
+    return [
+        'streetName' => $street,
+        'landmark' => $mark,
+        'barangay' => $brgy,
+        'altAddress' => $alt,
+        'segments' => $parsed['segments']
     ];
 }
 
@@ -795,13 +1093,30 @@ function firenet_extract_incident_location_parts(string $location): array {
     ];
 }
 
-function firenet_build_geocode_queries(string $streetName, string $landmark, string $barangay): array {
-    $street = trim($streetName);
-    $mark = trim($landmark);
-    $brgyRaw = trim($barangay);
+function firenet_build_geocode_queries(string $streetName, string $landmark, string $barangay, string $altAddress = ''): array {
+    $resolved = firenet_resolve_address_parts_for_locate($streetName, $landmark, $barangay, $altAddress);
+    $street = trim((string) ($resolved['streetName'] ?? ''));
+    $mark = trim((string) ($resolved['landmark'] ?? ''));
+    $brgyRaw = trim((string) ($resolved['barangay'] ?? ''));
+    $alt = trim((string) ($resolved['altAddress'] ?? ''));
+    $segments = is_array($resolved['segments'] ?? null) ? $resolved['segments'] : [];
     $brgy = firenet_normalize_barangay_label($brgyRaw);
 
-    $streetVariants = firenet_build_street_variants($street);
+    $streetVariantSources = firenet_build_street_variants($street);
+    foreach ($segments as $segment) {
+        foreach (firenet_build_street_variants((string) $segment) as $segmentVariant) {
+            $streetVariantSources[] = $segmentVariant;
+        }
+    }
+    if ($alt !== '') {
+        foreach (firenet_build_street_variants($alt) as $altVariant) {
+            $streetVariantSources[] = $altVariant;
+        }
+    }
+    $streetVariantSources = array_values(array_unique(array_filter($streetVariantSources, static fn ($value) => trim((string) $value) !== '')));
+    if ($street === '' && $alt !== '') {
+        $street = $alt;
+    }
 
     $queries = [];
 
@@ -814,7 +1129,42 @@ function firenet_build_geocode_queries(string $streetName, string $landmark, str
         ['Philippines']
     ];
 
-    foreach ($streetVariants as $streetVariant) {
+    $pushQuery = static function (array &$target, array $parts, array $localityParts): void {
+        $query = implode(', ', array_values(array_filter(
+            array_merge($parts, $localityParts),
+            static fn ($value) => trim((string) $value) !== ''
+        )));
+        if ($query !== '') {
+            $target[] = $query;
+        }
+    };
+
+    if ($alt !== '') {
+        foreach ($localityVariants as $localityParts) {
+            $pushQuery($queries, [$alt], $localityParts);
+        }
+    }
+
+    $combinedParts = array_values(array_filter([$mark, $street, $brgyRaw !== '' ? $brgyRaw : $brgy], static fn ($value) => trim((string) $value) !== ''));
+    if (count($combinedParts) >= 2) {
+        foreach ($localityVariants as $localityParts) {
+            $pushQuery($queries, $combinedParts, $localityParts);
+        }
+    }
+
+    foreach ($segments as $segment) {
+        foreach ($localityVariants as $localityParts) {
+            $pushQuery($queries, [$segment], $localityParts);
+            if ($brgyRaw !== '') {
+                $pushQuery($queries, [$segment, $brgyRaw], $localityParts);
+            }
+            if ($brgy !== '') {
+                $pushQuery($queries, [$segment, $brgy], $localityParts);
+            }
+        }
+    }
+
+    foreach ($streetVariantSources as $streetVariant) {
         foreach ($localityVariants as $localityParts) {
             $variants = [
                 [$streetVariant, $mark, $brgy],
@@ -841,6 +1191,92 @@ function firenet_build_geocode_queries(string $streetName, string $landmark, str
     return array_slice($deduped, 0, 24);
 }
 
+function firenet_locate_address_from_parts(PDO $pdo, string $streetName, string $landmark, string $barangay, string $altAddress = ''): ?array {
+    $resolved = firenet_resolve_address_parts_for_locate($streetName, $landmark, $barangay, $altAddress);
+    $queries = firenet_build_geocode_queries(
+        (string) ($resolved['streetName'] ?? ''),
+        (string) ($resolved['landmark'] ?? ''),
+        (string) ($resolved['barangay'] ?? ''),
+        (string) ($resolved['altAddress'] ?? '')
+    );
+    $streetContext = trim((string) ($resolved['streetName'] ?? ''));
+    if ($streetContext === '') {
+        $streetContext = trim((string) ($resolved['altAddress'] ?? ''));
+    }
+    $geocodeContext = [
+        'street' => $streetContext,
+        'landmark' => trim((string) ($resolved['landmark'] ?? '')),
+        'barangay' => trim((string) ($resolved['barangay'] ?? ''))
+    ];
+
+    $bestResult = null;
+    $bestScore = -INF;
+    $deadline = microtime(true) + 12.0;
+    $minScore = 4.5;
+
+    foreach (array_slice($queries, 0, 12) as $query) {
+        if (microtime(true) >= $deadline) {
+            break;
+        }
+
+        $photonResult = firenet_geocode_photon($query, $geocodeContext);
+        if (!$photonResult) {
+            continue;
+        }
+
+        $score = firenet_score_geocode_result([
+            'latitude' => $photonResult['latitude'],
+            'longitude' => $photonResult['longitude'],
+            'displayName' => $photonResult['displayName']
+        ], $geocodeContext);
+
+        if ($score > $bestScore) {
+            $bestScore = $score;
+            $bestResult = $photonResult;
+        }
+
+        if ($bestScore >= 12.0) {
+            break;
+        }
+    }
+
+    if (is_array($bestResult) && $bestScore >= $minScore) {
+        return $bestResult;
+    }
+
+    foreach ($queries as $query) {
+        if (microtime(true) >= $deadline) {
+            break;
+        }
+
+        $geocodeResult = firenet_geocode_address($pdo, $query, $geocodeContext);
+        if (!$geocodeResult) {
+            continue;
+        }
+
+        $score = firenet_score_geocode_result([
+            'latitude' => $geocodeResult['latitude'],
+            'longitude' => $geocodeResult['longitude'],
+            'displayName' => $geocodeResult['displayName']
+        ], $geocodeContext);
+
+        if ($score > $bestScore) {
+            $bestScore = $score;
+            $bestResult = $geocodeResult;
+        }
+
+        if ($bestScore >= 12.0) {
+            break;
+        }
+    }
+
+    if (!is_array($bestResult) || $bestScore < $minScore) {
+        return null;
+    }
+
+    return $bestResult;
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     $action = trim((string) ($_GET['action'] ?? ''));
     if ($action === 'locate') {
@@ -851,6 +1287,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             $streetNameLookup = trim((string) ($_GET['streetName'] ?? ''));
             $barangayLookup = trim((string) ($_GET['barangay'] ?? ''));
             $landmarkLookup = trim((string) ($_GET['landmark'] ?? ''));
+            $altAddressLookup = trim((string) ($_GET['altAddress'] ?? ''));
             $alarmLevelLookup = (int) ($_GET['alarmLevel'] ?? 1);
 
             $latitude = null;
@@ -861,23 +1298,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                 $latitude = (float) $latitudeRaw;
                 $longitude = (float) $longitudeRaw;
             } else {
-                $queries = firenet_build_geocode_queries($streetNameLookup, $landmarkLookup, $barangayLookup);
-                $geocodeContext = [
-                    'street' => $streetNameLookup,
-                    'landmark' => $landmarkLookup,
-                    'barangay' => $barangayLookup
-                ];
-
-                foreach ($queries as $query) {
-                    $geocodeResult = firenet_geocode_address($pdo, $query, $geocodeContext);
-                    if (!$geocodeResult) {
-                        continue;
-                    }
-
+                $geocodeResult = firenet_locate_address_from_parts(
+                    $pdo,
+                    $streetNameLookup,
+                    $landmarkLookup,
+                    $barangayLookup,
+                    $altAddressLookup
+                );
+                if ($geocodeResult) {
                     $latitude = (float) $geocodeResult['latitude'];
                     $longitude = (float) $geocodeResult['longitude'];
                     $displayAddress = (string) ($geocodeResult['displayName'] ?? '');
-                    break;
                 }
             }
 
@@ -1167,10 +1598,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             LEFT JOIN stations s_report ON s_report.station_id = r.station_id
             LEFT JOIN users u ON u.user_id = r.created_by
             LEFT JOIN users u_updated ON u_updated.user_id = i.updated_by_user_id
-            WHERE (r.created_by = ? OR COALESCE(i.updated_by_user_id, 0) = ?)
+            WHERE (
+                (rt.type_name = \'incident_report\' AND COALESCE(i.station_id, r.station_id) = ?)
+                OR (COALESCE(rt.type_name, \'\') <> \'incident_report\' AND (r.created_by = ? OR r.station_id = ?))
+            )
               AND (rt.type_name <> \'incident_report\' OR NOT ' . $completedIncidentSql . ')
         ';
-        $params = [$userId, $userId];
+        $params = [$sessionStationId, $userId, $sessionStationId];
         $sql .= ' ORDER BY r.updated_at DESC, r.created_at DESC LIMIT 200';
         $stmt = $pdo->prepare($sql);
         $stmt->execute($params);
@@ -1287,6 +1721,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                         'changedAt' => $log['changed_at'] ?? ''
                     ];
                 }, $changeStmt->fetchAll(PDO::FETCH_ASSOC));
+
+                $reportStationId = (int) ($row['incident_station_id'] ?? $row['report_station_id'] ?? 0);
+                $incidentReportId = (int) ($row['incident_report_id'] ?? 0);
+                $stageCode = strtolower((string) ($row['stage_code'] ?? ''));
+                $statusCode = strtolower((string) ($row['incident_status'] ?? ''));
+                $isCompletedIncident = $stageCode === 'after_incident'
+                    || $statusCode === 'fire_out'
+                    || trim((string) ($row['incident_finished_at'] ?? '')) !== '';
+                $hasFirstProgressUpdate = count($report['incidentUpdates']) > 1 || count($report['incidentChangeLogs']) > 0;
+                $isAssignedResponder = firenet_station_is_incident_responder($pdo, $incidentReportId, $sessionStationId);
+                $ownsStationReport = $reportStationId === $sessionStationId;
+
+                $report['isAssignedResponder'] = $isAssignedResponder;
+                $report['canProgress'] = $canUpdateIncidentReports
+                    && $ownsStationReport
+                    && $isAssignedResponder
+                    && !$isCompletedIncident;
+                $report['canEdit'] = $ownsStationReport
+                    && $stageCode === 'call_intake'
+                    && !$hasFirstProgressUpdate
+                    && !$isCompletedIncident;
             } elseif ($reportType === 'equipment_report') {
                 $report['equipmentName'] = (string) ($row['equipment_name'] ?? '');
                 $report['equipmentCategory'] = (string) ($row['equipment_category'] ?? '');
@@ -1296,6 +1751,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                 $report['equipmentOperationalStatus'] = (string) ($row['operational_status'] ?? '');
                 $report['equipmentActionTaken'] = (string) ($row['action_taken'] ?? '');
                 $report['equipmentRecommendation'] = (string) ($row['recommendation'] ?? '');
+                $report['canProgress'] = false;
+                $report['canEdit'] = (int) ($row['created_by'] ?? 0) === $userId;
             }
             
             $reports[] = $report;
@@ -1705,16 +2162,14 @@ try {
                     exit;
                 }
                 if (!firenet_report_belongs_to_station($pdo, $reportId, $sessionStationId)) {
-                    http_response_code(404);
-                    echo json_encode(['ok' => false, 'message' => 'Report not found for your station']);
+                    http_response_code(403);
+                    echo json_encode(['ok' => false, 'message' => 'Only assigned responding stations can update incident progress.']);
                     exit;
                 }
             } else {
-                $ownershipStmt = $pdo->prepare('SELECT report_id FROM reports WHERE report_id = ? AND created_by = ?');
-                $ownershipStmt->execute([$reportId, $userId]);
-                if (!$ownershipStmt->fetch()) {
+                if (!firenet_incident_report_owned_by_station($pdo, $reportId, $sessionStationId)) {
                     http_response_code(404);
-                    echo json_encode(['ok' => false, 'message' => 'Report not found']);
+                    echo json_encode(['ok' => false, 'message' => 'Report not found for your station']);
                     exit;
                 }
             }

@@ -47,6 +47,57 @@ function firenet_users_to_bool($value): bool
     return in_array($normalized, ['1', 'true', 'yes', 'on'], true);
 }
 
+function firenet_create_station_admin_account(PDO $pdo, int $stationId, array $input): void
+{
+    $adminUsername = trim((string) ($input['adminUsername'] ?? ''));
+    $adminEmail = trim((string) ($input['adminEmail'] ?? ''));
+    $adminPassword = (string) ($input['adminPassword'] ?? '');
+    $adminStatus = strtolower(trim((string) ($input['adminStatus'] ?? 'active')));
+    if (!in_array($adminStatus, ['active', 'inactive'], true)) {
+        $adminStatus = 'active';
+    }
+
+    if ($adminUsername === '' || $adminEmail === '' || trim($adminPassword) === '') {
+        firenet_users_fail('Admin username, email, and password are required when creating a substation admin.', 422);
+    }
+
+    $adminRoleStmt = $pdo->query("SELECT role_id FROM roles WHERE LOWER(role_name) = 'admin' LIMIT 1");
+    $adminRoleId = (int) ($adminRoleStmt ? $adminRoleStmt->fetchColumn() : 0);
+    if ($adminRoleId < 1) {
+        firenet_users_fail('Admin role is not configured.', 500);
+    }
+
+    $positionStmt = $pdo->query("SELECT position_id FROM positions WHERE LOWER(position_code) = 'position1' LIMIT 1");
+    $adminPositionId = (int) ($positionStmt ? $positionStmt->fetchColumn() : 0);
+    if ($adminPositionId < 1) {
+        $adminPositionId = null;
+    }
+
+    $createAdminStmt = $pdo->prepare('INSERT INTO users (station_id, username, password, email, role_id, position_id, status) VALUES (?, ?, ?, ?, ?, ?, ?)');
+    try {
+        $createAdminStmt->execute([
+            $stationId,
+            $adminUsername,
+            firenet_users_hash_password($adminPassword),
+            $adminEmail,
+            $adminRoleId,
+            $adminPositionId,
+            $adminStatus
+        ]);
+    } catch (Throwable $e) {
+        firenet_users_fail('Substation saved but admin account failed. Username or email may already exist for this station.', 409);
+    }
+
+    $newAdminUserId = (int) $pdo->lastInsertId();
+    if ($newAdminUserId > 0) {
+        firenet_save_user_settings($pdo, $newAdminUserId, [
+            'securityAlerts' => true,
+            'hideSensitive' => false,
+            'autoLogoutMinutes' => 30
+        ]);
+    }
+}
+
 function firenet_user_warning_table_exists(PDO $pdo): bool
 {
     static $exists = null;
@@ -577,53 +628,14 @@ try {
 
         $createAdmin = firenet_users_to_bool($input['createAdmin'] ?? false);
         if ($createAdmin) {
-            $adminUsername = trim((string) ($input['adminUsername'] ?? ''));
-            $adminEmail = trim((string) ($input['adminEmail'] ?? ''));
-            $adminPassword = (string) ($input['adminPassword'] ?? '');
-            $adminStatus = strtolower(trim((string) ($input['adminStatus'] ?? 'active')));
-            if (!in_array($adminStatus, ['active', 'inactive'], true)) {
-                $adminStatus = 'active';
-            }
-
-            if ($adminUsername === '' || $adminEmail === '' || trim($adminPassword) === '') {
-                firenet_users_fail('Admin username, email, and password are required when creating a substation admin.', 422);
-            }
-
-            $adminRoleStmt = $pdo->query("SELECT role_id FROM roles WHERE LOWER(role_name) = 'admin' LIMIT 1");
-            $adminRoleId = (int) ($adminRoleStmt ? $adminRoleStmt->fetchColumn() : 0);
-            if ($adminRoleId < 1) {
-                firenet_users_fail('Admin role is not configured.', 500);
-            }
-
-            $createAdminStmt = $pdo->prepare('INSERT INTO users (station_id, username, password, email, role_id, position_id, status) VALUES (?, ?, ?, ?, ?, NULL, ?)');
-            try {
-                $createAdminStmt->execute([
-                    $newStationId,
-                    $adminUsername,
-                    firenet_users_hash_password($adminPassword),
-                    $adminEmail,
-                    $adminRoleId,
-                    $adminStatus
-                ]);
-            } catch (Throwable $e) {
-                firenet_users_fail('Barangay created but admin account failed. Username/email may already exist in this barangay.', 409);
-            }
-
-            $newAdminUserId = (int) $pdo->lastInsertId();
-            if ($newAdminUserId > 0) {
-                firenet_save_user_settings($pdo, $newAdminUserId, [
-                    'securityAlerts' => true,
-                    'hideSensitive' => false,
-                    'autoLogoutMinutes' => 30
-                ]);
-            }
+            firenet_create_station_admin_account($pdo, $newStationId, $input);
         }
 
         echo json_encode([
             'ok' => true,
             'message' => $createAdmin
-                ? 'Barangay and admin account created successfully.'
-                : 'Barangay created successfully.',
+                ? 'Substation and admin account created successfully.'
+                : 'Substation created successfully.',
             'data' => [
                 'stationId' => $newStationId,
                 'stationName' => $stationName,
@@ -682,9 +694,16 @@ try {
 
         firenet_upsert_station_aor_zone($pdo, $editStationId, $stationName, $latitude, $longitude, $aorRadiusKm);
 
+        $createAdmin = firenet_users_to_bool($input['createAdmin'] ?? false);
+        if ($createAdmin) {
+            firenet_create_station_admin_account($pdo, $editStationId, $input);
+        }
+
         echo json_encode([
             'ok' => true,
-            'message' => 'Substation updated successfully.',
+            'message' => $createAdmin
+                ? 'Substation updated and admin account created successfully.'
+                : 'Substation updated successfully.',
             'data' => [
                 'stationId' => $editStationId,
                 'stationName' => $stationName,

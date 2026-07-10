@@ -23,7 +23,7 @@
       </span>
       <div class="reports-tip-body">
         <strong>Your station</strong>
-        <p>Only reports you created or last updated appear here. Completed incidents are archived under Incident Logs.</p>
+        <p>Each station sees only its own incident copy. Central creates call intake; assigned responders update their station report. Completed incidents move to Incident Logs.</p>
       </div>
     </article>
     <article class="reports-tip">
@@ -214,24 +214,27 @@
                       <input id="callerName" type="text" maxlength="120" placeholder="Who reported the incident">
                     </label>
 
+                    <label id="altAddressField" class="rm-field full-width">
+                      <span class="rm-field-label">Full address</span>
+                      <span class="rm-field-hint">Paste a complete address here (building, street, village, barangay). Multiple lines are OK.</span>
+                      <textarea id="altAddressInput" rows="4" maxlength="500" placeholder="Example:&#10;LKG Tower&#10;6801 Ayala Avenue&#10;Salcedo Village, Barangay Bel-Air&#10;Makati City"></textarea>
+                    </label>
+
+                    <p class="rm-field-divider">Or fill in separately (optional if full address is provided)</p>
+
                     <label id="barangayField" class="rm-field">
                       <span class="rm-field-label">Barangay</span>
-                      <input id="barangay" type="text" maxlength="120" placeholder="Barangay name" required autocomplete="off">
+                      <input id="barangay" type="text" maxlength="120" placeholder="e.g. Bel-Air" autocomplete="off">
                     </label>
 
                     <label id="streetField" class="rm-field">
-                      <span class="rm-field-label">Street</span>
-                      <input id="streetName" type="text" maxlength="255" placeholder="Street or block" required autocomplete="off">
+                      <span class="rm-field-label">Street / number</span>
+                      <input id="streetName" type="text" maxlength="255" placeholder="e.g. 6801 Ayala Avenue" autocomplete="off">
                     </label>
 
                     <label id="landmarkField" class="rm-field full-width">
-                      <span class="rm-field-label">Landmark / building</span>
-                      <input id="landmark" type="text" maxlength="255" placeholder="Optional landmark or building name">
-                    </label>
-
-                    <label id="altAddressField" class="rm-field full-width">
-                      <span class="rm-field-label">Alternative address</span>
-                      <input id="altAddressInput" type="text" maxlength="255" placeholder="Cross street, subdivision, or known alias">
+                      <span class="rm-field-label">Building / village / landmark</span>
+                      <input id="landmark" type="text" maxlength="255" placeholder="e.g. LKG Tower or Salcedo Village">
                     </label>
                   </div>
                 </section>

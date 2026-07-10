@@ -97,7 +97,8 @@ try {
         }
 
         $originalName = (string) ($_FILES['file']['name'] ?? 'upload.bin');
-        $safeName = preg_replace('/[^A-Za-z0-9._-]+/', '_', $originalName) ?: 'upload.bin';
+        $stationCode = firenet_r2_station_code($pdo, $currentStationId);
+        $safeName = firenet_r2_prefixed_safe_filename($stationCode, $originalName);
         $prefix = firenet_r2_list_prefix_for_station($pdo, $currentStationId, $area);
         $objectKey = rtrim($prefix, '/') . '/' . date('Ymd_His') . '_' . $safeName;
         $mime = (string) ($_FILES['file']['type'] ?? 'application/octet-stream');

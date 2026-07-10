@@ -1,18 +1,30 @@
+<?php
+$usersActiveTab = $initialUsersTab ?? 'accounts';
+$usersIsSuperadmin = ($role ?? '') === 'superadmin';
+?>
 <section class="users-shell">
   <header class="users-hero">
     <div>
       <p class="users-kicker">Administrator tools</p>
-      <h2 id="usersHeroTitle">Admin Settings</h2>
-      <p class="muted-text" id="usersWelcomeText">Manage personnel accounts, login updates, and public-facing station notices.</p>
+      <h2 id="usersHeroTitle"><?php echo $usersActiveTab === 'substations' ? 'Substations' : 'Admin Settings'; ?></h2>
+      <p class="muted-text" id="usersWelcomeText"><?php
+        if ($usersActiveTab === 'substations') {
+          echo 'Create, edit, and review all substations and assigned coordinates across the district.';
+        } elseif ($usersIsSuperadmin) {
+          echo 'Manage substations, assigned admins, personnel accounts, login updates, and public notices across all stations.';
+        } else {
+          echo 'Manage users, publishing tools, and station activity for ' . htmlspecialchars((string) ($stationName ?? 'your station'), ENT_QUOTES, 'UTF-8') . '.';
+        }
+      ?></p>
     </div>
     <div class="users-hero-actions">
-      <button type="button" class="primary-btn" id="openUserModalBtn">Create User</button>
-      <button type="button" class="primary-btn" id="openSubstationModalBtn" hidden>Add Substation</button>
+      <button type="button" class="primary-btn" id="openUserModalBtn"<?php echo $usersActiveTab === 'substations' ? ' hidden' : ''; ?>>Create User</button>
+      <button type="button" class="primary-btn" id="openSubstationModalBtn"<?php echo ($usersActiveTab === 'substations' && $usersIsSuperadmin) ? '' : ' hidden'; ?>>Add Substation</button>
       <button type="button" class="secondary-btn" id="refreshUsersBtn">Refresh</button>
     </div>
   </header>
 
-  <section class="users-news-manager" id="newsManagerSection" data-users-panel="news" hidden>
+  <section class="users-news-manager" id="newsManagerSection" data-users-panel="news"<?php echo $usersActiveTab !== 'news' ? ' hidden' : ''; ?>>
     <header class="users-hero users-news-hero">
       <div>
         <p class="users-kicker">News desk</p>
@@ -25,7 +37,7 @@
     </header>
   </section>
 
-  <section class="users-news-manager" id="announcementsManagerSection" data-users-panel="notices" hidden>
+  <section class="users-news-manager" id="announcementsManagerSection" data-users-panel="notices"<?php echo $usersActiveTab !== 'notices' ? ' hidden' : ''; ?>>
     <header class="users-hero users-news-hero">
       <div>
         <p class="users-kicker">Announcements desk</p>
@@ -38,7 +50,7 @@
     </header>
   </section>
 
-  <section class="users-layout" id="barangayPanel" data-users-panel="substations" hidden>
+  <section class="users-layout" id="barangayPanel" data-users-panel="substations"<?php echo $usersActiveTab !== 'substations' ? ' hidden' : ''; ?>>
     <section class="users-table-card">
       <div class="users-panel-head">
         <div>
@@ -283,14 +295,14 @@
     </div>
   </div>
 
-  <section class="users-grid" data-users-panel="accounts">
+  <section class="users-grid" data-users-panel="accounts"<?php echo $usersActiveTab !== 'accounts' ? ' hidden' : ''; ?>>
     <article class="users-card"><strong id="userTotalCount">0</strong><span>Total Users</span></article>
     <article class="users-card"><strong id="userAdminCount">0</strong><span>Admins</span></article>
     <article class="users-card"><strong id="userActiveCount">0</strong><span>Active</span></article>
     <article class="users-card"><strong id="userStationCount">0</strong><span>Stations</span></article>
   </section>
 
-  <section class="users-layout" data-users-panel="accounts">
+  <section class="users-layout" data-users-panel="accounts"<?php echo $usersActiveTab !== 'accounts' ? ' hidden' : ''; ?>>
     <aside class="users-sidebar">
       <div class="users-filter-card">
         <h3>Filters</h3>

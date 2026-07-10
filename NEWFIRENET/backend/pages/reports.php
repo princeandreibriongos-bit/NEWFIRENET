@@ -104,7 +104,8 @@ $reportsContext = [
     'streetsByBarangay' => $streetsByBarangay,
     'stationGeo' => $stationGeo,
     'geocodeEndpoint' => '/firenet/NEWFIRENET/backend/controllers/reports.php?action=locate',
-    'googleMapsConfigured' => $googleMapsApiKey !== ''
+    'googleMapsConfigured' => $googleMapsApiKey !== '',
+    'googleGeocodingEnabled' => false
 ];
 
 $reportsCssPath = __DIR__ . '/../../assets/css/reports.css';

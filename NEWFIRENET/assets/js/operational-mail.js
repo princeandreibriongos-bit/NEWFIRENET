@@ -587,6 +587,54 @@
       composeCloudinaryUrl.value = '';
     }
     renderSelectedCloudFiles();
+    updateComposeMode();
+  }
+
+  function usesMultiCloudAttachmentMode() {
+    return Boolean(state.composeCentralFulfillMode || state.composeReplyMode);
+  }
+
+  function appendCloudFilesToSelection(files) {
+    (Array.isArray(files) ? files : []).forEach(function (file) {
+      const url = String(file && file.url ? file.url : '').trim();
+      if (url === '') {
+        return;
+      }
+      const exists = state.composeSelectedCloudFiles.some(function (entry) {
+        return String(entry.url || '').trim() === url;
+      });
+      if (!exists) {
+        state.composeSelectedCloudFiles.push({
+          public_id: file.public_id || '',
+          filename: file.filename || 'Attached file',
+          url: url
+        });
+      }
+    });
+    if (composeCloudinaryUrl) {
+      composeCloudinaryUrl.value = state.composeSelectedCloudFiles.map(function (file) {
+        return file.url;
+      }).join('\n');
+    }
+    renderSelectedCloudFiles();
+    updateComposeMode();
+  }
+
+  function collectComposeCloudinaryUrls() {
+    const urls = state.composeSelectedCloudFiles.map(function (file) {
+      return String(file.url || '').trim();
+    }).filter(Boolean);
+    const manual = composeCloudinaryUrl ? String(composeCloudinaryUrl.value || '').trim() : '';
+    if (manual !== '') {
+      manual.split(/\r?\n/).map(function (line) {
+        return String(line || '').trim();
+      }).filter(Boolean).forEach(function (url) {
+        if (urls.indexOf(url) === -1) {
+          urls.push(url);
+        }
+      });
+    }
+    return urls;
   }
 
   function renderSelectedCloudFiles() {
@@ -1798,6 +1846,7 @@
     if (composeCloudinaryUrl) {
       composeCloudinaryUrl.value = '';
     }
+    clearSelectedCloudFiles();
     setMessage('', false);
     updateComposeMode();
     openCompose();
@@ -2141,7 +2190,7 @@
     filePickerSelectedInfo.textContent = '';
     filePickerSelected.hidden = true;
     filePickerSelectBtn.disabled = true;
-    filePickerSelectBtn.textContent = state.composeCentralFulfillMode ? 'Attach selected files' : 'Select file';
+    filePickerSelectBtn.textContent = usesMultiCloudAttachmentMode() ? 'Attach selected files' : 'Select file';
     loadCloudinaryFiles();
   }
 
@@ -2230,7 +2279,7 @@
     }
 
     filePickerList.innerHTML = state.filePickerFiles.map(function(file) {
-      const selected = state.composeCentralFulfillMode
+      const selected = usesMultiCloudAttachmentMode()
         ? (state.filePickerSelectedFiles.some(function (entry) { return entry.public_id === file.public_id; }) ? ' selected' : '')
         : (state.filePickerSelectedFile && state.filePickerSelectedFile.public_id === file.public_id ? ' selected' : '');
       const isIncident = file.resource_type === 'incident';
@@ -2376,7 +2425,7 @@
           return;
         }
 
-        if (state.composeCentralFulfillMode) {
+        if (usesMultiCloudAttachmentMode()) {
           const existingIndex = state.filePickerSelectedFiles.findIndex(function (entry) {
             return entry.public_id === clickedFile.public_id;
           });
@@ -2414,18 +2463,23 @@
   }
 
   function selectCloudinaryFile() {
-    if (state.composeCentralFulfillMode) {
+    if (usesMultiCloudAttachmentMode()) {
       if (!state.filePickerSelectedFiles.length) {
         setMessage('Please select at least one valid file', true);
         return;
       }
-      state.composeSelectedCloudFiles = state.filePickerSelectedFiles.map(function (file) {
+      const picked = state.filePickerSelectedFiles.map(function (file) {
         return {
           public_id: file.public_id,
           filename: file.filename,
           url: file.url
         };
       });
+      if (state.composeCentralFulfillMode) {
+        state.composeSelectedCloudFiles = picked.slice();
+      } else {
+        appendCloudFilesToSelection(picked);
+      }
       if (composeCloudinaryUrl) {
         composeCloudinaryUrl.value = state.composeSelectedCloudFiles.map(function (file) { return file.url; }).join('\n');
       }
@@ -2523,7 +2577,7 @@
         : ((getCentralStation() && getCentralStation().stationName) ? getCentralStation().stationName : 'Makati Central Fire Station');
     }
     if (composeSelectedCloudFiles) {
-      composeSelectedCloudFiles.hidden = !isFulfillMode || state.composeSelectedCloudFiles.length === 0;
+      composeSelectedCloudFiles.hidden = !usesMultiCloudAttachmentMode() || state.composeSelectedCloudFiles.length === 0;
     }
     if (composeOrgmailHint && usesCloudAttachment) {
       updateSourceStationUi();
@@ -2610,7 +2664,7 @@
     const body = getComposeBodyHtml();
     const sourceStationId = Number(composeStationSelect.value || 0);
     const centralStationId = Number(getCentralStationId() || 0);
-    const cloudinaryUrl = composeCloudinaryUrl ? String(composeCloudinaryUrl.value || '').trim() : '';
+    const cloudinaryUrls = collectComposeCloudinaryUrls();
 
     if (state.composeReplyMode && isDraft) {
       throw new Error('Drafts are not available for request replies.');
@@ -2623,11 +2677,11 @@
       if (!state.composeReplyMode && centralStationId < 1) {
         throw new Error('Central station routing is not configured.');
       }
-      if (state.composeReplyMode && cloudinaryUrl === '') {
-        throw new Error('Attach the requested file from cloud storage before returning to ComL.');
+      if (state.composeReplyMode && !cloudinaryUrls.length) {
+        throw new Error('Attach at least one file from cloud storage before returning to ComL.');
       }
-      if (cloudinaryUrl !== '' && !validateUrl(cloudinaryUrl)) {
-        throw new Error('Please provide a valid cloud storage file URL.');
+      if (cloudinaryUrls.some(function (url) { return !validateUrl(url); })) {
+        throw new Error('Please provide valid cloud storage file URLs.');
       }
       if (!state.composeReplyMode && isComposeBodyEmpty() && state.localAttachments.length === 0) {
         throw new Error('Write your request or attach a reference file before sending.');
@@ -2670,8 +2724,10 @@
         formData.append('attachments[]', file);
       });
     }
-    if (cloudinaryUrl !== '') {
-      formData.append('cloudinaryUrl', cloudinaryUrl);
+    if (cloudinaryUrls.length) {
+      cloudinaryUrls.forEach(function (url) {
+        formData.append('cloudinaryUrls[]', url);
+      });
     }
 
     const response = await fetch(apiUrl, {
@@ -2970,37 +3026,58 @@
       composeOrgmailFile.click();
     });
     composeOrgmailFile.addEventListener('change', function () {
-      if (!composeOrgmailFile.files || !composeOrgmailFile.files[0]) {
+      const files = Array.from(composeOrgmailFile.files || []);
+      if (!files.length) {
         return;
       }
-      const fd = new FormData();
-      fd.append('action', 'orgmail-upload');
-      fd.append('file', composeOrgmailFile.files[0]);
-      setMessage('Uploading to cloud storage…', false);
-      fetch(apiUrl, { method: 'POST', body: fd, credentials: 'same-origin' })
-        .then(function (r) {
-          return r.json().then(function (p) {
-            return { r: r, p: p };
-          });
-        })
-        .then(function (out) {
-          if (!out || !out.r || !out.p || !out.r.ok || out.p.ok !== true) {
-            throw new Error((out && out.p && out.p.message) || 'Upload failed');
-          }
-          const url = out.p && out.p.data && out.p.data.secureUrl ? String(out.p.data.secureUrl) : '';
-          if (url) {
-            composeCloudinaryUrl.value = url;
-            setMessage('Upload complete. File attached.', false);
-          } else {
-            throw new Error('No file URL returned from upload');
-          }
-        })
-        .catch(function (e) {
-          setMessage((e && e.message) || 'Upload failed', true);
-        })
-        .then(function () {
+
+      let uploadIndex = 0;
+      function uploadNext() {
+        if (uploadIndex >= files.length) {
           composeOrgmailFile.value = '';
-        });
+          return;
+        }
+
+        const file = files[uploadIndex];
+        uploadIndex += 1;
+        const fd = new FormData();
+        fd.append('action', 'orgmail-upload');
+        fd.append('file', file);
+        setMessage('Uploading ' + String(uploadIndex) + ' of ' + String(files.length) + ' to cloud storage…', false);
+        fetch(apiUrl, { method: 'POST', body: fd, credentials: 'same-origin' })
+          .then(function (r) {
+            return r.json().then(function (p) {
+              return { r: r, p: p };
+            });
+          })
+          .then(function (out) {
+            if (!out || !out.r || !out.p || !out.r.ok || out.p.ok !== true) {
+              throw new Error((out && out.p && out.p.message) || 'Upload failed');
+            }
+            const url = out.p && out.p.data && out.p.data.secureUrl ? String(out.p.data.secureUrl) : '';
+            if (!url) {
+              throw new Error('No file URL returned from upload');
+            }
+            appendCloudFilesToSelection([{
+              filename: file.name || 'Uploaded file',
+              url: url
+            }]);
+          })
+          .catch(function (e) {
+            setMessage((e && e.message) || 'Upload failed', true);
+            composeOrgmailFile.value = '';
+          })
+          .then(function () {
+            if (uploadIndex < files.length) {
+              uploadNext();
+            } else {
+              setMessage(files.length > 1 ? 'Uploads complete. Files attached.' : 'Upload complete. File attached.', false);
+              composeOrgmailFile.value = '';
+            }
+          });
+      }
+
+      uploadNext();
     });
   }
 

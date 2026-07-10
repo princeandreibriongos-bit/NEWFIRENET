@@ -144,6 +144,7 @@
     requestLocalAttachments: [],
     composeSelectedRecipients: [],
     composeLocalAttachments: [],
+    inlineReplyLocalAttachments: [],
     requestTimelineSelectedIndex: 0
   };
 
@@ -209,6 +210,27 @@
 
   function clearComposeBody() {
     setEditorHtml(composeBodyEditor, composeBody, '');
+  }
+
+  function renderInlineReplyAttachments() {
+    if (!inlineReplyAttachName) {
+      return;
+    }
+    if (!state.inlineReplyLocalAttachments.length) {
+      inlineReplyAttachName.textContent = '';
+      return;
+    }
+    inlineReplyAttachName.textContent = state.inlineReplyLocalAttachments.map(function (file) {
+      return file.name;
+    }).join(', ');
+  }
+
+  function clearInlineReplyAttachments() {
+    state.inlineReplyLocalAttachments = [];
+    if (inlineReplyAttachments) {
+      inlineReplyAttachments.value = '';
+    }
+    renderInlineReplyAttachments();
   }
 
   function clearInlineReplyBody() {
@@ -1086,8 +1108,7 @@
     inlineReplyThreadId.value = String(state.activeThread.threadId || '');
     inlineReplyParentMailId.value = parentMailId ? String(parentMailId) : '';
     clearInlineReplyBody();
-    if (inlineReplyAttachments) inlineReplyAttachments.value = '';
-    if (inlineReplyAttachName) inlineReplyAttachName.textContent = '';
+    clearInlineReplyAttachments();
     if (inlineReplyMessage) inlineReplyMessage.textContent = '';
     if (inlineReplyToLabel) {
       inlineReplyToLabel.textContent = replyToText ? ('Reply to ' + replyToText) : 'Reply';
@@ -2059,7 +2080,7 @@
       const parentMailId = Number(inlineReplyParentMailId.value || 0);
       syncEditorToHidden(inlineReplyBodyEditor, inlineReplyBody);
       const body = getInlineReplyBodyHtml();
-      const files = Array.from((inlineReplyAttachments && inlineReplyAttachments.files) || []);
+      const files = state.inlineReplyLocalAttachments.slice();
       if (isEditorEmpty(inlineReplyBodyEditor) && files.length === 0) {
         inlineReplyMessage.textContent = 'Write a reply or attach files before sending.';
         inlineReplyMessage.style.color = '#b8333b';
@@ -2083,7 +2104,7 @@
           inlineReplyMessage.style.color = '#1f5e2d';
           inlineReplyForm.reset();
           clearInlineReplyBody();
-          if (inlineReplyAttachName) inlineReplyAttachName.textContent = '';
+          clearInlineReplyAttachments();
           inlineReplyContainer.hidden = true;
           fetchBootstrap().then(fetchList).then(function () { openThread(threadId).catch(function (e) { setMessage(e.message, true); }); });
         }).catch(function (err) {
@@ -2098,7 +2119,7 @@
     inlineReplyContainer.hidden = true;
     if (inlineReplyForm) inlineReplyForm.reset();
     clearInlineReplyBody();
-    if (inlineReplyAttachName) inlineReplyAttachName.textContent = '';
+    clearInlineReplyAttachments();
     if (inlineReplyMessage) inlineReplyMessage.textContent = '';
   }
 
@@ -2110,10 +2131,16 @@
   }
   if (inlineReplyAttachments && inlineReplyAttachName) {
     inlineReplyAttachments.addEventListener('change', function () {
-      const files = Array.from(inlineReplyAttachments.files || []);
-      inlineReplyAttachName.textContent = files.length
-        ? files.map(function (file) { return file.name; }).join(', ')
-        : '';
+      Array.from(inlineReplyAttachments.files || []).forEach(function (file) {
+        const duplicate = state.inlineReplyLocalAttachments.some(function (existing) {
+          return existing.name === file.name && existing.size === file.size && existing.lastModified === file.lastModified;
+        });
+        if (!duplicate) {
+          state.inlineReplyLocalAttachments.push(file);
+        }
+      });
+      inlineReplyAttachments.value = '';
+      renderInlineReplyAttachments();
     });
   }
 
