@@ -120,8 +120,9 @@
         a.setAttribute('target', '_blank');
         a.setAttribute('rel', 'noopener noreferrer');
       } else if (newsId) {
-        a.setAttribute('href', '/firenet/NEWFIRENET/pages/news.html?newsId=' + encodeURIComponent(newsId));
+        a.setAttribute('href', '/firenet/NEWFIRENET/pages/login.html?view=news&newsId=' + encodeURIComponent(newsId));
         a.setAttribute('data-news-id', newsId);
+        a.setAttribute('data-open-news', newsId);
       } else {
         a.setAttribute('href', '#');
       }

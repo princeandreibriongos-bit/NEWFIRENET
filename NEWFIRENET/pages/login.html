@@ -24,10 +24,10 @@
                 </div>
             </div>
 
-            <nav class="login-ribbon-nav" aria-label="Account sections">
-                <a class="login-ribbon-pill is-active" href="javascript:void(0)" aria-current="page">login</a>
-                <a class="login-ribbon-pill" href="/firenet/NEWFIRENET/pages/news.html">news</a>
-                <a class="login-ribbon-pill" href="/firenet/NEWFIRENET/pages/reports.html">announcements</a>
+            <nav class="login-ribbon-nav" aria-label="Portal sections">
+                <a class="login-ribbon-pill is-active" href="#login" data-portal-view="login" aria-current="page">login</a>
+                <a class="login-ribbon-pill" href="#news" data-portal-view="news">news</a>
+                <a class="login-ribbon-pill" href="#announcements" data-portal-view="announcements">announcements</a>
             </nav>
 
             <div class="login-ribbon-status" aria-label="System status">
@@ -37,7 +37,7 @@
         </div>
     </div>
 
-    <main class="auth-shell" aria-labelledby="pageTitle">
+    <main id="portalLoginView" class="auth-shell portal-view is-active-portal-view" aria-labelledby="pageTitle" data-portal-panel="login">
         <aside class="auth-aside">
             <div class="login-top-row">
                 <div class="login-intro-copy">
@@ -95,7 +95,12 @@
                     </section>
 
                     <section class="login-announcement-slot" aria-label="Announcement space">
-                        <p class="login-section-tag">Announcements</p>
+                        <div class="login-section-head login-section-head--row">
+                            <div>
+                                <p class="login-section-tag">Announcements</p>
+                            </div>
+                            <button type="button" class="login-news-view-all" data-portal-view="announcements">View all</button>
+                        </div>
 
                         <div id="loginAnnouncementsContainer" aria-label="Announcements list">
                             <div class="login-news-loading" id="loginAnnouncementsLoading">Loading announcements...</div>
@@ -136,8 +141,11 @@
 
             <section class="login-news" id="loginNewsModule" aria-label="News updates">
                 <div class="login-news-head">
-                    <span class="login-news-kicker">NEWS</span>
-                    <span class="login-news-pulse" id="loginNewsPulse" aria-hidden="true"></span>
+                    <div class="login-news-head-left">
+                        <span class="login-news-kicker">NEWS</span>
+                        <span class="login-news-pulse" id="loginNewsPulse" aria-hidden="true"></span>
+                    </div>
+                    <button type="button" class="login-news-view-all" data-portal-view="news">View all</button>
                 </div>
 
                 <div class="login-news-grid" id="loginNewsGrid" aria-label="News collage">
@@ -209,7 +217,7 @@
                         <input type="checkbox" id="rememberMe" name="remember_me" value="1">
                         <span>Remember me</span>
                     </label>
-                    <a href="#" class="minor-link" aria-disabled="true" title="Feature not available yet">Forgot password?</a>
+                    <a href="#" class="minor-link" id="forgotPasswordLink">Forgot password?</a>
                 </div>
 
                 <button id="loginButton" type="submit" class="btn-login">
@@ -232,31 +240,175 @@
         </section>
     </main>
 
+    <section id="portalNewsView" class="portal-view portal-browse" hidden data-portal-panel="news" aria-labelledby="portalNewsTitle">
+        <div class="portal-browse-inner">
+            <header class="portal-browse-head">
+                <div>
+                    <p class="portal-browse-kicker">District updates</p>
+                    <h1 id="portalNewsTitle">News</h1>
+                    <p class="portal-browse-lead">Latest Makati Fire District notices — stay on this portal while you read.</p>
+                </div>
+                <span class="portal-count-pill" id="portalNewsCountPill">—</span>
+            </header>
+
+            <p class="portal-loading" id="portalNewsLoading">Loading district news…</p>
+
+            <div class="portal-news-feature">
+                <div class="portal-news-feature-media">
+                    <img id="portalNewsFeaturedImage" alt="" hidden>
+                </div>
+                <div class="portal-news-feature-copy">
+                    <p class="portal-browse-kicker">Featured</p>
+                    <h2 id="portalNewsFeaturedTitle">Loading…</h2>
+                    <p id="portalNewsFeaturedBody"></p>
+                    <p class="portal-meta" id="portalNewsFeaturedMeta"></p>
+                    <button type="button" class="btn-login portal-inline-btn" id="portalNewsFeaturedOpen" hidden>
+                        <span class="btn-text">Read article</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="portal-feed" id="portalNewsList" aria-label="All news updates"></div>
+        </div>
+    </section>
+
+    <section id="portalAnnouncementsView" class="portal-view portal-browse" hidden data-portal-panel="announcements" aria-labelledby="portalAnnouncementsTitle">
+        <div class="portal-browse-inner">
+            <header class="portal-browse-head">
+                <div>
+                    <p class="portal-browse-kicker">Station advisories</p>
+                    <h1 id="portalAnnouncementsTitle">Announcements</h1>
+                    <p class="portal-browse-lead">Public notices and operational advisories for the district.</p>
+                </div>
+                <span class="portal-count-pill" id="portalAnnouncementsCountPill">—</span>
+            </header>
+
+            <p class="portal-loading" id="portalAnnouncementsLoading">Loading announcements…</p>
+            <div class="portal-feed" id="portalAnnouncementsList" aria-label="All announcements"></div>
+        </div>
+    </section>
+
+    <div id="portalArticleModal" class="portal-article-modal" hidden role="dialog" aria-modal="true" aria-labelledby="portalArticleTitle">
+        <button type="button" class="portal-article-backdrop" data-close-portal-article="true" aria-label="Close article"></button>
+        <div class="portal-article-card">
+            <div class="portal-article-card-head">
+                <div>
+                    <p class="portal-browse-kicker" id="portalArticleKicker">News</p>
+                    <h2 id="portalArticleTitle">Article</h2>
+                    <p class="portal-meta" id="portalArticleMeta"></p>
+                </div>
+                <button type="button" class="portal-article-close" id="closePortalArticleModal" aria-label="Close">
+                    <i class="bi bi-x-lg" aria-hidden="true"></i>
+                </button>
+            </div>
+            <img id="portalArticleImage" class="portal-article-image" alt="" hidden>
+            <div class="portal-article-body" id="portalArticleBody"></div>
+        </div>
+    </div>
+
+    <div id="forgotPasswordModal" class="fp-modal" hidden role="dialog" aria-modal="true" aria-labelledby="fpModalTitle">
+        <button type="button" class="fp-modal-backdrop" data-fp-close aria-label="Close forgot password"></button>
+        <div class="fp-modal-card">
+            <div class="fp-modal-accent" aria-hidden="true"></div>
+            <div class="fp-modal-head">
+                <div>
+                    <p class="fp-kicker">Account recovery</p>
+                    <h2 id="fpModalTitle">Reset your password</h2>
+                </div>
+                <button type="button" class="fp-close" data-fp-close aria-label="Close">
+                    <i class="bi bi-x-lg" aria-hidden="true"></i>
+                </button>
+            </div>
+
+            <div class="fp-progress" aria-hidden="true">
+                <span class="fp-progress-pill is-active" data-fp-progress="email">Email</span>
+                <span class="fp-progress-pill" data-fp-progress="otp">Code</span>
+                <span class="fp-progress-pill" data-fp-progress="password">Password</span>
+                <span class="fp-progress-pill" data-fp-progress="done">Done</span>
+            </div>
+
+            <div id="fpMessage" class="fp-message" hidden></div>
+
+            <div id="fpStepEmail" class="fp-step">
+                <p class="fp-lead">Enter the email linked to your FireNet account. We’ll send a one-time verification code.</p>
+                <form id="fpEmailForm" class="fp-form" novalidate>
+                    <div class="form-group">
+                        <label for="fpEmail">Email address</label>
+                        <input type="email" id="fpEmail" name="email" placeholder="name@example.com" autocomplete="email" required>
+                    </div>
+                    <div class="form-group" id="fpUsernameWrap" hidden>
+                        <label for="fpUsername">Username</label>
+                        <input type="text" id="fpUsername" name="username" placeholder="Your FireNet username" autocomplete="username">
+                        <small class="field-hint">Required because more than one account uses this email.</small>
+                    </div>
+                    <button type="submit" class="btn-login fp-submit">
+                        <span class="btn-text">Send verification code</span>
+                        <span class="btn-loader" aria-hidden="true"></span>
+                    </button>
+                </form>
+            </div>
+
+            <div id="fpStepOtp" class="fp-step" hidden>
+                <p class="fp-lead">Enter the 6-digit code sent to <strong id="fpMaskedEmail">your email</strong>.</p>
+                <form id="fpOtpForm" class="fp-form" novalidate>
+                    <input type="hidden" id="fpOtpValue" name="otp" value="">
+                    <div class="fp-otp-row" role="group" aria-label="One-time password">
+                        <input class="fp-otp-digit" type="text" inputmode="numeric" maxlength="1" autocomplete="one-time-code" aria-label="Digit 1">
+                        <input class="fp-otp-digit" type="text" inputmode="numeric" maxlength="1" aria-label="Digit 2">
+                        <input class="fp-otp-digit" type="text" inputmode="numeric" maxlength="1" aria-label="Digit 3">
+                        <input class="fp-otp-digit" type="text" inputmode="numeric" maxlength="1" aria-label="Digit 4">
+                        <input class="fp-otp-digit" type="text" inputmode="numeric" maxlength="1" aria-label="Digit 5">
+                        <input class="fp-otp-digit" type="text" inputmode="numeric" maxlength="1" aria-label="Digit 6">
+                    </div>
+                    <div class="fp-actions-row">
+                        <button type="button" class="fp-text-btn" data-fp-back="email">Back</button>
+                        <button type="button" class="fp-text-btn" id="fpResendBtn">Resend code</button>
+                    </div>
+                    <button type="submit" class="btn-login fp-submit">
+                        <span class="btn-text">Verify code</span>
+                        <span class="btn-loader" aria-hidden="true"></span>
+                    </button>
+                </form>
+            </div>
+
+            <div id="fpStepPassword" class="fp-step" hidden>
+                <p class="fp-lead">Choose a new password for your station account.</p>
+                <form id="fpPasswordForm" class="fp-form" novalidate>
+                    <div class="form-group">
+                        <label for="fpPassword">New password</label>
+                        <input type="password" id="fpPassword" name="password" placeholder="At least 6 characters" autocomplete="new-password" required minlength="6">
+                    </div>
+                    <div class="form-group">
+                        <label for="fpConfirmPassword">Confirm password</label>
+                        <input type="password" id="fpConfirmPassword" name="confirm_password" placeholder="Re-enter new password" autocomplete="new-password" required minlength="6">
+                    </div>
+                    <div class="fp-actions-row">
+                        <button type="button" class="fp-text-btn" data-fp-back="otp">Back</button>
+                    </div>
+                    <button type="submit" class="btn-login fp-submit">
+                        <span class="btn-text">Update password</span>
+                        <span class="btn-loader" aria-hidden="true"></span>
+                    </button>
+                </form>
+            </div>
+
+            <div id="fpStepDone" class="fp-step fp-step-done" hidden>
+                <div class="fp-success-mark" aria-hidden="true"><i class="bi bi-check-lg"></i></div>
+                <h3>Password updated</h3>
+                <p class="fp-lead">You can sign in with your new password now.</p>
+                <button type="button" class="btn-login fp-submit" id="fpDoneClose">
+                    <span class="btn-text">Back to sign in</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script src="../assets/js/login.js"></script>
     <script src="../assets/js/login-news.js"></script>
     <script src="../assets/js/login-announcements.js"></script>
-    <script>
-        function updateTimeAndDate() {
-            const now = new Date();
-
-            // Format time as HH:MM:SS
-            const hours = String(now.getHours()).padStart(2, '0');
-            const minutes = String(now.getMinutes()).padStart(2, '0');
-            const seconds = String(now.getSeconds()).padStart(2, '0');
-            document.getElementById('currentTime').textContent = `${hours}:${minutes}:${seconds}`;
-
-            // Format date as MM/DD/YYYY
-            const month = String(now.getMonth() + 1).padStart(2, '0');
-            const day = String(now.getDate()).padStart(2, '0');
-            const year = now.getFullYear();
-            document.getElementById('currentDate').textContent = `${month}/${day}/${year}`;
-        }
-
-        // Update immediately and then every second
-        updateTimeAndDate();
-        setInterval(updateTimeAndDate, 1000);
-    </script>
+    <script src="../assets/js/login-portal.js"></script>
+    <script src="../assets/js/forgot-password.js"></script>
 </body>
 </html>
 

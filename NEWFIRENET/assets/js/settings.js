@@ -106,6 +106,30 @@
     displayEmail.textContent = String(context.stationName);
   }
 
+  function showAvatarFallback() {
+    avatarImage.hidden = true;
+    avatarImage.removeAttribute('src');
+    avatarImage.removeAttribute('srcset');
+    avatarInitials.hidden = false;
+    avatar.classList.remove('has-photo');
+  }
+
+  avatarImage.addEventListener('error', function () {
+    showAvatarFallback();
+  });
+
+  const headerProfilePhotoBoot = document.getElementById('headerProfilePhoto');
+  const headerProfileInitialsBoot = document.getElementById('headerProfileInitials');
+  if (headerProfilePhotoBoot) {
+    headerProfilePhotoBoot.addEventListener('error', function () {
+      headerProfilePhotoBoot.hidden = true;
+      headerProfilePhotoBoot.removeAttribute('src');
+      if (headerProfileInitialsBoot) {
+        headerProfileInitialsBoot.hidden = false;
+      }
+    });
+  }
+
   function loadLocalSettings() {
     try {
       const stored = JSON.parse(localStorage.getItem(preferenceStorageKey) || '{}');
@@ -211,10 +235,13 @@
       avatarImage.src = photoUrl + (photoUrl.indexOf('?') === -1 ? '?v=' : '&v=') + Date.now();
       avatarImage.hidden = false;
       avatarInitials.hidden = true;
+      avatar.classList.add('has-photo');
     } else {
       avatarImage.hidden = true;
       avatarImage.removeAttribute('src');
+      avatarImage.removeAttribute('srcset');
       avatarInitials.hidden = false;
+      avatar.classList.remove('has-photo');
     }
 
     const headerProfilePhoto = document.getElementById('headerProfilePhoto');
@@ -228,6 +255,7 @@
       } else {
         headerProfilePhoto.hidden = true;
         headerProfilePhoto.removeAttribute('src');
+        headerProfilePhoto.removeAttribute('srcset');
         headerProfileInitials.hidden = false;
       }
     }

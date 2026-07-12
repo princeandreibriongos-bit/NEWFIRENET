@@ -56,11 +56,14 @@ $canViewAllReports = $positionCode === 'position1';
 $defaultReportsScope = 'mine';
 
 $stationGeo = [];
+$isCentralStation = false;
 try {
     $pdo = firenet_get_pdo();
-    $stationNameStmt = $pdo->prepare('SELECT station_name FROM stations WHERE station_id = ? LIMIT 1');
+    $stationNameStmt = $pdo->prepare('SELECT station_name, station_code FROM stations WHERE station_id = ? LIMIT 1');
     $stationNameStmt->execute([$stationId]);
-    $stationName = (string) ($stationNameStmt->fetchColumn() ?: $stationName);
+    $stationRow = $stationNameStmt->fetch(PDO::FETCH_ASSOC) ?: [];
+    $stationName = (string) ($stationRow['station_name'] ?? $stationName);
+    $isCentralStation = strtolower(trim((string) ($stationRow['station_code'] ?? ''))) === 'mcfs';
 
     $stationStmt = $pdo->query('SELECT station_id, station_name, latitude, longitude, status FROM stations ORDER BY station_id ASC');
     $stationRows = $stationStmt->fetchAll(PDO::FETCH_ASSOC);
@@ -82,6 +85,7 @@ try {
     }
 } catch (Throwable $ignored) {
     $stationGeo = [];
+    $isCentralStation = false;
 }
 
 $reportsContext = [
@@ -92,6 +96,7 @@ $reportsContext = [
     'positionName' => $positionName,
     'stationId' => $stationId,
     'stationName' => $stationName,
+    'isCentralStation' => $isCentralStation,
     'stationLogoUrl' => '/firenet/NEWFIRENET/assets/img/bfpmakatilogo.jpg',
     'canCreateReports' => $canCreateReports,
     'canCreateIncidentReports' => $canCreateIncidentReports,

@@ -7,6 +7,29 @@
   const chooseEquipmentReport = document.getElementById('chooseEquipmentReport');
   const closeReportModal = document.getElementById('closeReportModal');
   const reportModal = document.getElementById('reportModal');
+  const releaseConfirmModal = document.getElementById('releaseConfirmModal');
+  const closeReleaseConfirmModal = document.getElementById('closeReleaseConfirmModal');
+  const cancelReleaseConfirmBtn = document.getElementById('cancelReleaseConfirmBtn');
+  const confirmReleaseBtn = document.getElementById('confirmReleaseBtn');
+  const releaseConfirmSummary = document.getElementById('releaseConfirmSummary');
+  const releaseConfirmLead = document.getElementById('releaseConfirmLead');
+  const fireOutConfirmModal = document.getElementById('fireOutConfirmModal');
+  const closeFireOutConfirmModal = document.getElementById('closeFireOutConfirmModal');
+  const cancelFireOutConfirmBtn = document.getElementById('cancelFireOutConfirmBtn');
+  const confirmFireOutBtn = document.getElementById('confirmFireOutBtn');
+  const fireOutToggleBtn = document.getElementById('fireOutToggleBtn');
+  const fireOutToggleLabel = document.getElementById('fireOutToggleLabel');
+  const fireOutToggleMeta = document.getElementById('fireOutToggleMeta');
+  const fireOutHint = document.getElementById('fireOutHint');
+  const alarmRaiseConfirmModal = document.getElementById('alarmRaiseConfirmModal');
+  const closeAlarmRaiseConfirmModal = document.getElementById('closeAlarmRaiseConfirmModal');
+  const cancelAlarmRaiseConfirmBtn = document.getElementById('cancelAlarmRaiseConfirmBtn');
+  const confirmAlarmRaiseBtn = document.getElementById('confirmAlarmRaiseBtn');
+  const alarmRaiseConfirmKicker = document.getElementById('alarmRaiseConfirmKicker');
+  const alarmRaiseConfirmTitle = document.getElementById('alarmRaiseConfirmTitle');
+  const alarmRaiseConfirmLead = document.getElementById('alarmRaiseConfirmLead');
+  const alarmRaiseConfirmSummary = document.getElementById('alarmRaiseConfirmSummary');
+  const alarmRaiseConfirmNote = document.getElementById('alarmRaiseConfirmNote');
   const form = document.getElementById('reportForm');
   const reportId = document.getElementById('reportId');
   const reportSubmitBtn = document.getElementById('reportSubmitBtn');
@@ -19,6 +42,8 @@
   const alarmLevel = document.getElementById('alarmLevel');
   const incidentStatusField = document.getElementById('incidentStatusField');
   const incidentStatus = document.getElementById('incidentStatus');
+  const fireOutField = document.getElementById('fireOutField');
+  const fireOutCheckbox = document.getElementById('fireOutCheckbox');
   const barangayField = document.getElementById('barangayField');
   const barangay = document.getElementById('barangay');
   const callerNameField = document.getElementById('callerNameField');
@@ -67,6 +92,10 @@
   const alarmPriorityLevel = document.getElementById('alarmPriorityLevel');
   const alarmPriorityMeta = document.getElementById('alarmPriorityMeta');
   const reportsOngoingHint = document.getElementById('reportsOngoingHint');
+  const reportsHistoryTitle = document.getElementById('reportsHistoryTitle');
+  const reportsTicketTabs = document.getElementById('reportsTicketTabs');
+  const reportsDateFilters = document.getElementById('reportsDateFilters');
+  const reportsDateFilterInput = document.getElementById('reportsDateFilterInput');
   const reportsScopeCard = document.getElementById('reportsScopeCard');
   const reportsScopeMine = document.getElementById('reportsScopeMine');
   const reportsScopeAll = document.getElementById('reportsScopeAll');
@@ -74,6 +103,10 @@
   const sidebar = document.querySelector('.app-sidebar');
   const reportsApiUrl = '/firenet/NEWFIRENET/backend/controllers/reports.php';
   const reportsById = new Map();
+  let allReportsCache = [];
+  let ticketTab = 'queue';
+  let dateFilter = 'all';
+  let dateFilterValue = '';
   let updateMode = 'correction';
   let incidentFinishedAutoFilled = false;
   let incidentFinishedAutoValue = '';
@@ -112,6 +145,10 @@
     !alarmLevel ||
     !incidentStatusField ||
     !incidentStatus ||
+    !fireOutField ||
+    !fireOutCheckbox ||
+    !fireOutToggleBtn ||
+    !fireOutConfirmModal ||
     !barangayField ||
     !barangay ||
     !callerNameField ||
@@ -167,7 +204,7 @@
   }
 
   function mountReportModalsToBody() {
-    [reportTypeModal, reportModal].forEach(function (modal) {
+    [reportTypeModal, reportModal, releaseConfirmModal, fireOutConfirmModal, alarmRaiseConfirmModal].forEach(function (modal) {
       if (modal && modal.parentElement !== document.body) {
         document.body.appendChild(modal);
       }
@@ -175,7 +212,11 @@
   }
 
   function syncReportModalScrollLock() {
-    const isOpen = !reportModal.hidden || !reportTypeModal.hidden;
+    const isOpen = !reportModal.hidden
+      || !reportTypeModal.hidden
+      || (releaseConfirmModal && !releaseConfirmModal.hidden)
+      || (fireOutConfirmModal && !fireOutConfirmModal.hidden)
+      || (alarmRaiseConfirmModal && !alarmRaiseConfirmModal.hidden);
     document.body.classList.toggle('report-modal-open', isOpen);
   }
 
@@ -222,10 +263,31 @@
   const canCreateEquipmentReports = Boolean(context.canCreateEquipmentReports);
   const canUpdateIncidentReports = Boolean(context.canUpdateIncidentReports);
   const canViewAllReports = Boolean(context.canViewAllReports);
+  const isCentralStation = Boolean(context.isCentralStation);
   const canCreate = canCreateIncidentReports || canCreateEquipmentReports;
   reportsScope = 'mine';
+  let alarmRaiseRequestsCache = [];
+  let pendingAlarmRaiseCount = 0;
+  const alarmLevelReadonlyRow = document.getElementById('alarmLevelReadonlyRow');
+  const alarmLevelDisplay = document.getElementById('alarmLevelDisplay');
+  const requestAlarmRaiseBtn = document.getElementById('requestAlarmRaiseBtn');
+  const alarmRaiseRequestStatus = document.getElementById('alarmRaiseRequestStatus');
+  const alarmLevelHint = document.getElementById('alarmLevelHint');
+  const alarmRequestsBadge = document.getElementById('alarmRequestsBadge');
+  const reportsAlarmRequestsTab = document.getElementById('reportsAlarmRequestsTab');
   const incidentTypeOption = reportType.querySelector('option[value="incident_report"]');
   const equipmentTypeOption = reportType.querySelector('option[value="equipment_report"]');
+
+  // Deep-link: ?tab=alarm_requests
+  try {
+    const bootParams = new URLSearchParams(window.location.search || '');
+    const bootTab = String(bootParams.get('tab') || '').trim();
+    if (bootTab === 'alarm_requests' && isCentralStation) {
+      ticketTab = 'alarm_requests';
+    }
+  } catch (ignored) {
+    // ignore
+  }
 
   function getAllowedCreateTypes() {
     const allowedTypes = [];
@@ -932,6 +994,30 @@
     return names.join(', ');
   }
 
+  function formatDispatchedStationsLabel(item) {
+    const stations = Array.isArray(item && item.assignedStations) ? item.assignedStations : [];
+    let names = formatStationsSummary(stations);
+    if (!names && item && item.assignedStationName) {
+      names = String(item.assignedStationName);
+    }
+    if (!names) {
+      return 'Handed to responders';
+    }
+    return 'Handed to ' + names;
+  }
+
+  function formatDispatchedActionLabel(item) {
+    const stations = Array.isArray(item && item.assignedStations) ? item.assignedStations : [];
+    let names = formatStationsSummary(stations);
+    if (!names && item && item.assignedStationName) {
+      names = String(item.assignedStationName);
+    }
+    if (!names) {
+      return 'Dispatched to responders';
+    }
+    return 'Dispatched to ' + names;
+  }
+
   function buildStationsFromPayload(payload) {
     if (payload && Array.isArray(payload.stations) && payload.stations.length > 0) {
       return payload.stations;
@@ -1429,10 +1515,116 @@
     incidentFinishedAutoValue = '';
   }
 
+  function getEffectiveIncidentStatus() {
+    if (fireOutCheckbox && fireOutCheckbox.checked) {
+      return 'fire_out';
+    }
+    return String(incidentStatus.value || '').trim();
+  }
+
+  function applyIncidentStatusToForm(statusCode) {
+    const code = String(statusCode || '').trim().toLowerCase();
+    if (code === 'fire_out') {
+      fireOutCheckbox.checked = true;
+      // Keep a progression status in the listbox for when Fire Out is unchecked later.
+      if (incidentStatus.value !== 'under_control' && incidentStatus.value !== 'ongoing') {
+        incidentStatus.value = 'under_control';
+      }
+      syncFireOutButtonUi();
+      return;
+    }
+
+    fireOutCheckbox.checked = false;
+    if (code === 'under_control' || code === 'ongoing') {
+      incidentStatus.value = code;
+      syncFireOutButtonUi();
+      return;
+    }
+
+    incidentStatus.value = code === '' ? '' : 'ongoing';
+    syncFireOutButtonUi();
+  }
+
+  function syncFireOutButtonUi() {
+    const marked = Boolean(fireOutCheckbox && fireOutCheckbox.checked);
+    if (fireOutToggleBtn) {
+      fireOutToggleBtn.classList.toggle('is-active', marked);
+      fireOutToggleBtn.setAttribute('aria-pressed', marked ? 'true' : 'false');
+      fireOutToggleBtn.disabled = marked || fireOutCheckbox.disabled;
+    }
+    if (fireOutToggleLabel) {
+      fireOutToggleLabel.textContent = marked ? 'Fire out marked' : 'Mark fire out';
+    }
+    if (fireOutToggleMeta) {
+      fireOutToggleMeta.textContent = marked
+        ? 'Locked for this update — save to complete'
+        : 'Completes this incident permanently';
+    }
+    if (fireOutToggleBtn) {
+      const icon = fireOutToggleBtn.querySelector('.rm-fire-out-btn-icon');
+      if (icon) {
+        icon.textContent = marked ? '✓' : '';
+      }
+    }
+    if (fireOutHint) {
+      fireOutHint.textContent = marked
+        ? 'Fire Out is set. Save progress to complete the incident. This cannot be unmarked here.'
+        : 'Only mark when the fire is fully extinguished.';
+    }
+  }
+
+  function syncFireOutControls(isIncident, isCallIntake) {
+    const show = isIncident && !isCallIntake;
+    fireOutField.hidden = !show;
+    fireOutCheckbox.disabled = !show;
+    if (!show) {
+      fireOutCheckbox.checked = false;
+    }
+
+    if (show && fireOutCheckbox.checked) {
+      incidentStatus.disabled = true;
+    }
+    syncFireOutButtonUi();
+  }
+
   function handleIncidentStatusAutoFinish() {
     // Finished-at is managed server-side on submit when status becomes fire_out.
     incidentFinishedAtInput.value = '';
     resetIncidentFinishedAutoTracking();
+  }
+
+  function openFireOutConfirmModal() {
+    if (!fireOutConfirmModal || fireOutCheckbox.checked || fireOutCheckbox.disabled) {
+      return;
+    }
+    fireOutConfirmModal.hidden = false;
+    syncReportModalScrollLock();
+    if (confirmFireOutBtn) {
+      confirmFireOutBtn.focus();
+    }
+  }
+
+  function closeFireOutConfirmModalDialog() {
+    if (!fireOutConfirmModal) {
+      return;
+    }
+    fireOutConfirmModal.hidden = true;
+    syncReportModalScrollLock();
+  }
+
+  function confirmFireOutMark() {
+    fireOutCheckbox.checked = true;
+    const isIncident = reportType.value === 'incident_report';
+    const isCallIntake = isIncident && incidentStage.value === 'call_intake';
+    if (isIncident && !isCallIntake) {
+      incidentStatus.disabled = true;
+      if (!incidentStatus.value) {
+        incidentStatus.value = 'ongoing';
+      }
+    }
+    syncFireOutButtonUi();
+    handleIncidentStatusAutoFinish();
+    closeFireOutConfirmModalDialog();
   }
 
   function syncModalReportKind() {
@@ -1448,9 +1640,20 @@
     incidentStageField.hidden = !isIncident;
     incidentStage.disabled = !isIncident;
     alarmLevelField.hidden = !isIncident;
-    alarmLevel.disabled = !isIncident;
+    // Visibility/edit mode for alarm is finalized in syncAlarmLevelAuthority().
+    if (!isIncident) {
+      alarmLevel.disabled = true;
+      alarmLevel.classList.remove('is-hidden-control');
+      if (alarmLevelReadonlyRow) {
+        alarmLevelReadonlyRow.hidden = true;
+      }
+      if (requestAlarmRaiseBtn) {
+        requestAlarmRaiseBtn.hidden = true;
+      }
+    }
     incidentStatusField.hidden = !isIncident || isCallIntake;
-    incidentStatus.disabled = !isIncident || isCallIntake;
+    incidentStatus.disabled = !isIncident || isCallIntake || (isIncident && !isCallIntake && fireOutCheckbox.checked);
+    syncFireOutControls(isIncident, isCallIntake);
 
     barangayField.hidden = !isIncident;
     barangay.disabled = !isIncident;
@@ -1491,6 +1694,7 @@
     setProgressModeFields(updateMode === 'progression');
     enforceCreateIncidentIntakeStage();
     handleIncidentStatusAutoFinish();
+    syncAlarmLevelAuthority(updateMode === 'progression');
 
     if (isIncident) {
       ensureMapReady();
@@ -1536,6 +1740,88 @@
     }
   }
 
+  function syncAlarmLevelAuthority(isProgressMode) {
+    const isIncident = reportType.value === 'incident_report';
+    const isCallIntake = isIncident && incidentStage.value === 'call_intake';
+    const item = reportId.value ? reportsById.get(String(reportId.value)) : null;
+    const liveAlarm = Math.max(
+      1,
+      Number((item && (item.caseAlarmLevel || item.alarmLevel)) || alarmLevel.value || 1)
+    );
+
+    if (!isIncident) {
+      if (alarmLevelReadonlyRow) {
+        alarmLevelReadonlyRow.hidden = true;
+      }
+      if (requestAlarmRaiseBtn) {
+        requestAlarmRaiseBtn.hidden = true;
+      }
+      alarmLevel.classList.remove('is-hidden-control');
+      return;
+    }
+
+    if (isProgressMode || !isCallIntake) {
+      alarmLevel.value = String(liveAlarm);
+    }
+
+    const canEditAlarm = isCentralStation && (
+      (!reportId.value && isCallIntake) ||
+      (isProgressMode && isCentralStation) ||
+      (!isCallIntake && isCentralStation && !!reportId.value && !isProgressMode)
+    );
+    // MCFS new intake / MCFS editing: keep the listbox.
+    // Responding stations (and MCFS viewing locked live level on progress from stations): show value + request.
+    const useReadonly = isProgressMode ? !isCentralStation : (reportId.value !== '' && !canEditAlarm);
+
+    if (useReadonly || (isProgressMode && !isCentralStation)) {
+      alarmLevel.classList.add('is-hidden-control');
+      if (alarmLevelReadonlyRow) {
+        alarmLevelReadonlyRow.hidden = false;
+      }
+      if (alarmLevelDisplay) {
+        alarmLevelDisplay.textContent = 'Level ' + String(liveAlarm);
+      }
+      const showRequest = !isCentralStation && isProgressMode && canUpdateIncidentReports && liveAlarm < 5;
+      if (requestAlarmRaiseBtn) {
+        requestAlarmRaiseBtn.hidden = !showRequest;
+        requestAlarmRaiseBtn.disabled = !showRequest;
+        requestAlarmRaiseBtn.textContent = showRequest
+          ? ('Request raise to ' + String(Math.min(5, liveAlarm + 1)))
+          : 'Request raise';
+        requestAlarmRaiseBtn.setAttribute('data-next-level', String(Math.min(5, liveAlarm + 1)));
+      }
+      if (alarmLevelHint) {
+        alarmLevelHint.textContent = showRequest
+          ? 'MCFS controls the live alarm. Request the next level if the fire has escalated.'
+          : (liveAlarm >= 5
+            ? 'Live fire alarm is already at the highest level.'
+            : 'Live fire alarm is controlled by MCFS.');
+      }
+    } else {
+      alarmLevel.classList.remove('is-hidden-control');
+      if (alarmLevelReadonlyRow) {
+        alarmLevelReadonlyRow.hidden = true;
+      }
+      if (requestAlarmRaiseBtn) {
+        requestAlarmRaiseBtn.hidden = true;
+      }
+      alarmLevel.disabled = isCallIntake && !!reportId.value ? true : !canEditAlarm && !(!reportId.value && isCentralStation);
+      if (!reportId.value && isCentralStation && isCallIntake) {
+        alarmLevel.disabled = false;
+      }
+      if (alarmLevelHint) {
+        alarmLevelHint.textContent = isCentralStation
+          ? 'MCFS controls the live fire alarm for all responding stations.'
+          : 'Live fire alarm is controlled by MCFS.';
+      }
+    }
+
+    if (alarmRaiseRequestStatus) {
+      alarmRaiseRequestStatus.hidden = true;
+      alarmRaiseRequestStatus.textContent = '';
+    }
+  }
+
   function setProgressModeFields(isProgressMode) {
     const lockIntake = isProgressMode && reportType.value === 'incident_report';
 
@@ -1553,22 +1839,26 @@
       if (incidentStage.value === 'call_intake') {
         incidentStage.value = 'during_incident';
       }
-      if (!incidentStatus.value) {
-        incidentStatus.value = 'under_control';
+      if (!incidentStatus.value || incidentStatus.value === 'fire_out') {
+        incidentStatus.value = 'ongoing';
       }
-      incidentStatus.disabled = false;
-      alarmLevel.disabled = false;
+      if (!fireOutCheckbox.checked) {
+        incidentStatus.disabled = false;
+      }
       if (incidentStatusField) {
         incidentStatusField.hidden = false;
       }
+      syncFireOutControls(true, false);
       if (incidentFinishedField) {
         incidentFinishedField.hidden = true;
       }
       incidentFinishedAtInput.disabled = true;
+      syncAlarmLevelAuthority(true);
       return;
     }
 
     incidentStartedAtInput.readOnly = true;
+    syncAlarmLevelAuthority(false);
   }
 
   function syncReportTypeDefaults() {
@@ -1582,12 +1872,13 @@
         alarmLevel.value = '1';
       }
       if (incidentStage.value !== 'call_intake' && !incidentStatus.value) {
-        incidentStatus.value = 'under_control';
+        incidentStatus.value = 'ongoing';
       }
     } else {
       incidentStage.value = 'call_intake';
       alarmLevel.value = '1';
-      incidentStatus.value = 'under_control';
+      incidentStatus.value = 'ongoing';
+      fireOutCheckbox.checked = false;
       if (!equipmentCategory.value) {
         equipmentCategory.value = 'vehicle';
       }
@@ -1636,6 +1927,9 @@
     }
     if (value === 'under_control') {
       return 'Under Control';
+    }
+    if (value === 'ongoing') {
+      return 'Ongoing';
     }
     return value || '-';
   }
@@ -2072,6 +2366,301 @@
     return isIncidentActive(item) && canUpdateIncidentReports;
   }
 
+  function canClaimIncidentReport(item) {
+    return Boolean(item && item.type === 'incident_report' && item.canClaim);
+  }
+
+  function canReleaseIncidentReport(item) {
+    return Boolean(item && item.type === 'incident_report' && item.canRelease);
+  }
+
+  function toLocalDateKey(value) {
+    const date = value instanceof Date ? value : new Date(value);
+    if (isNaN(date.getTime())) {
+      return '';
+    }
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return year + '-' + month + '-' + day;
+  }
+
+  function shiftLocalDateKey(days) {
+    const date = new Date();
+    date.setHours(12, 0, 0, 0);
+    date.setDate(date.getDate() + Number(days || 0));
+    return toLocalDateKey(date);
+  }
+
+  function itemDateKey(item) {
+    return toLocalDateKey(item.updatedAt || item.submittedAt || item.incidentFinishedAt || '');
+  }
+
+  function matchesDateFilter(item) {
+    if (dateFilter === 'all') {
+      return true;
+    }
+    const key = itemDateKey(item);
+    if (!key) {
+      return false;
+    }
+    if (dateFilter === 'today') {
+      return key === shiftLocalDateKey(0);
+    }
+    if (dateFilter === 'yesterday') {
+      return key === shiftLocalDateKey(-1);
+    }
+    if (dateFilter === 'specific') {
+      return dateFilterValue !== '' && key === dateFilterValue;
+    }
+    return true;
+  }
+
+  function reportTicketCategory(item) {
+    if (!item) {
+      return 'queue';
+    }
+    if ((item.type || '') !== 'incident_report') {
+      return 'queue';
+    }
+    if (isIncidentCompleted(item)) {
+      return 'completed';
+    }
+    // Central intake handed to other responders — MCFS-only Dispatched tab.
+    if (item.isAssignedResponder === false) {
+      return isCentralStation ? 'dispatched' : 'queue';
+    }
+    if (item.isClaimedByMe || item.isClaimedByOther || Number(item.handlingUserId || 0) > 0) {
+      return 'claimed';
+    }
+    return 'queue';
+  }
+
+  function ticketTabMeta() {
+    return {
+      queue: {
+        title: 'Incident queue',
+        hint: 'Unclaimed active incidents waiting for a ComL to pick up.'
+      },
+      claimed: {
+        title: 'In progress',
+        hint: 'Incidents claimed by a ComL and still being updated.'
+      },
+      alarm_requests: {
+        title: 'Alarm raise requests',
+        hint: 'Urgent requests from responding stations to raise the live fire alarm.'
+      },
+      dispatched: {
+        title: 'Dispatched',
+        hint: 'Intake filed here and passed to responding stations. Your station is not updating these.'
+      },
+      completed: {
+        title: 'Completed',
+        hint: 'Finished incidents for your station. Full archives also appear under Incident Logs.'
+      }
+    };
+  }
+
+  function updateAlarmRequestsBadge(count) {
+    pendingAlarmRaiseCount = Math.max(0, Number(count || 0));
+    if (!alarmRequestsBadge) {
+      return;
+    }
+    if (!isCentralStation || pendingAlarmRaiseCount < 1) {
+      alarmRequestsBadge.hidden = true;
+      alarmRequestsBadge.textContent = '0';
+      return;
+    }
+    alarmRequestsBadge.hidden = false;
+    alarmRequestsBadge.textContent = String(pendingAlarmRaiseCount);
+  }
+
+  function syncTicketTabUi() {
+    const dispatchedTab = document.getElementById('reportsDispatchedTab');
+    if (dispatchedTab) {
+      dispatchedTab.hidden = !isCentralStation;
+    }
+    if (reportsAlarmRequestsTab) {
+      reportsAlarmRequestsTab.hidden = !isCentralStation;
+    }
+    if (!isCentralStation && (ticketTab === 'dispatched' || ticketTab === 'alarm_requests')) {
+      ticketTab = 'queue';
+    }
+    if (reportsTicketTabs) {
+      Array.from(reportsTicketTabs.querySelectorAll('[data-ticket-tab]')).forEach(function (button) {
+        const value = String(button.getAttribute('data-ticket-tab') || '');
+        if ((value === 'dispatched' || value === 'alarm_requests') && !isCentralStation) {
+          return;
+        }
+        const isActive = value === ticketTab;
+        button.classList.toggle('is-active', isActive);
+        button.setAttribute('aria-selected', isActive ? 'true' : 'false');
+      });
+    }
+    const meta = ticketTabMeta()[ticketTab] || ticketTabMeta().queue;
+    if (reportsHistoryTitle) {
+      reportsHistoryTitle.textContent = meta.title;
+    }
+    if (reportsOngoingHint && !reportsOngoingHint.classList.contains('is-active')) {
+      reportsOngoingHint.textContent = meta.hint;
+    }
+    updateAlarmRequestsBadge(pendingAlarmRaiseCount);
+  }
+
+  function syncDateFilterUi() {
+    if (!reportsDateFilters) {
+      return;
+    }
+    Array.from(reportsDateFilters.querySelectorAll('[data-date-filter]')).forEach(function (button) {
+      const value = String(button.getAttribute('data-date-filter') || 'all');
+      const isActive = dateFilter === value;
+      button.classList.toggle('is-active', isActive);
+      button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+    });
+    if (reportsDateFilterInput) {
+      reportsDateFilterInput.value = dateFilter === 'specific' ? (dateFilterValue || '') : '';
+    }
+  }
+
+  function setDateFilter(mode, specificDate) {
+    const nextMode = String(mode || 'all');
+    if (nextMode === 'specific') {
+      const value = String(specificDate || '').trim();
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+        return;
+      }
+      dateFilter = 'specific';
+      dateFilterValue = value;
+    } else if (nextMode === 'today' || nextMode === 'yesterday') {
+      dateFilter = nextMode;
+      dateFilterValue = '';
+    } else {
+      dateFilter = 'all';
+      dateFilterValue = '';
+    }
+    syncDateFilterUi();
+    renderVisibleReports();
+  }
+
+  function visibleReports() {
+    if (ticketTab === 'alarm_requests') {
+      return [];
+    }
+    return (Array.isArray(allReportsCache) ? allReportsCache : []).filter(function (item) {
+      if (reportTicketCategory(item) !== ticketTab) {
+        return false;
+      }
+      return matchesDateFilter(item);
+    });
+  }
+
+  function emptyTicketMessage() {
+    const dateNote = dateFilter === 'today'
+      ? ' for today'
+      : (dateFilter === 'yesterday'
+        ? ' for yesterday'
+        : (dateFilter === 'specific' && dateFilterValue ? (' for ' + dateFilterValue) : ''));
+    if (ticketTab === 'claimed') {
+      return 'No incidents are in progress' + dateNote + '.';
+    }
+    if (ticketTab === 'alarm_requests') {
+      return 'No pending fire alarm raise requests' + dateNote + '.';
+    }
+    if (ticketTab === 'dispatched') {
+      return 'No dispatched intake reports' + dateNote + '.';
+    }
+    if (ticketTab === 'completed') {
+      return 'No completed incidents' + dateNote + '.';
+    }
+    return dateNote
+      ? ('No unclaimed incidents' + dateNote + '.')
+      : 'The queue is empty — no unclaimed incidents.';
+  }
+
+  let pendingReleaseReportId = 0;
+
+  function openReleaseConfirmModal(item) {
+    if (!releaseConfirmModal || !item) {
+      return;
+    }
+    pendingReleaseReportId = Number(item.id || 0);
+    if (releaseConfirmSummary) {
+      releaseConfirmSummary.innerHTML =
+        '<strong>' + escapeHtml(formatReportTitle(item)) + '</strong>' +
+        '<span>' + escapeHtml(item.stationName || 'Your station') + ' report</span>';
+    }
+    if (releaseConfirmLead) {
+      releaseConfirmLead.textContent = 'This returns the ticket to the queue so another ComL can claim and update it.';
+      releaseConfirmLead.style.color = '';
+    }
+    if (confirmReleaseBtn) {
+      confirmReleaseBtn.disabled = false;
+      confirmReleaseBtn.textContent = 'Release to queue';
+    }
+    releaseConfirmModal.hidden = false;
+    syncReportModalScrollLock();
+    if (confirmReleaseBtn) {
+      confirmReleaseBtn.focus();
+    }
+  }
+
+  function closeReleaseConfirmModalDialog() {
+    if (!releaseConfirmModal) {
+      return;
+    }
+    releaseConfirmModal.hidden = true;
+    pendingReleaseReportId = 0;
+    if (confirmReleaseBtn) {
+      confirmReleaseBtn.disabled = false;
+      confirmReleaseBtn.textContent = 'Release to queue';
+    }
+    syncReportModalScrollLock();
+  }
+
+  async function confirmReleaseIncident() {
+    const reportIdToRelease = pendingReleaseReportId;
+    if (reportIdToRelease < 1) {
+      closeReleaseConfirmModalDialog();
+      return;
+    }
+    if (confirmReleaseBtn) {
+      confirmReleaseBtn.disabled = true;
+      confirmReleaseBtn.textContent = 'Releasing…';
+    }
+    try {
+      await claimOrReleaseIncident(reportIdToRelease, 'release');
+      closeReleaseConfirmModalDialog();
+    } catch (error) {
+      if (confirmReleaseBtn) {
+        confirmReleaseBtn.disabled = false;
+        confirmReleaseBtn.textContent = 'Release to queue';
+      }
+      if (releaseConfirmLead) {
+        releaseConfirmLead.textContent = error.message || 'Unable to release this incident.';
+        releaseConfirmLead.style.color = '#fecaca';
+      }
+    }
+  }
+
+  async function claimOrReleaseIncident(reportId, mode) {
+    const action = mode === 'release' ? 'release' : 'claim';
+    const response = await fetch(
+      reportsApiUrl + '?action=' + encodeURIComponent(action) + '&reportId=' + encodeURIComponent(String(reportId)),
+      { method: 'GET', credentials: 'same-origin' }
+    );
+    const payload = await response.json().catch(function () { return null; });
+    if (!response.ok || !payload || payload.ok !== true) {
+      throw new Error((payload && payload.message) || ('Unable to ' + action + ' this incident.'));
+    }
+    await loadMyReports();
+    if (action === 'claim') {
+      switchTicketTab('claimed');
+    } else if (action === 'release') {
+      switchTicketTab('queue');
+    }
+    return payload;
+  }
+
   function formatReportTitle(item) {
     const title = item.title || '-';
     if ((item.type || '') === 'incident_report' && item.displayId) {
@@ -2091,17 +2680,71 @@
     return { className: 'reports-type-badge', label: normalizeType(type) };
   }
 
-  function renderRows(reports) {
-    reportsById.clear();
-
-    if (!Array.isArray(reports) || reports.length === 0) {
-      tableBody.innerHTML = '<tr><td colspan="4" class="reports-empty-cell">No reports found for your account yet.</td></tr>';
+  function renderAlarmRaiseRequestRows(requests) {
+    if (!Array.isArray(requests) || requests.length === 0) {
+      tableBody.innerHTML = '<tr><td colspan="4" class="reports-empty-cell">' + escapeHtml(emptyTicketMessage()) + '</td></tr>';
       return;
     }
 
-    reports.forEach(function (item) {
-      reportsById.set(String(item.id), item);
-    });
+    tableBody.innerHTML = requests.map(function (item) {
+      const requestId = String(item.requestId || '');
+      const createdAt = item.createdAt ? new Date(item.createdAt).toLocaleString() : '-';
+      const title = item.title || ('Case #' + String(item.incidentCaseId || ''));
+      const fromLevel = Number(item.fromAlarmLevel || item.caseAlarmLevel || 1);
+      const toLevel = Number(item.requestedAlarmLevel || fromLevel + 1);
+      const actions =
+        '<button type="button" class="table-action-btn progress" data-action="approve-alarm-raise" data-id="' + escapeHtml(requestId) + '">Raise to ' + escapeHtml(String(toLevel)) + '</button>' +
+        '<button type="button" class="table-action-btn release" data-action="deny-alarm-raise" data-id="' + escapeHtml(requestId) + '">Deny</button>';
+
+      return (
+        '<tr>' +
+          '<td><span class="reports-type-badge reports-type-badge--incident">Urgent</span></td>' +
+          '<td>' +
+            '<div class="reports-alarm-request-card">' +
+              '<strong>' + escapeHtml(title) + '</strong>' +
+              '<span class="reports-alarm-request-meta">' +
+                escapeHtml(item.fromStationName || 'Station') + ' · ' +
+                escapeHtml(item.requestedByUsername || 'ComL') +
+                (item.location ? (' · ' + escapeHtml(item.location)) : '') +
+              '</span>' +
+              '<span class="reports-alarm-urgent">Request Alarm ' + escapeHtml(String(fromLevel)) + ' → ' + escapeHtml(String(toLevel)) +
+              ' · Live now: ' + escapeHtml(String(item.caseAlarmLevel || fromLevel)) + '</span>' +
+            '</div>' +
+          '</td>' +
+          '<td>' + escapeHtml(createdAt) + '</td>' +
+          '<td>' + actions + '</td>' +
+        '</tr>'
+      );
+    }).join('');
+  }
+
+  function renderVisibleReports() {
+    rebuildReportsById();
+    syncTicketTabUi();
+    syncDateFilterUi();
+    if (ticketTab === 'alarm_requests') {
+      renderAlarmRaiseRequestRows(alarmRaiseRequestsCache);
+      if (reportsOngoingHint) {
+        if (pendingAlarmRaiseCount > 0) {
+          reportsOngoingHint.textContent = pendingAlarmRaiseCount + ' urgent fire alarm raise request' +
+            (pendingAlarmRaiseCount === 1 ? '' : 's') + ' waiting for MCFS.';
+          reportsOngoingHint.classList.add('is-active');
+        } else {
+          reportsOngoingHint.textContent = ticketTabMeta().alarm_requests.hint;
+          reportsOngoingHint.classList.remove('is-active');
+        }
+      }
+      return;
+    }
+    renderRows(visibleReports());
+    updateOngoingIncidentHint(allReportsCache);
+  }
+
+  function renderRows(reports) {
+    if (!Array.isArray(reports) || reports.length === 0) {
+      tableBody.innerHTML = '<tr><td colspan="4" class="reports-empty-cell">' + escapeHtml(emptyTicketMessage()) + '</td></tr>';
+      return;
+    }
 
     tableBody.innerHTML = reports
       .map(function (item) {
@@ -2119,19 +2762,50 @@
         if ((item.type || '') === 'incident_report') {
           const isCompleted = isIncidentCompleted(item);
           const canProgress = canProgressIncidentReport(item);
-          if (canProgress) {
+          const canClaim = canClaimIncidentReport(item);
+          const canRelease = canReleaseIncidentReport(item);
+          const handlerName = String(item.handlingUsername || '').trim();
+
+          if (canClaim) {
             actionsHtml +=
-              '<button type="button" class="table-action-btn progress" data-action="progress" data-id="' + escapeHtml(itemId) + '">Update Incident</button>' +
-              '<span class="incident-ongoing-note" title="This incident is active and needs continuous monitoring">' +
+              '<button type="button" class="table-action-btn claim" data-action="claim" data-id="' + escapeHtml(itemId) + '">Claim</button>' +
+              '<span class="incident-ongoing-note is-unclaimed" title="Unclaimed — claim this ticket before updating">' +
               '<span class="incident-ongoing-dot" aria-hidden="true"></span>' +
-              'Ongoing Incident' +
+              'Unclaimed' +
+              '</span>';
+          } else if (canProgress) {
+            actionsHtml +=
+              '<button type="button" class="table-action-btn progress" data-action="progress" data-id="' + escapeHtml(itemId) + '">Update Incident</button>';
+            if (canRelease) {
+              actionsHtml +=
+                '<button type="button" class="table-action-btn release" data-action="release" data-id="' + escapeHtml(itemId) + '">Release</button>';
+            }
+            actionsHtml +=
+              '<span class="incident-ongoing-note is-claimed-mine" title="You claimed this incident and can update it">' +
+              '<span class="incident-ongoing-dot" aria-hidden="true"></span>' +
+              'Claimed by you' +
+              '</span>';
+          } else if (item.isClaimedByOther) {
+            actionsHtml +=
+              '<span class="incident-ongoing-note is-claimed-other" title="Another ComL is already processing this incident">' +
+              '<span class="incident-ongoing-dot" aria-hidden="true"></span>' +
+              'Claimed by ' + escapeHtml(handlerName || 'another ComL') +
               '</span>';
           } else if (isIncidentActive(item)) {
+            const dispatchedActionLabel = formatDispatchedActionLabel(item);
             actionsHtml +=
-              '<span class="incident-ongoing-note" title="This incident is active at your station">' +
+              '<span class="incident-ongoing-note' +
+              (item.isAssignedResponder === false ? ' is-dispatched' : '') +
+              '" title="' +
+              escapeHtml(
+                item.isAssignedResponder === false
+                  ? dispatchedActionLabel
+                  : 'This incident is active at your station'
+              ) +
+              '">' +
               '<span class="incident-ongoing-dot" aria-hidden="true"></span>' +
               (item.isAssignedResponder === false
-                ? 'Dispatched to responders'
+                ? escapeHtml(dispatchedActionLabel)
                 : 'Awaiting Update') +
               '</span>';
           } else {
@@ -2142,7 +2816,7 @@
               '</span>';
           }
 
-          if (!canEditReport(item) && !isCompleted) {
+          if (!canEditReport(item) && !isCompleted && !item.isClaimedByOther) {
             actionsHtml +=
               '<span class="incident-completed-note" title="Edit is only available before the first incident progress update">' +
               '<span class="incident-completed-dot" aria-hidden="true"></span>' +
@@ -2155,11 +2829,18 @@
           '<button type="button" class="table-action-btn download" data-action="download" data-id="' + escapeHtml(itemId) + '"><span aria-hidden="true">\u2B07</span> Download PDF</button>';
 
         const typeBadge = normalizeTypeBadge(item.type || '');
+        const dispatchedLabel = formatDispatchedStationsLabel(item);
         const titleHtml =
           '<div class="reports-row-title">' + escapeHtml(formatReportTitle(item)) + '</div>' +
           ((item.type || '') === 'incident_report' && item.stationName
             ? '<div class="reports-row-sub">' + escapeHtml(item.stationName) + ' report' +
-              (item.updatedBy ? ' · Updated by ' + escapeHtml(item.updatedBy) : '') +
+              (item.handlingUsername
+                ? (item.isClaimedByMe
+                  ? ' · <span class="reports-claimed-you-label">Claimed by you</span>'
+                  : ' · Claimed by ' + escapeHtml(item.handlingUsername))
+                : (item.isAssignedResponder === false
+                  ? ' · <span class="reports-dispatched-label" title="' + escapeHtml(dispatchedLabel) + '">' + escapeHtml(dispatchedLabel) + '</span>'
+                  : (item.updatedBy ? ' · Updated by ' + escapeHtml(item.updatedBy) : ''))) +
               '</div>'
             : '');
 
@@ -2177,45 +2858,161 @@
       .join('');
   }
 
+  function rebuildReportsById() {
+    reportsById.clear();
+    (Array.isArray(allReportsCache) ? allReportsCache : []).forEach(function (item) {
+      if (item && item.id != null) {
+        reportsById.set(String(item.id), item);
+      }
+    });
+  }
+
   function updateOngoingIncidentHint(reports) {
     if (!reportsOngoingHint) {
       return;
     }
-
-    const activeCount = Array.isArray(reports)
-      ? reports.filter(canProgressIncidentReport).length
-      : 0;
-
-    if (activeCount === 0) {
-      reportsOngoingHint.textContent = 'No ongoing incidents assigned to your station for progression updates.';
-      reportsOngoingHint.classList.remove('is-active');
+    if (ticketTab === 'alarm_requests') {
       return;
     }
 
-    reportsOngoingHint.textContent = activeCount + ' ongoing incident' + (activeCount === 1 ? '' : 's') + ' — update actions are available for active cases.';
-    reportsOngoingHint.classList.add('is-active');
+    const meta = ticketTabMeta()[ticketTab] || ticketTabMeta().queue;
+    const source = Array.isArray(reports) ? reports : [];
+    const queueCount = source.filter(function (item) { return reportTicketCategory(item) === 'queue' && (item.type || '') === 'incident_report'; }).length;
+    const claimedCount = source.filter(function (item) { return reportTicketCategory(item) === 'claimed'; }).length;
+    const dispatchedCount = source.filter(function (item) { return reportTicketCategory(item) === 'dispatched'; }).length;
+    const myClaimedCount = source.filter(function (item) { return item && item.isClaimedByMe; }).length;
+
+    if (ticketTab === 'queue') {
+      if (queueCount === 0) {
+        reportsOngoingHint.textContent = meta.hint;
+        reportsOngoingHint.classList.remove('is-active');
+        return;
+      }
+      reportsOngoingHint.textContent = queueCount + ' unclaimed incident' + (queueCount === 1 ? '' : 's') + ' waiting for a ComL claim.';
+      reportsOngoingHint.classList.add('is-active');
+      return;
+    }
+
+    if (ticketTab === 'claimed') {
+      if (claimedCount === 0) {
+        reportsOngoingHint.textContent = meta.hint;
+        reportsOngoingHint.classList.remove('is-active');
+        return;
+      }
+      reportsOngoingHint.innerHTML = claimedCount + ' in progress' +
+        (myClaimedCount > 0
+          ? (' · <span class="reports-claimed-you-count">' + myClaimedCount + ' claimed by you</span>')
+          : '') + '.';
+      reportsOngoingHint.classList.add('is-active');
+      return;
+    }
+
+    if (ticketTab === 'dispatched') {
+      if (dispatchedCount === 0) {
+        reportsOngoingHint.textContent = meta.hint;
+        reportsOngoingHint.classList.remove('is-active');
+        return;
+      }
+      reportsOngoingHint.textContent = dispatchedCount + ' intake report' + (dispatchedCount === 1 ? '' : 's') +
+        ' handed off to responding stations.';
+      reportsOngoingHint.classList.add('is-active');
+      return;
+    }
+
+    reportsOngoingHint.textContent = meta.hint;
+    reportsOngoingHint.classList.remove('is-active');
   }
 
   async function loadMyReports() {
     tableBody.innerHTML = '<tr><td colspan="4" class="reports-empty-cell">Loading your reports…</td></tr>';
     try {
-      const url = new URL(reportsApiUrl, window.location.origin);
-      const response = await fetch(url.toString(), { method: 'GET', credentials: 'same-origin' });
-      const payload = await response.json();
-      if (!response.ok || !payload || payload.ok !== true) {
+      const activeUrl = new URL(reportsApiUrl, window.location.origin);
+      const completedUrl = new URL(reportsApiUrl, window.location.origin);
+      completedUrl.searchParams.set('includeCompleted', '1');
+
+      const [activeResponse, completedResponse] = await Promise.all([
+        fetch(activeUrl.toString(), { method: 'GET', credentials: 'same-origin' }),
+        fetch(completedUrl.toString(), { method: 'GET', credentials: 'same-origin' })
+      ]);
+      const activePayload = await activeResponse.json();
+      const completedPayload = await completedResponse.json();
+
+      if (!activeResponse.ok || !activePayload || activePayload.ok !== true) {
         tableBody.innerHTML = '<tr><td colspan="4" class="reports-empty-cell">Unable to load your reports right now.</td></tr>';
         return [];
       }
 
-      const reports = payload.reports || [];
-      renderRows(reports);
-      updateOngoingIncidentHint(reports);
-      return reports;
+      const activeReports = Array.isArray(activePayload.reports) ? activePayload.reports : [];
+      const completedReports = (completedResponse.ok && completedPayload && completedPayload.ok === true && Array.isArray(completedPayload.reports))
+        ? completedPayload.reports.filter(function (item) {
+            return (item.type || '') === 'incident_report' && isIncidentCompleted(item);
+          })
+        : [];
+
+      const byId = new Map();
+      activeReports.concat(completedReports).forEach(function (item) {
+        if (item && item.id != null) {
+          byId.set(String(item.id), item);
+        }
+      });
+      allReportsCache = Array.from(byId.values());
+      if (typeof activePayload.pendingAlarmRaiseCount === 'number') {
+        updateAlarmRequestsBadge(activePayload.pendingAlarmRaiseCount);
+      }
+      if (isCentralStation) {
+        await loadAlarmRaiseRequests(false);
+      }
+      renderVisibleReports();
+      return allReportsCache;
     } catch (error) {
       tableBody.innerHTML = '<tr><td colspan="4" class="reports-empty-cell">Unable to load your reports right now.</td></tr>';
       updateOngoingIncidentHint([]);
       return [];
     }
+  }
+
+  async function loadAlarmRaiseRequests(shouldRender) {
+    if (!isCentralStation) {
+      alarmRaiseRequestsCache = [];
+      updateAlarmRequestsBadge(0);
+      return [];
+    }
+    try {
+      const response = await fetch(reportsApiUrl + '?action=alarm_raise_requests&status=pending', {
+        method: 'GET',
+        credentials: 'same-origin'
+      });
+      const payload = await response.json().catch(function () { return null; });
+      if (!response.ok || !payload || payload.ok !== true) {
+        alarmRaiseRequestsCache = [];
+        return [];
+      }
+      alarmRaiseRequestsCache = Array.isArray(payload.requests) ? payload.requests : [];
+      updateAlarmRequestsBadge(payload.pendingCount != null ? payload.pendingCount : alarmRaiseRequestsCache.length);
+      if (shouldRender !== false && ticketTab === 'alarm_requests') {
+        renderVisibleReports();
+      }
+      return alarmRaiseRequestsCache;
+    } catch (error) {
+      alarmRaiseRequestsCache = [];
+      return [];
+    }
+  }
+
+  function switchTicketTab(tab) {
+    const next = String(tab || 'queue');
+    const allowed = isCentralStation
+      ? ['queue', 'claimed', 'alarm_requests', 'dispatched', 'completed']
+      : ['queue', 'claimed', 'completed'];
+    if (allowed.indexOf(next) === -1) {
+      return;
+    }
+    ticketTab = next;
+    if (next === 'alarm_requests') {
+      loadAlarmRaiseRequests(true);
+      return;
+    }
+    renderVisibleReports();
   }
 
   function openProgressFromQuery() {
@@ -2300,7 +3097,209 @@
       setMapStatus('Manual pin mode is OFF. Use Locate Address or re-enable manual pin mode.');
     }
   });
+  if (requestAlarmRaiseBtn) {
+    requestAlarmRaiseBtn.addEventListener('click', async function () {
+      const id = Number(reportId.value || 0);
+      const item = reportsById.get(String(id));
+      const liveAlarm = Math.max(
+        1,
+        Number((item && (item.caseAlarmLevel || item.alarmLevel)) || alarmLevel.value || 1)
+      );
+      const level = Math.min(
+        5,
+        Number(requestAlarmRaiseBtn.getAttribute('data-next-level') || (liveAlarm + 1))
+      );
+      if (id < 1 || level <= liveAlarm || level > 5) {
+        return;
+      }
+      requestAlarmRaiseBtn.disabled = true;
+      if (alarmRaiseRequestStatus) {
+        alarmRaiseRequestStatus.hidden = false;
+        alarmRaiseRequestStatus.textContent = 'Sending urgent request to MCFS…';
+      }
+      try {
+        const response = await fetch(reportsApiUrl, {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'request_alarm_raise',
+            reportId: id,
+            requestedAlarmLevel: level
+          })
+        });
+        const result = await response.json().catch(function () { return null; });
+        if (!response.ok || !result || result.ok !== true) {
+          throw new Error((result && result.message) || 'Unable to send alarm raise request.');
+        }
+        if (alarmRaiseRequestStatus) {
+          alarmRaiseRequestStatus.textContent = result.message || ('Raise to Alarm ' + level + ' requested.');
+        }
+        requestAlarmRaiseBtn.textContent = 'Request sent';
+      } catch (error) {
+        if (alarmRaiseRequestStatus) {
+          alarmRaiseRequestStatus.textContent = error.message || 'Unable to send alarm raise request.';
+        }
+        requestAlarmRaiseBtn.disabled = false;
+      }
+    });
+  }
+
+  async function reviewAlarmRaiseRequest(requestId, decision) {
+    const response = await fetch(reportsApiUrl, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'review_alarm_raise_request',
+        requestId: Number(requestId),
+        decision: decision
+      })
+    });
+    const result = await response.json().catch(function () { return null; });
+    if (!response.ok || !result || result.ok !== true) {
+      throw new Error((result && result.message) || 'Unable to review this request.');
+    }
+    await loadAlarmRaiseRequests(false);
+    await loadMyReports();
+    switchTicketTab('alarm_requests');
+    return result;
+  }
+
+  let pendingAlarmRaiseReview = null;
+
+  function findAlarmRaiseRequest(requestId) {
+    const id = String(requestId || '');
+    return (Array.isArray(alarmRaiseRequestsCache) ? alarmRaiseRequestsCache : []).find(function (item) {
+      return String(item.requestId || '') === id;
+    }) || null;
+  }
+
+  function closeAlarmRaiseConfirmModalDialog() {
+    if (!alarmRaiseConfirmModal) {
+      return;
+    }
+    alarmRaiseConfirmModal.hidden = true;
+    pendingAlarmRaiseReview = null;
+    if (confirmAlarmRaiseBtn) {
+      confirmAlarmRaiseBtn.disabled = false;
+      confirmAlarmRaiseBtn.textContent = 'Raise alarm';
+    }
+    if (alarmRaiseConfirmLead) {
+      alarmRaiseConfirmLead.style.color = '';
+    }
+    syncReportModalScrollLock();
+  }
+
+  function openAlarmRaiseConfirmModal(requestId, decision) {
+    if (!alarmRaiseConfirmModal || !isCentralStation) {
+      return;
+    }
+    const item = findAlarmRaiseRequest(requestId);
+    if (!item) {
+      return;
+    }
+
+    const fromLevel = Number(item.fromAlarmLevel || item.caseAlarmLevel || 1);
+    const toLevel = Number(item.requestedAlarmLevel || fromLevel + 1);
+    const isApprove = decision === 'approve';
+    pendingAlarmRaiseReview = {
+      requestId: Number(item.requestId || 0),
+      decision: isApprove ? 'approve' : 'deny',
+      toLevel: toLevel
+    };
+
+    if (alarmRaiseConfirmKicker) {
+      alarmRaiseConfirmKicker.textContent = isApprove ? 'Urgent · Raise live alarm' : 'Alarm request · Deny';
+    }
+    if (alarmRaiseConfirmTitle) {
+      alarmRaiseConfirmTitle.textContent = isApprove
+        ? ('Raise live fire alarm to Level ' + toLevel + '?')
+        : 'Deny this alarm raise request?';
+    }
+    if (alarmRaiseConfirmLead) {
+      alarmRaiseConfirmLead.style.color = '';
+      alarmRaiseConfirmLead.textContent = isApprove
+        ? 'This applies to every responding station copy and may dispatch additional stations automatically.'
+        : 'The requesting station will keep the current live alarm level. They can submit a new request later if needed.';
+    }
+    if (alarmRaiseConfirmSummary) {
+      alarmRaiseConfirmSummary.innerHTML =
+        '<strong>' + escapeHtml(item.title || ('Case #' + String(item.incidentCaseId || ''))) + '</strong>' +
+        '<span>' + escapeHtml(item.fromStationName || 'Responding station') +
+        (item.requestedByUsername ? (' · ' + escapeHtml(item.requestedByUsername)) : '') +
+        '</span>' +
+        '<span class="report-confirm-alarm-chip">' +
+          'Alarm ' + escapeHtml(String(fromLevel)) + ' → ' + escapeHtml(String(toLevel)) +
+          ' · Live now: ' + escapeHtml(String(item.caseAlarmLevel || fromLevel)) +
+        '</span>' +
+        (item.location
+          ? ('<span>' + escapeHtml(item.location) + '</span>')
+          : '');
+    }
+    if (alarmRaiseConfirmNote) {
+      alarmRaiseConfirmNote.textContent = isApprove
+        ? 'Once raised, the live alarm cannot be lowered from this queue. Confirm only if the field situation requires it.'
+        : 'Denying does not change the live alarm. The request will leave the urgent queue.';
+    }
+    if (confirmAlarmRaiseBtn) {
+      confirmAlarmRaiseBtn.disabled = false;
+      confirmAlarmRaiseBtn.textContent = isApprove
+        ? ('Raise to Level ' + toLevel)
+        : 'Deny request';
+      confirmAlarmRaiseBtn.classList.toggle('rm-btn--danger-outline', !isApprove);
+    }
+
+    alarmRaiseConfirmModal.hidden = false;
+    syncReportModalScrollLock();
+    if (confirmAlarmRaiseBtn) {
+      confirmAlarmRaiseBtn.focus();
+    }
+  }
+
+  async function confirmAlarmRaiseReview() {
+    if (!pendingAlarmRaiseReview || pendingAlarmRaiseReview.requestId < 1) {
+      closeAlarmRaiseConfirmModalDialog();
+      return;
+    }
+    const decision = pendingAlarmRaiseReview.decision;
+    const requestId = pendingAlarmRaiseReview.requestId;
+    if (confirmAlarmRaiseBtn) {
+      confirmAlarmRaiseBtn.disabled = true;
+      confirmAlarmRaiseBtn.textContent = decision === 'approve' ? 'Raising…' : 'Denying…';
+    }
+    try {
+      const result = await reviewAlarmRaiseRequest(requestId, decision);
+      closeAlarmRaiseConfirmModalDialog();
+      if (reportsOngoingHint) {
+        reportsOngoingHint.textContent = result.message || (decision === 'approve'
+          ? 'Live fire alarm raised for all responding stations.'
+          : 'Alarm raise request denied.');
+        reportsOngoingHint.classList.add('is-active');
+      }
+    } catch (error) {
+      if (confirmAlarmRaiseBtn) {
+        confirmAlarmRaiseBtn.disabled = false;
+        confirmAlarmRaiseBtn.textContent = decision === 'approve'
+          ? ('Raise to Level ' + String(pendingAlarmRaiseReview.toLevel || ''))
+          : 'Deny request';
+      }
+      if (alarmRaiseConfirmLead) {
+        alarmRaiseConfirmLead.textContent = error.message || 'Unable to review this request.';
+        alarmRaiseConfirmLead.style.color = '#fecaca';
+      }
+    }
+  }
+
   incidentStatus.addEventListener('change', handleIncidentStatusAutoFinish);
+  if (fireOutToggleBtn) {
+    fireOutToggleBtn.addEventListener('click', function () {
+      if (fireOutCheckbox.checked || fireOutCheckbox.disabled) {
+        return;
+      }
+      openFireOutConfirmModal();
+    });
+  }
   incidentFinishedAtInput.addEventListener('input', function () {
     incidentFinishedAtInput.value = '';
     resetIncidentFinishedAutoTracking();
@@ -2398,7 +3397,8 @@
     
     barangay.value = '';
     alarmLevel.value = '1';
-    incidentStatus.value = 'under_control';
+    incidentStatus.value = 'ongoing';
+    fireOutCheckbox.checked = false;
     streetName.value = '';
     equipmentName.value = '';
     equipmentCategory.value = 'vehicle';
@@ -2437,6 +3437,7 @@
     incidentStage.value = 'call_intake';
     alarmLevel.value = '1';
     incidentStatus.value = '';
+    fireOutCheckbox.checked = false;
     incidentFinishedAtInput.value = '';
     syncReportTypeDefaults();
     openModal('create');
@@ -2450,7 +3451,7 @@
     reportType.value = item.type || 'incident_report';
     incidentStage.value = item.stage || 'call_intake';
     alarmLevel.value = String(item.alarmLevel || '1');
-    incidentStatus.value = item.incidentStatus || '';
+    applyIncidentStatusToForm(item.incidentStatus || '');
     reportTitle.value = item.title || '';
     callerNameInput.value = item.callerName || '';
     barangay.value = item.barangay || '';
@@ -2600,6 +3601,21 @@
   });
 
   document.addEventListener('keydown', function (event) {
+    if (event.key === 'Escape' && alarmRaiseConfirmModal && !alarmRaiseConfirmModal.hidden) {
+      closeAlarmRaiseConfirmModalDialog();
+      return;
+    }
+
+    if (event.key === 'Escape' && fireOutConfirmModal && !fireOutConfirmModal.hidden) {
+      closeFireOutConfirmModalDialog();
+      return;
+    }
+
+    if (event.key === 'Escape' && releaseConfirmModal && !releaseConfirmModal.hidden) {
+      closeReleaseConfirmModalDialog();
+      return;
+    }
+
     if (event.key === 'Escape' && !reportTypeModal.hidden) {
       closeTypeChooserModal();
       return;
@@ -2609,6 +3625,92 @@
       closeModal();
     }
   });
+
+  if (releaseConfirmModal) {
+    releaseConfirmModal.addEventListener('click', function (event) {
+      const target = event.target;
+      if (!(target instanceof Element)) {
+        return;
+      }
+      if (target.getAttribute('data-close-release-modal') === 'true') {
+        closeReleaseConfirmModalDialog();
+      }
+    });
+  }
+
+  if (fireOutConfirmModal) {
+    fireOutConfirmModal.addEventListener('click', function (event) {
+      const target = event.target;
+      if (!(target instanceof Element)) {
+        return;
+      }
+      if (target.getAttribute('data-close-fireout-modal') === 'true') {
+        closeFireOutConfirmModalDialog();
+      }
+    });
+  }
+
+  if (alarmRaiseConfirmModal) {
+    alarmRaiseConfirmModal.addEventListener('click', function (event) {
+      const target = event.target;
+      if (!(target instanceof Element)) {
+        return;
+      }
+      if (target.getAttribute('data-close-alarm-raise-modal') === 'true') {
+        closeAlarmRaiseConfirmModalDialog();
+      }
+    });
+  }
+
+  if (closeAlarmRaiseConfirmModal) {
+    closeAlarmRaiseConfirmModal.addEventListener('click', function (event) {
+      event.preventDefault();
+      closeAlarmRaiseConfirmModalDialog();
+    });
+  }
+  if (cancelAlarmRaiseConfirmBtn) {
+    cancelAlarmRaiseConfirmBtn.addEventListener('click', function (event) {
+      event.preventDefault();
+      closeAlarmRaiseConfirmModalDialog();
+    });
+  }
+  if (confirmAlarmRaiseBtn) {
+    confirmAlarmRaiseBtn.addEventListener('click', function (event) {
+      event.preventDefault();
+      confirmAlarmRaiseReview();
+    });
+  }
+
+  if (closeFireOutConfirmModal) {
+    closeFireOutConfirmModal.addEventListener('click', function (event) {
+      event.preventDefault();
+      closeFireOutConfirmModalDialog();
+    });
+  }
+  if (cancelFireOutConfirmBtn) {
+    cancelFireOutConfirmBtn.addEventListener('click', function (event) {
+      event.preventDefault();
+      closeFireOutConfirmModalDialog();
+    });
+  }
+  if (confirmFireOutBtn) {
+    confirmFireOutBtn.addEventListener('click', function (event) {
+      event.preventDefault();
+      confirmFireOutMark();
+    });
+  }
+
+  if (closeReleaseConfirmModal) {
+    closeReleaseConfirmModal.addEventListener('click', closeReleaseConfirmModalDialog);
+  }
+  if (cancelReleaseConfirmBtn) {
+    cancelReleaseConfirmBtn.addEventListener('click', closeReleaseConfirmModalDialog);
+  }
+  if (confirmReleaseBtn) {
+    confirmReleaseBtn.addEventListener('click', function () {
+      confirmReleaseIncident().catch(function () {});
+    });
+  }
 
   form.addEventListener('submit', async function (event) {
     event.preventDefault();
@@ -2676,10 +3778,12 @@
       return;
     }
 
-    if (isProgression && (!alarmLevel.value || !incidentStatus.value)) {
+    if (isProgression && (!alarmLevel.value || (!fireOutCheckbox.checked && !incidentStatus.value))) {
       formMessage.textContent = 'Please set the alarm level and incident status for this update.';
       return;
     }
+
+    const effectiveIncidentStatus = getEffectiveIncidentStatus();
 
     const payload = {
       action: reportId.value ? 'update' : 'create',
@@ -2688,7 +3792,7 @@
       reportType: reportType.value,
       incidentStage: incidentStage.value,
       alarmLevel: alarmLevel.value,
-      incidentStatus: incidentStage.value === 'call_intake' ? '' : incidentStatus.value,
+      incidentStatus: incidentStage.value === 'call_intake' ? '' : effectiveIncidentStatus,
       title: title,
       callerName: payloadCallerName,
       barangay: payloadBarangay,
@@ -2732,7 +3836,7 @@
       } else if (updateMode === 'progression') {
         let progressMessage = 'Incident progress updated successfully.';
         const cloudSync = result.cloudSync || null;
-        if (cloudSync && cloudSync.enabled !== false && String(incidentStatus.value || '') === 'fire_out') {
+        if (cloudSync && cloudSync.enabled !== false && String(effectiveIncidentStatus || '') === 'fire_out') {
           if ((cloudSync.synced || 0) > 0) {
             progressMessage += ' Synced to cloud.';
           } else if ((cloudSync.failed || 0) > 0) {
@@ -2748,7 +3852,7 @@
         saveSubmissionNotification(result.report);
       }
       await loadMyReports();
-      const closeDelay = updateMode === 'progression' && String(incidentStatus.value || '') === 'fire_out' ? 1400 : 250;
+      const closeDelay = updateMode === 'progression' && String(effectiveIncidentStatus || '') === 'fire_out' ? 1400 : 250;
       setTimeout(function () {
         closeModal();
         resetFormForCreate();
@@ -2768,13 +3872,43 @@
     const action = target.getAttribute('data-action');
     const id = target.getAttribute('data-id') || '';
     console.log('Click detected - action:', action, 'id:', id);
-    if (action !== 'edit' && action !== 'progress' && action !== 'download') {
+    if (action !== 'edit' && action !== 'progress' && action !== 'download' && action !== 'claim' && action !== 'release' && action !== 'approve-alarm-raise' && action !== 'deny-alarm-raise') {
       console.log('Action not recognized, ignoring');
+      return;
+    }
+
+    if (action === 'approve-alarm-raise' || action === 'deny-alarm-raise') {
+      if (!isCentralStation || !canUpdateIncidentReports) {
+        return;
+      }
+      openAlarmRaiseConfirmModal(id, action === 'approve-alarm-raise' ? 'approve' : 'deny');
       return;
     }
 
     const item = reportsById.get(String(id));
     if (!item) {
+      return;
+    }
+
+    if (action === 'claim' || action === 'release') {
+      if (!canUpdateIncidentReports) {
+        return;
+      }
+      if (action === 'claim' && !canClaimIncidentReport(item)) {
+        window.alert('This incident cannot be claimed right now.');
+        return;
+      }
+      if (action === 'release' && !canReleaseIncidentReport(item)) {
+        window.alert('Only the ComL handling this incident can release it.');
+        return;
+      }
+      if (action === 'release') {
+        openReleaseConfirmModal(item);
+        return;
+      }
+      claimOrReleaseIncident(item.id, action).catch(function (error) {
+        window.alert(error.message || 'Unable to update claim status.');
+      });
       return;
     }
 
@@ -2796,7 +3930,13 @@
         return;
       }
       if (!canProgressIncidentReport(item)) {
-        window.alert('Only assigned responding stations can update incident progress on their station report.');
+        if (item && item.isClaimedByOther) {
+          window.alert('This incident is already being handled by ' + (item.handlingUsername || 'another ComL') + '.');
+        } else if (item && item.isUnclaimed) {
+          window.alert('Claim this incident first before updating progress.');
+        } else {
+          window.alert('Only assigned responding stations can update incident progress on their station report.');
+        }
         return;
       }
       populateFormForEdit(item);
@@ -2820,7 +3960,40 @@
     }
   });
 
+  if (reportsTicketTabs) {
+    reportsTicketTabs.addEventListener('click', function (event) {
+      const button = event.target.closest('[data-ticket-tab]');
+      if (!button || !reportsTicketTabs.contains(button)) {
+        return;
+      }
+      switchTicketTab(button.getAttribute('data-ticket-tab') || 'queue');
+    });
+  }
+
+  if (reportsDateFilters) {
+    reportsDateFilters.addEventListener('click', function (event) {
+      const button = event.target.closest('[data-date-filter]');
+      if (!button || !reportsDateFilters.contains(button)) {
+        return;
+      }
+      setDateFilter(button.getAttribute('data-date-filter') || 'all');
+    });
+  }
+
+  if (reportsDateFilterInput) {
+    reportsDateFilterInput.addEventListener('change', function () {
+      const value = String(reportsDateFilterInput.value || '').trim();
+      if (value === '') {
+        setDateFilter('all');
+        return;
+      }
+      setDateFilter('specific', value);
+    });
+  }
+
   (async function initReportsPage() {
+    syncTicketTabUi();
+    syncDateFilterUi();
     await loadMyReports();
 
     if (openProgressFromQuery()) {

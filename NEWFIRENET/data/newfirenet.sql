@@ -59,6 +59,23 @@ CREATE TABLE IF NOT EXISTS users (
 	UNIQUE KEY unique_email_station (email, station_id)
 );
 
+CREATE TABLE IF NOT EXISTS password_reset_otps (
+	reset_id INT PRIMARY KEY AUTO_INCREMENT,
+	user_id INT NOT NULL,
+	email VARCHAR(100) NOT NULL,
+	otp_hash VARCHAR(255) NOT NULL,
+	reset_token_hash VARCHAR(255) NULL,
+	attempts INT NOT NULL DEFAULT 0,
+	expires_at DATETIME NOT NULL,
+	verified_at DATETIME NULL,
+	used_at DATETIME NULL,
+	created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+	INDEX idx_password_reset_email (email),
+	INDEX idx_password_reset_user (user_id),
+	INDEX idx_password_reset_expires (expires_at),
+	CONSTRAINT fk_password_reset_user FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
+);
+
 CREATE TABLE IF NOT EXISTS user_profile_photos (
 	user_profile_photo_id INT PRIMARY KEY AUTO_INCREMENT,
 	user_id INT NOT NULL,
@@ -265,7 +282,7 @@ CREATE TABLE IF NOT EXISTS incident_reports (
 	assignment_method ENUM('aor', 'nearest', 'manual', 'pending') NULL,
 	assignment_distance_km DECIMAL(8,3) NULL,
 	alarm_level TINYINT UNSIGNED,
-	incident_status ENUM('under_control', 'fire_out') DEFAULT NULL,
+	incident_status ENUM('ongoing', 'under_control', 'fire_out') DEFAULT NULL,
 	incident_started_at DATETIME,
 	incident_finished_at DATETIME,
 	dispatched_station_id INT,
@@ -321,7 +338,7 @@ CREATE TABLE IF NOT EXISTS incident_report_updates (
 	incident_report_update_id INT PRIMARY KEY AUTO_INCREMENT,
 	incident_report_id INT NOT NULL,
 	alarm_level TINYINT UNSIGNED NOT NULL,
-	incident_status ENUM('under_control', 'fire_out') NULL,
+	incident_status ENUM('ongoing', 'under_control', 'fire_out') NULL,
 	recorded_by_user_id INT,
 	recorded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 	notes LONGTEXT,
@@ -335,8 +352,8 @@ CREATE TABLE IF NOT EXISTS incident_report_change_logs (
 	incident_report_id INT NOT NULL,
 	from_alarm_level TINYINT UNSIGNED,
 	to_alarm_level TINYINT UNSIGNED NOT NULL,
-	from_incident_status ENUM('under_control', 'fire_out') NULL,
-	to_incident_status ENUM('under_control', 'fire_out') NULL,
+	from_incident_status ENUM('ongoing', 'under_control', 'fire_out') NULL,
+	to_incident_status ENUM('ongoing', 'under_control', 'fire_out') NULL,
 	changed_by_user_id INT,
 	changed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 	notes LONGTEXT,
@@ -738,7 +755,7 @@ SET @incident_status_exists := (
 
 SET @sql_add_incident_status := IF(
 	@incident_status_exists = 0,
-	"ALTER TABLE incident_reports ADD COLUMN incident_status ENUM('under_control', 'fire_out') NULL DEFAULT 'under_control' AFTER alarm_level",
+	"ALTER TABLE incident_reports ADD COLUMN incident_status ENUM('ongoing', 'under_control', 'fire_out') NULL DEFAULT NULL AFTER alarm_level",
 	'SELECT 1'
 );
 PREPARE stmt_add_incident_status FROM @sql_add_incident_status;
@@ -794,7 +811,7 @@ SET @sql_create_incident_updates := IF(
 		incident_report_update_id INT PRIMARY KEY AUTO_INCREMENT,
 		incident_report_id INT NOT NULL,
 		alarm_level TINYINT UNSIGNED NOT NULL,
-		incident_status ENUM(''under_control'', ''fire_out'') NULL,
+		incident_status ENUM(''ongoing'', ''under_control'', ''fire_out'') NULL,
 		recorded_by_user_id INT,
 		recorded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 		notes LONGTEXT,
@@ -822,8 +839,8 @@ SET @sql_create_incident_change_logs := IF(
 		incident_report_id INT NOT NULL,
 		from_alarm_level TINYINT UNSIGNED,
 		to_alarm_level TINYINT UNSIGNED NOT NULL,
-		from_incident_status ENUM(''under_control'', ''fire_out'') NULL,
-		to_incident_status ENUM(''under_control'', ''fire_out'') NULL,
+		from_incident_status ENUM(''ongoing'', ''under_control'', ''fire_out'') NULL,
+		to_incident_status ENUM(''ongoing'', ''under_control'', ''fire_out'') NULL,
 		changed_by_user_id INT,
 		changed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 		notes LONGTEXT,

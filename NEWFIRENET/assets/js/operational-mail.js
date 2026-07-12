@@ -19,6 +19,8 @@
   const searchInput = document.getElementById('searchInput');
   const stationFilterSelect = document.getElementById('stationFilterSelect');
   const sortSelect = document.getElementById('sortSelect');
+  const opsDateFilters = document.getElementById('opsDateFilters');
+  const opsDateFilterInput = document.getElementById('opsDateFilterInput');
   const composeForm = document.getElementById('composeForm');
   const threadActions = document.getElementById('threadActions');
   const threadRequestSummary = document.getElementById('threadRequestSummary');
@@ -417,6 +419,8 @@
     search: '',
     stationFilter: '',
     sort: 'latest',
+    dateFilter: 'all',
+    dateFilterValue: '',
     bootstrap: null,
     items: [],
     requestTracking: [],
@@ -846,22 +850,32 @@
   }
 
   function ticketEmptyMessage() {
+    const dateNote = state.dateFilter === 'today'
+      ? ' for today'
+      : (state.dateFilter === 'yesterday'
+        ? ' for yesterday'
+        : (state.dateFilter === 'specific' && state.dateFilterValue
+          ? (' for ' + state.dateFilterValue)
+          : ''));
+
     if (isCentralReviewer()) {
       if (state.ticketTab === 'claimed') {
-        return 'No requests are in progress right now.';
+        return 'No requests are in progress' + dateNote + '.';
       }
       if (state.ticketTab === 'completed') {
-        return 'No completed requests yet.';
+        return 'No completed requests' + dateNote + '.';
       }
-      return 'The queue is empty — no unclaimed requests.';
+      return dateNote
+        ? ('No unclaimed requests' + dateNote + '.')
+        : 'The queue is empty — no unclaimed requests.';
     }
     if (state.ticketTab === 'sent') {
-      return 'You have not submitted any file requests yet.';
+      return 'You have not submitted any file requests' + dateNote + '.';
     }
     if (state.ticketTab === 'drafts') {
-      return 'No draft requests.';
+      return 'No draft requests' + dateNote + '.';
     }
-    return 'No updates from central yet.';
+    return 'No updates from central' + dateNote + '.';
   }
 
   function syncTicketTabUi() {
@@ -972,18 +986,18 @@
     const om = getOperationalOrgmailMeta();
     const code = selected && selected.stationCode ? String(selected.stationCode) : String(om.stationCode || '');
     const folderLabel = state.composeCentralFulfillMode
-      ? (code !== '' ? ('firenet/reports/' + code) : 'firenet/reports')
+      ? 'firenet/reports'
       : (code !== '' ? ('firenet/orgmail/' + code) : String(om.stationFolder || 'your station folder'));
 
     if (composeSourceStationHint) {
       composeSourceStationHint.textContent = selected && selected.stationName
-        ? 'Central ComL will retrieve files from ' + selected.stationName + ' (' + folderLabel + ').'
+        ? 'Central ComL will retrieve files from ' + selected.stationName + ' under firenet/reports/' + (code || '…') + '.'
         : 'Choose which station\'s files central ComL should pull from.';
     }
 
     if (composeOrgmailHint) {
       if (state.composeCentralFulfillMode) {
-        composeOrgmailHint.textContent = 'Browse files in ' + folderLabel + ' or upload directly to ' + storageProviderLabel() + ' before sending them to the requester.';
+        composeOrgmailHint.textContent = 'Browse any station folder under ' + folderLabel + ' (LPS, MCFS, TS, …) or upload directly to ' + storageProviderLabel() + ' before sending them to the requester.';
       } else if (state.composeReplyMode) {
         composeOrgmailHint.textContent = 'Attach a file from ' + folderLabel + ' or upload to ' + storageProviderLabel() + ', then return it to the origin ComL.';
       } else if (om.uploadsEnabled) {
@@ -1038,6 +1052,83 @@
     return isNaN(date.getTime()) ? String(value) : date.toLocaleString();
   }
 
+  function toLocalDateKey(value) {
+    const date = value instanceof Date ? value : new Date(value);
+    if (isNaN(date.getTime())) {
+      return '';
+    }
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return year + '-' + month + '-' + day;
+  }
+
+  function shiftLocalDateKey(days) {
+    const date = new Date();
+    date.setHours(12, 0, 0, 0);
+    date.setDate(date.getDate() + Number(days || 0));
+    return toLocalDateKey(date);
+  }
+
+  function itemDateKey(item) {
+    return toLocalDateKey(item.sentAt || item.createdAt || item.updatedAt || '');
+  }
+
+  function matchesDateFilter(item) {
+    if (state.dateFilter === 'all') {
+      return true;
+    }
+    const itemKey = itemDateKey(item);
+    if (!itemKey) {
+      return false;
+    }
+    if (state.dateFilter === 'today') {
+      return itemKey === shiftLocalDateKey(0);
+    }
+    if (state.dateFilter === 'yesterday') {
+      return itemKey === shiftLocalDateKey(-1);
+    }
+    if (state.dateFilter === 'specific') {
+      return state.dateFilterValue !== '' && itemKey === state.dateFilterValue;
+    }
+    return true;
+  }
+
+  function syncDateFilterUi() {
+    if (!opsDateFilters) {
+      return;
+    }
+    Array.from(opsDateFilters.querySelectorAll('[data-date-filter]')).forEach(function (button) {
+      const value = String(button.getAttribute('data-date-filter') || 'all');
+      const isActive = state.dateFilter === value;
+      button.classList.toggle('is-active', isActive);
+      button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+    });
+    if (opsDateFilterInput) {
+      opsDateFilterInput.value = state.dateFilter === 'specific' ? (state.dateFilterValue || '') : '';
+    }
+  }
+
+  function setDateFilter(mode, specificDate) {
+    const nextMode = String(mode || 'all');
+    if (nextMode === 'specific') {
+      const value = String(specificDate || '').trim();
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+        return;
+      }
+      state.dateFilter = 'specific';
+      state.dateFilterValue = value;
+    } else if (nextMode === 'today' || nextMode === 'yesterday') {
+      state.dateFilter = nextMode;
+      state.dateFilterValue = '';
+    } else {
+      state.dateFilter = 'all';
+      state.dateFilterValue = '';
+    }
+    syncDateFilterUi();
+    renderList();
+  }
+
   function visibleItems() {
     const reviewer = isCentralReviewer();
     const items = allTicketItems();
@@ -1049,7 +1140,7 @@
 
       const matchesStation = state.stationFilter === '' || String(item.senderStationId || item.originStationId || item.targetStationId || '') === state.stationFilter;
       const matchesSearch = state.search === '' || String(item.subject || '').toLowerCase().includes(state.search.toLowerCase()) || String(item.snippet || item.body || '').toLowerCase().includes(state.search.toLowerCase()) || String(item.senderUsername || item.requestUsername || '').toLowerCase().includes(state.search.toLowerCase());
-      return matchesStation && matchesSearch;
+      return matchesStation && matchesSearch && matchesDateFilter(item);
     }).sort(function (a, b) {
       if (state.sort === 'oldest') {
         return new Date(a.sentAt || a.createdAt || a.updatedAt).getTime() - new Date(b.sentAt || b.createdAt || b.updatedAt).getTime();
@@ -2266,7 +2357,7 @@
   function renderFilePickerList() {
     if (state.filePickerFiles.length === 0) {
       const emptyLabel = state.composeCentralFulfillMode
-        ? 'No files were found in the MCFS reports folder yet.'
+        ? 'No files were found under firenet/reports yet.'
         : 'No files or reports found in your station.';
       filePickerList.innerHTML = '<div class="file-picker-empty"><p>' + escapeHtml(emptyLabel) + '</p></div>';
       return;
@@ -2883,6 +2974,27 @@
     renderList();
   });
 
+  if (opsDateFilters) {
+    opsDateFilters.addEventListener('click', function (event) {
+      const button = event.target.closest('[data-date-filter]');
+      if (!button || !opsDateFilters.contains(button)) {
+        return;
+      }
+      setDateFilter(button.getAttribute('data-date-filter') || 'all');
+    });
+  }
+
+  if (opsDateFilterInput) {
+    opsDateFilterInput.addEventListener('change', function () {
+      const value = String(opsDateFilterInput.value || '').trim();
+      if (value === '') {
+        setDateFilter('all');
+        return;
+      }
+      setDateFilter('specific', value);
+    });
+  }
+
   composeModal.querySelectorAll('.mail-compose-tool').forEach(function (button) {
     button.addEventListener('mousedown', function (event) {
       event.preventDefault();
@@ -3130,10 +3242,36 @@
       threadModal.hidden = true;
     }
     syncMailModalScrollLock();
+    syncDateFilterUi();
     try {
       setMessage('Loading operational mail...', false);
       await fetchBootstrap();
       await fetchList();
+      const threadIdFromUrl = Number(new URLSearchParams(window.location.search).get('thread') || 0);
+      if (threadIdFromUrl > 0) {
+        try {
+          if (isCentralReviewer()) {
+            const tracked = (Array.isArray(state.requestTracking) ? state.requestTracking : []).find(function (item) {
+              return Number(item.threadId || 0) === threadIdFromUrl;
+            });
+            if (tracked) {
+              const tab = ticketTabCategory(tracked);
+              if (tab && tab !== state.ticketTab) {
+                state.ticketTab = tab;
+                syncTicketTabUi();
+                renderList();
+              }
+            } else if (state.ticketTab !== 'completed') {
+              state.ticketTab = 'completed';
+              syncTicketTabUi();
+              renderList();
+            }
+          }
+          await openThread(threadIdFromUrl);
+        } catch (threadError) {
+          setMessage((threadError && threadError.message) || 'Unable to open the linked request.', true);
+        }
+      }
       setMessage('Ready.', false);
     } catch (error) {
       setMessage(error.message, true);

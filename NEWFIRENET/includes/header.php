@@ -224,8 +224,13 @@ if ($sessionUserId > 0) {
             <div class="profile-menu">
               <button type="button" class="quick-action-btn profile-btn" id="profileMenuToggle" aria-expanded="false" aria-controls="profileMenuPanel" title="Account menu" aria-label="Account menu">
                 <span class="quick-icon header-profile-icon" aria-hidden="true">
-                  <img id="headerProfilePhoto" class="header-profile-photo" src="<?php echo htmlspecialchars($headerProfilePhotoUrl); ?>" alt=""<?php echo $headerProfilePhotoUrl === '' ? ' hidden' : ''; ?>>
-                  <span id="headerProfileInitials" class="header-profile-initials" aria-hidden="true"<?php echo $headerProfilePhotoUrl !== '' ? ' hidden' : ''; ?>><?php echo htmlspecialchars($headerProfileInitials); ?></span>
+                  <?php if ($headerProfilePhotoUrl !== ''): ?>
+                    <img id="headerProfilePhoto" class="header-profile-photo" src="<?php echo htmlspecialchars($headerProfilePhotoUrl); ?>" alt="">
+                    <span id="headerProfileInitials" class="header-profile-initials" hidden><?php echo htmlspecialchars($headerProfileInitials); ?></span>
+                  <?php else: ?>
+                    <img id="headerProfilePhoto" class="header-profile-photo" alt="" hidden>
+                    <span id="headerProfileInitials" class="header-profile-initials"><?php echo htmlspecialchars($headerProfileInitials); ?></span>
+                  <?php endif; ?>
                 </span>
                 <span class="online-dot" aria-hidden="true"></span>
               </button>

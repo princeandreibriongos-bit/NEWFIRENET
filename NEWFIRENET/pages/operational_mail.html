@@ -67,16 +67,30 @@
             <p class="mail-filter-note" id="mailActiveFilter">Unclaimed requests awaiting a ComL handler</p>
           </div>
 
-          <div class="ops-ticket-tabs" id="opsTicketTabsCentral" role="tablist" aria-label="Ticket views">
-            <button type="button" class="ops-ticket-tab is-active" data-ticket-tab="queue" role="tab" aria-selected="true">Queue</button>
-            <button type="button" class="ops-ticket-tab" data-ticket-tab="claimed" role="tab" aria-selected="false">In progress</button>
-            <button type="button" class="ops-ticket-tab" data-ticket-tab="completed" role="tab" aria-selected="false">Completed</button>
-          </div>
+          <div class="ops-ticket-toolbar">
+            <div class="ops-ticket-tabs" id="opsTicketTabsCentral" role="tablist" aria-label="Ticket views">
+              <button type="button" class="ops-ticket-tab is-active" data-ticket-tab="queue" role="tab" aria-selected="true">Queue</button>
+              <button type="button" class="ops-ticket-tab" data-ticket-tab="claimed" role="tab" aria-selected="false">In progress</button>
+              <button type="button" class="ops-ticket-tab" data-ticket-tab="completed" role="tab" aria-selected="false">Completed</button>
+            </div>
 
-          <div class="ops-ticket-tabs" id="opsTicketTabsRequester" role="tablist" aria-label="Request views" hidden>
-            <button type="button" class="ops-ticket-tab is-active" data-ticket-tab="updates" role="tab" aria-selected="true">Updates</button>
-            <button type="button" class="ops-ticket-tab" data-ticket-tab="sent" role="tab" aria-selected="false">My requests</button>
-            <button type="button" class="ops-ticket-tab" data-ticket-tab="drafts" role="tab" aria-selected="false">Drafts</button>
+            <div class="ops-ticket-tabs" id="opsTicketTabsRequester" role="tablist" aria-label="Request views" hidden>
+              <button type="button" class="ops-ticket-tab is-active" data-ticket-tab="updates" role="tab" aria-selected="true">Updates</button>
+              <button type="button" class="ops-ticket-tab" data-ticket-tab="sent" role="tab" aria-selected="false">My requests</button>
+              <button type="button" class="ops-ticket-tab" data-ticket-tab="drafts" role="tab" aria-selected="false">Drafts</button>
+            </div>
+
+            <div class="ops-date-filters" id="opsDateFilters" aria-label="Date filters">
+              <div class="ops-date-filter-toggles" role="group" aria-label="Quick date filters">
+                <button type="button" class="ops-date-filter-btn is-active" data-date-filter="all">All</button>
+                <button type="button" class="ops-date-filter-btn" data-date-filter="today">Today</button>
+                <button type="button" class="ops-date-filter-btn" data-date-filter="yesterday">Yesterday</button>
+              </div>
+              <label class="ops-date-filter-pick">
+                <span class="visually-hidden">Pick a date</span>
+                <input type="date" id="opsDateFilterInput" title="Filter by specific date">
+              </label>
+            </div>
           </div>
 
           <div id="mailList" class="mail-list ops-ticket-list"></div>

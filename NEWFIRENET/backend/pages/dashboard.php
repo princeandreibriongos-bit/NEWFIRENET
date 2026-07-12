@@ -27,6 +27,8 @@ $ongoingIncidentTitle = 'No active incidents.';
 $ongoingIncidentMeta = 'Updates will appear here when incidents are active.';
 $completedIncidentCount = 0;
 $totalIncidentCount = 0;
+$isCentralStation = false;
+$pendingAlarmRaiseCount = 0;
 $stationStatuses = [];
 $dispatchLoadSummary = [
     'busiestStationName' => 'No active dispatch load',
@@ -40,9 +42,34 @@ $dispatchLoadSummary = [
 try {
     $pdo = firenet_get_pdo();
 
-    $stationStmt = $pdo->prepare('SELECT station_name FROM stations WHERE station_id = ? LIMIT 1');
+    $stationStmt = $pdo->prepare('SELECT station_name, station_code FROM stations WHERE station_id = ? LIMIT 1');
     $stationStmt->execute([$stationId]);
-    $stationName = (string) ($stationStmt->fetchColumn() ?: ('Station ' . $stationId));
+    $stationRow = $stationStmt->fetch(PDO::FETCH_ASSOC) ?: [];
+    $stationName = (string) ($stationRow['station_name'] ?? ('Station ' . $stationId));
+    $isCentralStation = strtolower(trim((string) ($stationRow['station_code'] ?? ''))) === 'mcfs';
+
+    if ($isCentralStation) {
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS incident_alarm_raise_requests (
+                request_id INT AUTO_INCREMENT PRIMARY KEY,
+                incident_case_id INT NOT NULL,
+                from_incident_report_id INT NOT NULL,
+                from_report_id INT NOT NULL,
+                from_station_id INT NOT NULL,
+                requested_by_user_id INT NOT NULL,
+                from_alarm_level TINYINT NOT NULL,
+                requested_alarm_level TINYINT NOT NULL,
+                status ENUM('pending','approved','denied','cancelled') NOT NULL DEFAULT 'pending',
+                notes VARCHAR(500) NULL,
+                reviewed_by_user_id INT NULL,
+                reviewed_at DATETIME NULL,
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_alarm_raise_status_created (status, created_at),
+                INDEX idx_alarm_raise_case_status (incident_case_id, status)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        ");
+        $pendingAlarmRaiseCount = (int) ($pdo->query("SELECT COUNT(*) FROM incident_alarm_raise_requests WHERE status = 'pending'")->fetchColumn() ?: 0);
+    }
 
     $countStmt = $pdo->prepare("
         SELECT COUNT(DISTINCT i.incident_report_id) AS open_count
@@ -97,7 +124,11 @@ try {
     if ($latest) {
         $ongoingIncidentTitle = 'Alarm ' . (int) ($latest['alarm_level'] ?? 1) . ' - ' . (string) ($latest['incident_title'] ?? 'Unspecified location');
         $status = (string) ($latest['incident_status'] ?? 'newly_reported');
-        $statusLabel = $status === 'under_control' ? 'Under Control' : ($status === 'fire_out' ? 'Fire Out' : 'Newly Reported');
+        $statusLabel = $status === 'ongoing'
+            ? 'Ongoing'
+            : ($status === 'under_control'
+                ? 'Under Control'
+                : ($status === 'fire_out' ? 'Fire Out' : 'Newly Reported'));
         $ongoingIncidentMeta = 'Status: ' . $statusLabel . ' | Last update: ' . (string) ($latest['incident_time'] ?? '-');
     }
 
@@ -282,6 +313,9 @@ $dashboardContext = [
     'roleSummary' => $roleSummary,
     'stationId' => $stationId,
     'stationName' => $stationName,
+    'isCentralStation' => $isCentralStation,
+    'pendingAlarmRaiseCount' => $pendingAlarmRaiseCount,
+    'alarmRaiseRequestsUrl' => '/firenet/NEWFIRENET/backend/pages/reports.php?tab=alarm_requests',
     'canCreateIncidentReports' => $canCreateIncidentReports,
     'reportIncidentUrl' => $reportIncidentUrl,
     'openIncidentCount' => $openIncidentCount,

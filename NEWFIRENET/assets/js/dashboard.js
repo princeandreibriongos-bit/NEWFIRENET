@@ -729,6 +729,36 @@
       .join('');
   }
 
+  function renderAlarmRaiseBanner() {
+    const banner = document.getElementById('dashAlarmRaiseBanner');
+    const title = document.getElementById('dashAlarmRaiseTitle');
+    const meta = document.getElementById('dashAlarmRaiseMeta');
+    const btn = document.getElementById('dashAlarmRaiseBtn');
+    if (!banner) {
+      return;
+    }
+
+    const isCentral = Boolean(context.isCentralStation);
+    const count = Math.max(0, Number(context.pendingAlarmRaiseCount || 0));
+    if (!isCentral || count < 1) {
+      banner.hidden = true;
+      return;
+    }
+
+    banner.hidden = false;
+    if (title) {
+      title.textContent = count === 1
+        ? '1 urgent fire alarm raise request needs MCFS review'
+        : (count + ' urgent fire alarm raise requests need MCFS review');
+    }
+    if (meta) {
+      meta.textContent = 'Responding stations asked to escalate the live alarm. Approve only after confirming the field situation.';
+    }
+    if (btn) {
+      btn.href = String(context.alarmRaiseRequestsUrl || (REPORTS_URL + '?tab=alarm_requests'));
+    }
+  }
+
   function renderOngoingIncident() {
     if (elements.ongoingIncidentTitle && context.ongoingIncidentTitle) {
       elements.ongoingIncidentTitle.textContent = String(context.ongoingIncidentTitle);
@@ -737,6 +767,7 @@
       elements.ongoingIncidentMeta.textContent = String(context.ongoingIncidentMeta);
     }
     const dot = document.querySelector('.dash-activity-dot');
+    renderAlarmRaiseBanner();
     if (dot) {
       const open = Number(context.openIncidentCount || 0) > 0;
       dot.style.background = open ? '#dc2626' : '#16a34a';

@@ -35,6 +35,9 @@ function firenet_report_pdf_format_status(?string $value): string
     if ($value === 'under_control') {
         return 'Under Control';
     }
+    if ($value === 'ongoing') {
+        return 'Ongoing';
+    }
     if ($value === 'newly_reported') {
         return 'Newly Reported';
     }

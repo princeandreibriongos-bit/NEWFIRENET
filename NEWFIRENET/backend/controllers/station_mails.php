@@ -540,6 +540,17 @@ function firenet_mail_reports_url_matches_station_r2(string $url, string $statio
     return stripos($key, $prefix . '/') === 0 || strcasecmp($key, $prefix) === 0;
 }
 
+function firenet_mail_reports_url_matches_reports_tree_r2(string $url): bool
+{
+    $key = firenet_mail_orgmail_extract_r2_key($url);
+    if ($key === '') {
+        return false;
+    }
+
+    $root = firenet_r2_base_prefix() . '/reports';
+    return stripos($key, $root . '/') === 0 || strcasecmp($key, $root) === 0;
+}
+
 function firenet_mail_orgmail_upload_for_station(PDO $pdo, int $stationId, string $tmpPath, string $mime, string $originalName): string
 {
     if (firenet_r2_enabled()) {
@@ -631,6 +642,21 @@ function firenet_mail_reports_require_url_for_station(string $url, string $stati
             'Fulfillment attachments must use a file inside this station\'s reports folder ('
             . firenet_r2_reports_prefix($stationCode)
             . ').',
+            422
+        );
+    }
+}
+
+function firenet_mail_reports_require_url_for_central_fulfill(string $url): void
+{
+    if (!firenet_r2_enabled()) {
+        firenet_mail_fail('Report-browsing attachments require R2 storage to be enabled.', 503);
+    }
+
+    // Central ComL retrieves completed reports from any station folder under firenet/reports/.
+    if (!firenet_mail_reports_url_matches_reports_tree_r2($url)) {
+        firenet_mail_fail(
+            'Fulfillment attachments must use a file inside ' . firenet_r2_base_prefix() . '/reports (any station folder).',
             422
         );
     }
@@ -1353,9 +1379,9 @@ function firenet_mail_attachment_rows(PDO $pdo, int $mailId): array
 
 function firenet_mail_alerts(PDO $pdo, int $userId, int $stationId): array
 {
-    $mailPageUrl = firenet_r2_is_central_station($pdo, $stationId)
-        ? '/firenet/NEWFIRENET/backend/pages/operational_mail.php'
-        : '/firenet/NEWFIRENET/backend/pages/general_mail.php';
+    $isCentral = firenet_r2_is_central_station($pdo, $stationId);
+    $generalMailPageUrl = '/firenet/NEWFIRENET/backend/pages/general_mail.php';
+    $operationalMailPageUrl = '/firenet/NEWFIRENET/backend/pages/operational_mail.php';
 
     $stmt = $pdo->prepare(<<<'SQL'
 SELECT
@@ -1371,6 +1397,7 @@ SELECT
     r.recipient_id,
     r.read_at,
     rr.status AS route_status,
+    rr.route_id,
     (
         SELECT COUNT(*)
         FROM station_mail_attachments a
@@ -1392,13 +1419,15 @@ LIMIT 10
 SQL);
     $stmt->execute([$userId, $stationId]);
 
-    return array_map(static function (array $row) use ($mailPageUrl): array {
+    return array_map(static function (array $row) use ($isCentral, $generalMailPageUrl, $operationalMailPageUrl): array {
         $subject = trim((string) ($row['subject'] ?? ''));
         $senderStation = trim((string) ($row['sender_station_name'] ?? 'MCFS'));
         $attachmentCount = (int) ($row['attachment_count'] ?? 0);
         $bodyText = trim(strip_tags((string) ($row['body'] ?? '')));
         $bodyLower = strtolower($bodyText);
         $routeStatus = strtolower(trim((string) ($row['route_status'] ?? '')));
+        $routeId = (int) ($row['route_id'] ?? 0);
+        $threadId = (int) ($row['thread_id'] ?? 0);
         if ($routeStatus === '' && str_contains($bodyLower, 'rejected the request')) {
             $routeStatus = 'rejected';
         }
@@ -1412,11 +1441,14 @@ SQL);
             $title = $senderStation . ': ' . $title;
         }
 
+        // Operational request threads open in operational mail for central; general mail for stations.
+        $mailPageUrl = ($routeId > 0 && $isCentral) ? $operationalMailPageUrl : $generalMailPageUrl;
+
         return [
             'id' => 'mail-message-' . (int) ($row['mail_id'] ?? 0) . '-' . (int) ($row['recipient_id'] ?? 0),
-            'label' => 'Operational Mail',
+            'label' => $routeId > 0 ? 'Operational Mail' : 'Mail',
             'title' => $title,
-            'url' => $mailPageUrl . '?thread=' . (int) ($row['thread_id'] ?? 0),
+            'url' => $mailPageUrl . '?thread=' . $threadId,
             'createdAt' => (string) (($row['sent_at'] ?? '') ?: ($row['created_at'] ?? '')),
             'read' => trim((string) ($row['read_at'] ?? '')) !== '',
             'message' => $bodyText,
@@ -3173,7 +3205,6 @@ try {
                 firenet_mail_fail('Unable to locate the requesting user for this route.', 422);
             }
 
-            $centralStationCode = firenet_mail_station_code($pdo, $currentStationId);
             $attachmentUrls = [];
             $rawUrls = $input['cloudinaryUrls'] ?? $input['cloudinaryUrls[]'] ?? [];
             if (is_array($rawUrls)) {
@@ -3196,7 +3227,7 @@ try {
             }
 
             foreach ($attachmentUrls as $attachmentUrl) {
-                firenet_mail_reports_require_url_for_station($attachmentUrl, $centralStationCode);
+                firenet_mail_reports_require_url_for_central_fulfill($attachmentUrl);
             }
 
             $note = firenet_mail_sanitize_html_body((string) ($input['note'] ?? ''));

@@ -258,6 +258,18 @@ function firenet_ensure_incident_report_columns(PDO $pdo): void {
         $pdo->exec('ALTER TABLE incident_reports ADD CONSTRAINT fk_incident_reports_updated_by FOREIGN KEY (updated_by_user_id) REFERENCES users(user_id) ON DELETE SET NULL');
     }
 
+    $handlingUserStmt = $pdo->query("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'incident_reports' AND COLUMN_NAME = 'handling_user_id'");
+    if ((int) $handlingUserStmt->fetchColumn() === 0) {
+        $pdo->exec('ALTER TABLE incident_reports ADD COLUMN handling_user_id INT NULL AFTER updated_by_user_id');
+        $pdo->exec('ALTER TABLE incident_reports ADD COLUMN handling_at DATETIME NULL AFTER handling_user_id');
+        $pdo->exec('CREATE INDEX idx_incident_reports_handling_user ON incident_reports (handling_user_id)');
+    }
+
+    $handlingFkStmt = $pdo->query("SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS WHERE CONSTRAINT_SCHEMA = DATABASE() AND TABLE_NAME = 'incident_reports' AND CONSTRAINT_NAME = 'fk_incident_reports_handling_user'");
+    if ((int) $handlingFkStmt->fetchColumn() === 0) {
+        $pdo->exec('ALTER TABLE incident_reports ADD CONSTRAINT fk_incident_reports_handling_user FOREIGN KEY (handling_user_id) REFERENCES users(user_id) ON DELETE SET NULL');
+    }
+
     $pdo->exec('
         UPDATE incident_reports i
         JOIN reports r ON r.report_id = i.report_id
@@ -270,6 +282,318 @@ function firenet_ensure_incident_report_columns(PDO $pdo): void {
         SET i.updated_by_user_id = COALESCE(i.received_by_user_id, r.created_by)
         WHERE i.updated_by_user_id IS NULL
     ');
+
+    firenet_ensure_incident_status_enum($pdo);
+}
+
+function firenet_ensure_incident_status_enum(PDO $pdo): void
+{
+    $targets = [
+        ['incident_reports', 'incident_status'],
+        ['incident_report_updates', 'incident_status'],
+        ['incident_report_change_logs', 'from_incident_status'],
+        ['incident_report_change_logs', 'to_incident_status'],
+    ];
+
+    foreach ($targets as [$table, $column]) {
+        $typeStmt = $pdo->prepare("
+            SELECT COLUMN_TYPE, IS_NULLABLE
+            FROM information_schema.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE()
+              AND TABLE_NAME = ?
+              AND COLUMN_NAME = ?
+            LIMIT 1
+        ");
+        $typeStmt->execute([$table, $column]);
+        $meta = $typeStmt->fetch(PDO::FETCH_ASSOC);
+        if (!$meta) {
+            continue;
+        }
+
+        $columnType = strtolower((string) ($meta['COLUMN_TYPE'] ?? ''));
+        if (strpos($columnType, "'ongoing'") !== false) {
+            continue;
+        }
+
+        $nullable = strtoupper((string) ($meta['IS_NULLABLE'] ?? 'YES')) === 'YES' ? 'NULL' : 'NOT NULL';
+        $defaultSql = ($table === 'incident_reports' && $column === 'incident_status')
+            ? ' DEFAULT NULL'
+            : '';
+
+        $pdo->exec(
+            'ALTER TABLE `' . $table . '` MODIFY COLUMN `' . $column . '` '
+            . "ENUM('ongoing','under_control','fire_out') "
+            . $nullable
+            . $defaultSql
+        );
+    }
+}
+
+function firenet_ensure_alarm_raise_requests_table(PDO $pdo): void
+{
+    $pdo->exec("
+        CREATE TABLE IF NOT EXISTS incident_alarm_raise_requests (
+            request_id INT AUTO_INCREMENT PRIMARY KEY,
+            incident_case_id INT NOT NULL,
+            from_incident_report_id INT NOT NULL,
+            from_report_id INT NOT NULL,
+            from_station_id INT NOT NULL,
+            requested_by_user_id INT NOT NULL,
+            from_alarm_level TINYINT NOT NULL,
+            requested_alarm_level TINYINT NOT NULL,
+            status ENUM('pending','approved','denied','cancelled') NOT NULL DEFAULT 'pending',
+            notes VARCHAR(500) NULL,
+            reviewed_by_user_id INT NULL,
+            reviewed_at DATETIME NULL,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            INDEX idx_alarm_raise_status_created (status, created_at),
+            INDEX idx_alarm_raise_case_status (incident_case_id, status),
+            CONSTRAINT fk_alarm_raise_from_station FOREIGN KEY (from_station_id) REFERENCES stations(station_id) ON DELETE CASCADE,
+            CONSTRAINT fk_alarm_raise_requested_by FOREIGN KEY (requested_by_user_id) REFERENCES users(user_id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    ");
+}
+
+function firenet_incident_case_report_id(PDO $pdo, int $incidentReportId, int $fallbackReportId = 0): int
+{
+    if ($incidentReportId < 1) {
+        return $fallbackReportId;
+    }
+
+    $stmt = $pdo->prepare('SELECT COALESCE(NULLIF(incident_case_id, 0), report_id) FROM incident_reports WHERE incident_report_id = ? LIMIT 1');
+    $stmt->execute([$incidentReportId]);
+    $caseId = (int) ($stmt->fetchColumn() ?: 0);
+
+    return $caseId > 0 ? $caseId : $fallbackReportId;
+}
+
+function firenet_case_max_alarm_level(PDO $pdo, int $caseReportId): int
+{
+    if ($caseReportId < 1) {
+        return 1;
+    }
+
+    $stmt = $pdo->prepare('
+        SELECT MAX(COALESCE(i.alarm_level, 1))
+        FROM incident_reports i
+        WHERE i.incident_case_id = ?
+           OR i.report_id = ?
+    ');
+    $stmt->execute([$caseReportId, $caseReportId]);
+
+    return max(1, (int) ($stmt->fetchColumn() ?: 1));
+}
+
+/**
+ * Raise live alarm for an entire incident case: sync all station copies, redistribute responders.
+ * New station copies start their timeline at the new alarm level.
+ *
+ * @return array{ok:bool,status?:int,message:string,caseAlarmLevel?:int,newStations?:int}
+ */
+function firenet_apply_case_alarm_raise(
+    PDO $pdo,
+    int $caseReportId,
+    int $newAlarmLevel,
+    int $actorUserId,
+    string $notes = 'MCFS raised fire alarm'
+): array {
+    firenet_ensure_incident_report_columns($pdo);
+    firenet_ensure_alarm_raise_requests_table($pdo);
+
+    if ($caseReportId < 1) {
+        return ['ok' => false, 'status' => 422, 'message' => 'Invalid incident case.'];
+    }
+    if ($newAlarmLevel < 1 || $newAlarmLevel > 5) {
+        return ['ok' => false, 'status' => 422, 'message' => 'Alarm level must be between 1 and 5.'];
+    }
+
+    $currentMax = firenet_case_max_alarm_level($pdo, $caseReportId);
+    if ($newAlarmLevel <= $currentMax) {
+        return [
+            'ok' => false,
+            'status' => 422,
+            'message' => 'Live fire alarm is already at level ' . $currentMax . ' for this incident.',
+            'caseAlarmLevel' => $currentMax
+        ];
+    }
+
+    $siblingsStmt = $pdo->prepare('
+        SELECT
+            i.incident_report_id,
+            i.report_id,
+            COALESCE(i.station_id, r.station_id) AS station_id,
+            i.alarm_level,
+            i.incident_status,
+            i.incident_report_stage_id,
+            i.latitude,
+            i.longitude,
+            i.caller_name,
+            i.incident_location,
+            i.incident_started_at,
+            i.incident_finished_at,
+            i.remarks,
+            i.geocode_status,
+            r.title,
+            r.description,
+            s.stage_code
+        FROM incident_reports i
+        JOIN reports r ON r.report_id = i.report_id
+        LEFT JOIN incident_report_stage s ON s.incident_report_stage_id = i.incident_report_stage_id
+        WHERE i.incident_case_id = ?
+           OR i.report_id = ?
+        ORDER BY i.incident_report_id ASC
+    ');
+    $siblingsStmt->execute([$caseReportId, $caseReportId]);
+    $siblings = $siblingsStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    if ($siblings === []) {
+        return ['ok' => false, 'status' => 404, 'message' => 'Incident case not found.'];
+    }
+
+    $anchor = null;
+    foreach ($siblings as $row) {
+        $lat = isset($row['latitude']) ? (float) $row['latitude'] : 0.0;
+        $lng = isset($row['longitude']) ? (float) $row['longitude'] : 0.0;
+        if ($lat !== 0.0 || $lng !== 0.0) {
+            $anchor = $row;
+            break;
+        }
+    }
+    if ($anchor === null) {
+        $anchor = $siblings[0];
+    }
+
+    $incidentLat = isset($anchor['latitude']) ? (float) $anchor['latitude'] : 0.0;
+    $incidentLng = isset($anchor['longitude']) ? (float) $anchor['longitude'] : 0.0;
+    if ($incidentLat === 0.0 && $incidentLng === 0.0) {
+        return ['ok' => false, 'status' => 422, 'message' => 'Cannot redistribute responders without incident coordinates.'];
+    }
+
+    $typeStmt = $pdo->prepare("SELECT report_type_id FROM report_type WHERE type_name = 'incident_report' LIMIT 1");
+    $typeStmt->execute();
+    $reportTypeId = (int) ($typeStmt->fetchColumn() ?: 0);
+    if ($reportTypeId < 1) {
+        return ['ok' => false, 'status' => 500, 'message' => 'Incident report type is not configured.'];
+    }
+
+    $assignments = firenet_find_station_assignments($pdo, $incidentLat, $incidentLng, $newAlarmLevel);
+    $primaryAssignment = $assignments[0] ?? null;
+    $existingBefore = 0;
+    foreach ($siblings as $row) {
+        $status = strtolower((string) ($row['incident_status'] ?? ''));
+        $stage = strtolower((string) ($row['stage_code'] ?? ''));
+        if ($stage === 'after_incident' || $status === 'fire_out') {
+            continue;
+        }
+        $existingBefore++;
+        $oldAlarm = max(1, (int) ($row['alarm_level'] ?? 1));
+        $incidentId = (int) $row['incident_report_id'];
+        $reportId = (int) $row['report_id'];
+
+        $pdo->prepare('
+            UPDATE incident_reports SET
+                alarm_level = ?,
+                assignment_method = ?,
+                assignment_distance_km = ?,
+                dispatched_station_id = ?,
+                updated_by_user_id = ?
+            WHERE incident_report_id = ?
+        ')->execute([
+            $newAlarmLevel,
+            $primaryAssignment['method'] ?? null,
+            isset($primaryAssignment['distanceKm']) ? (float) $primaryAssignment['distanceKm'] : null,
+            isset($primaryAssignment['stationId']) ? (int) $primaryAssignment['stationId'] : null,
+            $actorUserId,
+            $incidentId
+        ]);
+
+        firenet_sync_incident_dispatch_stations($pdo, $incidentId, $assignments);
+
+        if ($oldAlarm !== $newAlarmLevel) {
+            $pdo->prepare('
+                INSERT INTO incident_report_change_logs (
+                    incident_report_id, from_alarm_level, to_alarm_level, from_incident_status, to_incident_status, changed_by_user_id, notes
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            ')->execute([
+                $incidentId,
+                $oldAlarm,
+                $newAlarmLevel,
+                $row['incident_status'] ?: null,
+                $row['incident_status'] ?: null,
+                $actorUserId,
+                $notes
+            ]);
+        }
+
+        $pdo->prepare('
+            INSERT INTO incident_report_updates (incident_report_id, alarm_level, incident_status, recorded_by_user_id)
+            VALUES (?, ?, ?, ?)
+        ')->execute([
+            $incidentId,
+            $newAlarmLevel,
+            $row['incident_status'] ?: null,
+            $actorUserId
+        ]);
+
+        // Touch parent report updated_at for list freshness.
+        $pdo->prepare('UPDATE reports SET updated_at = NOW() WHERE report_id = ?')->execute([$reportId]);
+    }
+
+    $anchorIncidentId = (int) ($anchor['incident_report_id'] ?? 0);
+    $stageId = (int) ($anchor['incident_report_stage_id'] ?? 1);
+    if ($stageId < 1) {
+        $stageId = 1;
+    }
+
+    $stationsBefore = [];
+    foreach ($siblings as $row) {
+        $sid = (int) ($row['station_id'] ?? 0);
+        if ($sid > 0) {
+            $stationsBefore[$sid] = true;
+        }
+    }
+
+    firenet_sync_responder_station_reports($pdo, $caseReportId, $anchorIncidentId, $reportTypeId, $actorUserId, $assignments, [
+        'stageId' => $stageId,
+        'title' => (string) ($anchor['title'] ?? ('Incident ' . $caseReportId)),
+        'remarks' => (string) ($anchor['remarks'] ?? $anchor['description'] ?? ''),
+        'callerName' => (string) ($anchor['caller_name'] ?? ''),
+        'location' => (string) ($anchor['incident_location'] ?? ''),
+        'latitude' => $incidentLat,
+        'longitude' => $incidentLng,
+        'geocodeStatus' => (string) ($anchor['geocode_status'] ?? 'skipped'),
+        'assignmentMethod' => $primaryAssignment['method'] ?? null,
+        'assignmentDistanceKm' => isset($primaryAssignment['distanceKm']) ? (float) $primaryAssignment['distanceKm'] : null,
+        'alarmLevel' => $newAlarmLevel,
+        'incidentStatus' => 'ongoing',
+        'incidentStartedAt' => $anchor['incident_started_at'] ?? null,
+        'incidentFinishedAt' => null
+    ]);
+
+    $newStations = 0;
+    foreach ($assignments as $assignment) {
+        $sid = (int) ($assignment['stationId'] ?? 0);
+        if ($sid > 0 && !isset($stationsBefore[$sid])) {
+            $newStations++;
+        }
+    }
+
+    // Close pending requests that are now satisfied or obsolete.
+    $pdo->prepare("
+        UPDATE incident_alarm_raise_requests
+        SET status = 'cancelled', reviewed_by_user_id = ?, reviewed_at = NOW(),
+            notes = CONCAT(COALESCE(notes, ''), CASE WHEN COALESCE(notes, '') = '' THEN '' ELSE ' | ' END, 'Superseded by live alarm raise to level ', ?)
+        WHERE incident_case_id = ?
+          AND status = 'pending'
+          AND requested_alarm_level <= ?
+    ")->execute([$actorUserId, (string) $newAlarmLevel, $caseReportId, $newAlarmLevel]);
+
+    return [
+        'ok' => true,
+        'message' => 'Fire alarm raised to level ' . $newAlarmLevel . ' for all responding stations.',
+        'caseAlarmLevel' => $newAlarmLevel,
+        'newStations' => $newStations,
+        'syncedStations' => $existingBefore
+    ];
 }
 
 function firenet_sync_responder_station_reports(
@@ -512,6 +836,126 @@ function firenet_station_responding_to_incident(PDO $pdo, int $reportId, int $st
     ');
     $stmt->execute([$reportId, $stationId, $stationId, $stationId]);
     return (bool) $stmt->fetchColumn();
+}
+
+function firenet_incident_load_for_claim(PDO $pdo, int $reportId): ?array {
+    if ($reportId < 1) {
+        return null;
+    }
+
+    $stmt = $pdo->prepare('
+        SELECT
+            i.incident_report_id,
+            i.report_id,
+            COALESCE(i.station_id, r.station_id) AS station_id,
+            i.handling_user_id,
+            i.handling_at,
+            i.alarm_level,
+            i.incident_status,
+            i.incident_finished_at,
+            s.stage_code,
+            handler.username AS handling_username
+        FROM incident_reports i
+        JOIN reports r ON r.report_id = i.report_id
+        LEFT JOIN incident_report_stage s ON s.incident_report_stage_id = i.incident_report_stage_id
+        LEFT JOIN users handler ON handler.user_id = i.handling_user_id
+        WHERE i.report_id = ?
+        LIMIT 1
+    ');
+    $stmt->execute([$reportId]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    return $row ?: null;
+}
+
+function firenet_incident_is_completed_row(array $incident): bool {
+    $stage = strtolower((string) ($incident['stage_code'] ?? ''));
+    $status = strtolower((string) ($incident['incident_status'] ?? ''));
+    $finishedAt = trim((string) ($incident['incident_finished_at'] ?? ''));
+    return $stage === 'after_incident' || $status === 'fire_out' || $finishedAt !== '';
+}
+
+function firenet_incident_claim(PDO $pdo, int $reportId, int $userId, int $stationId): array {
+    $incident = firenet_incident_load_for_claim($pdo, $reportId);
+    if (!$incident) {
+        return ['ok' => false, 'status' => 404, 'message' => 'Report not found'];
+    }
+
+    if ((int) ($incident['station_id'] ?? 0) !== $stationId) {
+        return ['ok' => false, 'status' => 403, 'message' => 'You can only claim reports for your station'];
+    }
+
+    if (!firenet_station_is_incident_responder($pdo, (int) $incident['incident_report_id'], $stationId)) {
+        return ['ok' => false, 'status' => 403, 'message' => 'Only assigned responding stations can claim this incident'];
+    }
+
+    if (firenet_incident_is_completed_row($incident)) {
+        return ['ok' => false, 'status' => 422, 'message' => 'Completed incidents cannot be claimed'];
+    }
+
+    $handlerId = (int) ($incident['handling_user_id'] ?? 0);
+    if ($handlerId > 0 && $handlerId !== $userId) {
+        $handlerName = trim((string) ($incident['handling_username'] ?? 'another ComL user'));
+        return [
+            'ok' => false,
+            'status' => 409,
+            'message' => 'This incident is already being handled by ' . ($handlerName !== '' ? $handlerName : 'another ComL user') . '.'
+        ];
+    }
+
+    $stmt = $pdo->prepare('
+        UPDATE incident_reports
+        SET handling_user_id = ?, handling_at = NOW()
+        WHERE report_id = ?
+          AND (handling_user_id IS NULL OR handling_user_id = ?)
+    ');
+    $stmt->execute([$userId, $reportId, $userId]);
+
+    $fresh = firenet_incident_load_for_claim($pdo, $reportId);
+    return [
+        'ok' => true,
+        'message' => 'Incident claimed. You can update it now.',
+        'handlingUserId' => (int) ($fresh['handling_user_id'] ?? $userId),
+        'handlingUsername' => (string) ($fresh['handling_username'] ?? ''),
+        'handlingAt' => (string) ($fresh['handling_at'] ?? '')
+    ];
+}
+
+function firenet_incident_release(PDO $pdo, int $reportId, int $userId, int $stationId): array {
+    $incident = firenet_incident_load_for_claim($pdo, $reportId);
+    if (!$incident) {
+        return ['ok' => false, 'status' => 404, 'message' => 'Report not found'];
+    }
+
+    if ((int) ($incident['station_id'] ?? 0) !== $stationId) {
+        return ['ok' => false, 'status' => 403, 'message' => 'You can only release reports for your station'];
+    }
+
+    $handlerId = (int) ($incident['handling_user_id'] ?? 0);
+    if ($handlerId < 1) {
+        return ['ok' => true, 'message' => 'Incident is already unclaimed.'];
+    }
+
+    if ($handlerId !== $userId) {
+        $handlerName = trim((string) ($incident['handling_username'] ?? 'another ComL user'));
+        return [
+            'ok' => false,
+            'status' => 403,
+            'message' => 'Only ' . ($handlerName !== '' ? $handlerName : 'the current handler') . ' can release this incident back to the queue.'
+        ];
+    }
+
+    $pdo->prepare('UPDATE incident_reports SET handling_user_id = NULL, handling_at = NULL WHERE report_id = ?')
+        ->execute([$reportId]);
+
+    return ['ok' => true, 'message' => 'Incident released back to the queue.'];
+}
+
+function firenet_incident_clear_handler(PDO $pdo, int $reportId): void {
+    if ($reportId < 1) {
+        return;
+    }
+    $pdo->prepare('UPDATE incident_reports SET handling_user_id = NULL, handling_at = NULL WHERE report_id = ?')
+        ->execute([$reportId]);
 }
 
 function firenet_ensure_equipment_reports_table(PDO $pdo): void {
@@ -1567,10 +2011,152 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         exit;
     }
 
+    if ($action === 'claim' || $action === 'release') {
+        try {
+            if (!$canUpdateIncidentReports) {
+                http_response_code(403);
+                echo json_encode(['ok' => false, 'message' => 'Only Position 1 (ComL) can claim incident reports.']);
+                exit;
+            }
+
+            $pdo = firenet_get_pdo();
+            firenet_ensure_incident_report_columns($pdo);
+            $reportId = (int) ($_GET['reportId'] ?? $_POST['reportId'] ?? 0);
+            if ($reportId < 1) {
+                http_response_code(422);
+                echo json_encode(['ok' => false, 'message' => 'Invalid report ID']);
+                exit;
+            }
+
+            $result = $action === 'claim'
+                ? firenet_incident_claim($pdo, $reportId, $userId, $sessionStationId)
+                : firenet_incident_release($pdo, $reportId, $userId, $sessionStationId);
+
+            if (empty($result['ok'])) {
+                http_response_code((int) ($result['status'] ?? 422));
+                echo json_encode(['ok' => false, 'message' => (string) ($result['message'] ?? 'Unable to update claim status')]);
+                exit;
+            }
+
+            echo json_encode($result, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        } catch (Throwable $e) {
+            http_response_code(500);
+            echo json_encode(['ok' => false, 'message' => 'Unable to update claim status right now']);
+        }
+        exit;
+    }
+
+    if ($action === 'alarm_raise_requests') {
+        try {
+            $pdo = firenet_get_pdo();
+            firenet_ensure_alarm_raise_requests_table($pdo);
+            if (!firenet_is_central_station($pdo, $sessionStationId)) {
+                http_response_code(403);
+                echo json_encode(['ok' => false, 'message' => 'Only MCFS can review fire alarm raise requests.']);
+                exit;
+            }
+
+            $statusFilter = strtolower(trim((string) ($_GET['status'] ?? 'pending')));
+            if (!in_array($statusFilter, ['pending', 'approved', 'denied', 'cancelled', 'all'], true)) {
+                $statusFilter = 'pending';
+            }
+
+            $sql = '
+                SELECT
+                    q.request_id,
+                    q.incident_case_id,
+                    q.from_incident_report_id,
+                    q.from_report_id,
+                    q.from_station_id,
+                    q.requested_by_user_id,
+                    q.from_alarm_level,
+                    q.requested_alarm_level,
+                    q.status,
+                    q.notes,
+                    q.created_at,
+                    q.reviewed_at,
+                    st.station_name AS from_station_name,
+                    u.username AS requested_by_username,
+                    reviewer.username AS reviewed_by_username,
+                    r.title AS report_title,
+                    i.incident_location,
+                    i.alarm_level AS current_copy_alarm_level
+                FROM incident_alarm_raise_requests q
+                JOIN stations st ON st.station_id = q.from_station_id
+                JOIN users u ON u.user_id = q.requested_by_user_id
+                LEFT JOIN users reviewer ON reviewer.user_id = q.reviewed_by_user_id
+                LEFT JOIN reports r ON r.report_id = q.from_report_id
+                LEFT JOIN incident_reports i ON i.incident_report_id = q.from_incident_report_id
+            ';
+            $params = [];
+            if ($statusFilter !== 'all') {
+                $sql .= ' WHERE q.status = ?';
+                $params[] = $statusFilter;
+            }
+            $sql .= ' ORDER BY q.created_at DESC, q.request_id DESC LIMIT 200';
+
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute($params);
+            $rows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+            $requests = [];
+            foreach ($rows as $row) {
+                $caseId = (int) ($row['incident_case_id'] ?? 0);
+                $requests[] = [
+                    'requestId' => (int) ($row['request_id'] ?? 0),
+                    'incidentCaseId' => $caseId,
+                    'fromReportId' => (int) ($row['from_report_id'] ?? 0),
+                    'fromStationId' => (int) ($row['from_station_id'] ?? 0),
+                    'fromStationName' => (string) ($row['from_station_name'] ?? ''),
+                    'requestedByUsername' => (string) ($row['requested_by_username'] ?? ''),
+                    'fromAlarmLevel' => (int) ($row['from_alarm_level'] ?? 1),
+                    'requestedAlarmLevel' => (int) ($row['requested_alarm_level'] ?? 1),
+                    'caseAlarmLevel' => firenet_case_max_alarm_level($pdo, $caseId),
+                    'status' => (string) ($row['status'] ?? 'pending'),
+                    'notes' => (string) ($row['notes'] ?? ''),
+                    'title' => (string) ($row['report_title'] ?? ''),
+                    'location' => (string) ($row['incident_location'] ?? ''),
+                    'createdAt' => (string) ($row['created_at'] ?? ''),
+                    'reviewedAt' => (string) ($row['reviewed_at'] ?? ''),
+                    'reviewedByUsername' => (string) ($row['reviewed_by_username'] ?? '')
+                ];
+            }
+
+            $pendingCountStmt = $pdo->query("SELECT COUNT(*) FROM incident_alarm_raise_requests WHERE status = 'pending'");
+            $pendingCount = (int) ($pendingCountStmt->fetchColumn() ?: 0);
+
+            echo json_encode([
+                'ok' => true,
+                'requests' => $requests,
+                'pendingCount' => $pendingCount
+            ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        } catch (Throwable $e) {
+            http_response_code(500);
+            echo json_encode(['ok' => false, 'message' => 'Unable to load alarm raise requests right now']);
+        }
+        exit;
+    }
+
+    if ($action === 'alarm_raise_pending_count') {
+        try {
+            $pdo = firenet_get_pdo();
+            firenet_ensure_alarm_raise_requests_table($pdo);
+            $pendingCount = 0;
+            if (firenet_is_central_station($pdo, $sessionStationId)) {
+                $pendingCount = (int) ($pdo->query("SELECT COUNT(*) FROM incident_alarm_raise_requests WHERE status = 'pending'")->fetchColumn() ?: 0);
+            }
+            echo json_encode(['ok' => true, 'pendingCount' => $pendingCount]);
+        } catch (Throwable $e) {
+            http_response_code(500);
+            echo json_encode(['ok' => false, 'message' => 'Unable to load pending count']);
+        }
+        exit;
+    }
+
     try {
         $pdo = firenet_get_pdo();
         firenet_ensure_equipment_reports_table($pdo);
         firenet_ensure_incident_report_columns($pdo);
+        $includeCompleted = in_array(strtolower(trim((string) ($_GET['includeCompleted'] ?? ''))), ['1', 'true', 'yes'], true);
         $completedIncidentSql = firenet_incident_completed_sql();
         $sql = '
             SELECT DISTINCT r.report_id, r.report_type_id, r.station_id AS report_station_id, rt.type_name,
@@ -1581,6 +2167,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                     s_report.station_name AS report_station_name,
                     i.incident_report_id, i.incident_case_id, i.station_id AS incident_station_id,
                     i.updated_by_user_id, u_updated.username AS updated_by_username,
+                    i.handling_user_id, i.handling_at, u_handler.username AS handling_username,
                     i.incident_location, i.alarm_level,
                     i.incident_status, i.incident_started_at, i.incident_finished_at,
                     i.caller_name, i.remarks AS incident_remarks, i.incident_report_stage_id, s.stage_code,
@@ -1598,12 +2185,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             LEFT JOIN stations s_report ON s_report.station_id = r.station_id
             LEFT JOIN users u ON u.user_id = r.created_by
             LEFT JOIN users u_updated ON u_updated.user_id = i.updated_by_user_id
+            LEFT JOIN users u_handler ON u_handler.user_id = i.handling_user_id
             WHERE (
                 (rt.type_name = \'incident_report\' AND COALESCE(i.station_id, r.station_id) = ?)
                 OR (COALESCE(rt.type_name, \'\') <> \'incident_report\' AND (r.created_by = ? OR r.station_id = ?))
             )
-              AND (rt.type_name <> \'incident_report\' OR NOT ' . $completedIncidentSql . ')
         ';
+        if ($includeCompleted) {
+            $sql .= ' AND (rt.type_name <> \'incident_report\' OR ' . $completedIncidentSql . ')';
+        } else {
+            $sql .= ' AND (rt.type_name <> \'incident_report\' OR NOT ' . $completedIncidentSql . ')';
+        }
         $params = [$sessionStationId, $userId, $sessionStationId];
         $sql .= ' ORDER BY r.updated_at DESC, r.created_at DESC LIMIT 200';
         $stmt = $pdo->prepare($sql);
@@ -1649,6 +2241,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                 $report['updatedByUserId'] = (int) ($row['updated_by_user_id'] ?? 0);
                 $report['updatedBy'] = (string) ($row['updated_by_username'] ?? '');
                 $report['alarmLevel'] = (int) ($row['alarm_level'] ?? 0);
+                $report['caseAlarmLevel'] = firenet_case_max_alarm_level($pdo, $incidentCaseId);
                 $report['incidentStatus'] = $row['incident_status'] ?? '';
                 $report['incidentStartedAt'] = $row['incident_started_at'] ?? '';
                 $report['incidentFinishedAt'] = $row['incident_finished_at'] ?? '';
@@ -1732,16 +2325,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                 $hasFirstProgressUpdate = count($report['incidentUpdates']) > 1 || count($report['incidentChangeLogs']) > 0;
                 $isAssignedResponder = firenet_station_is_incident_responder($pdo, $incidentReportId, $sessionStationId);
                 $ownsStationReport = $reportStationId === $sessionStationId;
-
-                $report['isAssignedResponder'] = $isAssignedResponder;
-                $report['canProgress'] = $canUpdateIncidentReports
+                $handlingUserId = (int) ($row['handling_user_id'] ?? 0);
+                $handlingUsername = (string) ($row['handling_username'] ?? '');
+                $isClaimedByMe = $handlingUserId > 0 && $handlingUserId === $userId;
+                $isClaimedByOther = $handlingUserId > 0 && $handlingUserId !== $userId;
+                $isUnclaimed = $handlingUserId < 1;
+                $baseCanProgress = $canUpdateIncidentReports
                     && $ownsStationReport
                     && $isAssignedResponder
                     && !$isCompletedIncident;
+
+                $report['handlingUserId'] = $handlingUserId;
+                $report['handlingUsername'] = $handlingUsername;
+                $report['handlingAt'] = (string) ($row['handling_at'] ?? '');
+                $report['isClaimedByMe'] = $isClaimedByMe;
+                $report['isClaimedByOther'] = $isClaimedByOther;
+                $report['isUnclaimed'] = $isUnclaimed;
+                $report['isAssignedResponder'] = $isAssignedResponder;
+                $report['canClaim'] = $baseCanProgress && $isUnclaimed;
+                $report['canRelease'] = $baseCanProgress && $isClaimedByMe;
+                $report['canProgress'] = $baseCanProgress && $isClaimedByMe;
                 $report['canEdit'] = $ownsStationReport
                     && $stageCode === 'call_intake'
                     && !$hasFirstProgressUpdate
-                    && !$isCompletedIncident;
+                    && !$isCompletedIncident
+                    && (!$isClaimedByOther);
             } elseif ($reportType === 'equipment_report') {
                 $report['equipmentName'] = (string) ($row['equipment_name'] ?? '');
                 $report['equipmentCategory'] = (string) ($row['equipment_category'] ?? '');
@@ -1757,10 +2365,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             
             $reports[] = $report;
         }
+
+        $pendingAlarmRaiseCount = 0;
+        if (firenet_is_central_station($pdo, $sessionStationId)) {
+            firenet_ensure_alarm_raise_requests_table($pdo);
+            $pendingAlarmRaiseCount = (int) ($pdo->query("SELECT COUNT(*) FROM incident_alarm_raise_requests WHERE status = 'pending'")->fetchColumn() ?: 0);
+        }
         
         echo json_encode([
             'ok' => true,
-            'reports' => $reports
+            'reports' => $reports,
+            'pendingAlarmRaiseCount' => $pendingAlarmRaiseCount
         ]);
     } catch (Exception $e) {
         http_response_code(500);
@@ -1817,6 +2432,247 @@ if (empty($input)) {
             $input = $decoded;
         }
     }
+}
+
+$bodyAction = trim((string) ($input['action'] ?? $postAction));
+if ($bodyAction === 'request_alarm_raise') {
+    try {
+        if (!$canUpdateIncidentReports) {
+            http_response_code(403);
+            echo json_encode(['ok' => false, 'message' => 'Only Position 1 (ComL) can request a fire alarm raise.']);
+            exit;
+        }
+
+        $pdo = firenet_get_pdo();
+        firenet_ensure_incident_report_columns($pdo);
+        firenet_ensure_alarm_raise_requests_table($pdo);
+
+        if (firenet_is_central_station($pdo, $sessionStationId)) {
+            http_response_code(422);
+            echo json_encode(['ok' => false, 'message' => 'MCFS can raise the live fire alarm directly from the Alarm requests queue.']);
+            exit;
+        }
+
+        $reportId = (int) ($input['reportId'] ?? $input['id'] ?? 0);
+        $requestedAlarmLevel = (int) ($input['requestedAlarmLevel'] ?? 0);
+        $notes = trim((string) ($input['notes'] ?? ''));
+        if (strlen($notes) > 500) {
+            $notes = substr($notes, 0, 500);
+        }
+
+        $incident = firenet_incident_load_for_claim($pdo, $reportId);
+        if (!$incident) {
+            http_response_code(404);
+            echo json_encode(['ok' => false, 'message' => 'Incident report not found.']);
+            exit;
+        }
+
+        $incidentStationId = (int) ($incident['station_id'] ?? 0);
+        if ($incidentStationId !== $sessionStationId) {
+            http_response_code(403);
+            echo json_encode(['ok' => false, 'message' => 'You can only request alarm raises for your station copy.']);
+            exit;
+        }
+
+        if (!firenet_station_is_incident_responder($pdo, (int) ($incident['incident_report_id'] ?? 0), $sessionStationId)) {
+            http_response_code(403);
+            echo json_encode(['ok' => false, 'message' => 'Only assigned responding stations can request an alarm raise.']);
+            exit;
+        }
+
+        $handlerId = (int) ($incident['handling_user_id'] ?? 0);
+        if ($handlerId !== $userId) {
+            http_response_code(403);
+            echo json_encode(['ok' => false, 'message' => 'Claim this incident first, then request the alarm raise.']);
+            exit;
+        }
+
+        if (firenet_incident_is_completed_row($incident)) {
+            http_response_code(422);
+            echo json_encode(['ok' => false, 'message' => 'Completed incidents cannot request an alarm raise.']);
+            exit;
+        }
+
+        $incidentReportId = (int) ($incident['incident_report_id'] ?? 0);
+        $caseReportId = firenet_incident_case_report_id($pdo, $incidentReportId, $reportId);
+        $caseAlarm = firenet_case_max_alarm_level($pdo, $caseReportId);
+        $fromAlarm = max(1, (int) ($incident['alarm_level'] ?? $caseAlarm));
+
+        if ($requestedAlarmLevel < 1 || $requestedAlarmLevel > 5) {
+            http_response_code(422);
+            echo json_encode(['ok' => false, 'message' => 'Requested alarm level must be between 1 and 5.']);
+            exit;
+        }
+        if ($requestedAlarmLevel <= $caseAlarm) {
+            http_response_code(422);
+            echo json_encode([
+                'ok' => false,
+                'message' => 'Live fire alarm is already at level ' . $caseAlarm . '. Request a higher level.',
+                'caseAlarmLevel' => $caseAlarm
+            ]);
+            exit;
+        }
+
+        $dupStmt = $pdo->prepare("
+            SELECT request_id
+            FROM incident_alarm_raise_requests
+            WHERE incident_case_id = ?
+              AND from_station_id = ?
+              AND status = 'pending'
+              AND requested_alarm_level = ?
+            LIMIT 1
+        ");
+        $dupStmt->execute([$caseReportId, $sessionStationId, $requestedAlarmLevel]);
+        if ((int) ($dupStmt->fetchColumn() ?: 0) > 0) {
+            http_response_code(422);
+            echo json_encode(['ok' => false, 'message' => 'A pending raise request to this alarm level already exists for your station.']);
+            exit;
+        }
+
+        $pdo->prepare('
+            INSERT INTO incident_alarm_raise_requests (
+                incident_case_id, from_incident_report_id, from_report_id, from_station_id,
+                requested_by_user_id, from_alarm_level, requested_alarm_level, status, notes
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, \'pending\', ?)
+        ')->execute([
+            $caseReportId,
+            $incidentReportId,
+            $reportId,
+            $sessionStationId,
+            $userId,
+            $fromAlarm,
+            $requestedAlarmLevel,
+            $notes !== '' ? $notes : null
+        ]);
+
+        echo json_encode([
+            'ok' => true,
+            'message' => 'Urgent alarm raise request sent to MCFS.',
+            'requestId' => (int) $pdo->lastInsertId(),
+            'caseAlarmLevel' => $caseAlarm,
+            'requestedAlarmLevel' => $requestedAlarmLevel
+        ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    } catch (Throwable $e) {
+        http_response_code(500);
+        echo json_encode(['ok' => false, 'message' => 'Unable to submit alarm raise request right now.']);
+    }
+    exit;
+}
+
+if ($bodyAction === 'review_alarm_raise_request') {
+    try {
+        if (!$canUpdateIncidentReports) {
+            http_response_code(403);
+            echo json_encode(['ok' => false, 'message' => 'Only Position 1 (ComL) at MCFS can review alarm raise requests.']);
+            exit;
+        }
+
+        $pdo = firenet_get_pdo();
+        firenet_ensure_incident_report_columns($pdo);
+        firenet_ensure_alarm_raise_requests_table($pdo);
+
+        if (!firenet_is_central_station($pdo, $sessionStationId)) {
+            http_response_code(403);
+            echo json_encode(['ok' => false, 'message' => 'Only MCFS can approve or deny fire alarm raise requests.']);
+            exit;
+        }
+
+        $requestId = (int) ($input['requestId'] ?? 0);
+        $decision = strtolower(trim((string) ($input['decision'] ?? '')));
+        $approveAlarmLevel = (int) ($input['alarmLevel'] ?? 0);
+        $reviewNotes = trim((string) ($input['notes'] ?? ''));
+        if (strlen($reviewNotes) > 400) {
+            $reviewNotes = substr($reviewNotes, 0, 400);
+        }
+
+        if ($requestId < 1 || !in_array($decision, ['approve', 'deny'], true)) {
+            http_response_code(422);
+            echo json_encode(['ok' => false, 'message' => 'Provide a valid requestId and decision (approve or deny).']);
+            exit;
+        }
+
+        $reqStmt = $pdo->prepare('SELECT * FROM incident_alarm_raise_requests WHERE request_id = ? LIMIT 1');
+        $reqStmt->execute([$requestId]);
+        $request = $reqStmt->fetch(PDO::FETCH_ASSOC);
+        if (!$request) {
+            http_response_code(404);
+            echo json_encode(['ok' => false, 'message' => 'Alarm raise request not found.']);
+            exit;
+        }
+        if (strtolower((string) ($request['status'] ?? '')) !== 'pending') {
+            http_response_code(422);
+            echo json_encode(['ok' => false, 'message' => 'This request was already reviewed.']);
+            exit;
+        }
+
+        $caseReportId = (int) ($request['incident_case_id'] ?? 0);
+        $requestedLevel = (int) ($request['requested_alarm_level'] ?? 0);
+
+        if ($decision === 'deny') {
+            $pdo->prepare("
+                UPDATE incident_alarm_raise_requests
+                SET status = 'denied', reviewed_by_user_id = ?, reviewed_at = NOW(), notes = ?
+                WHERE request_id = ?
+            ")->execute([
+                $userId,
+                $reviewNotes !== '' ? $reviewNotes : 'Denied by MCFS',
+                $requestId
+            ]);
+
+            echo json_encode([
+                'ok' => true,
+                'message' => 'Alarm raise request denied.',
+                'requestId' => $requestId,
+                'status' => 'denied'
+            ]);
+            exit;
+        }
+
+        $targetAlarm = $approveAlarmLevel > 0 ? $approveAlarmLevel : $requestedLevel;
+        if ($targetAlarm < 1 || $targetAlarm > 5) {
+            http_response_code(422);
+            echo json_encode(['ok' => false, 'message' => 'Approved alarm level must be between 1 and 5.']);
+            exit;
+        }
+
+        $raiseResult = firenet_apply_case_alarm_raise(
+            $pdo,
+            $caseReportId,
+            $targetAlarm,
+            $userId,
+            'MCFS approved alarm raise request #' . $requestId
+        );
+
+        if (empty($raiseResult['ok'])) {
+            http_response_code((int) ($raiseResult['status'] ?? 422));
+            echo json_encode($raiseResult);
+            exit;
+        }
+
+        $pdo->prepare("
+            UPDATE incident_alarm_raise_requests
+            SET status = 'approved', reviewed_by_user_id = ?, reviewed_at = NOW(), notes = ?
+            WHERE request_id = ?
+        ")->execute([
+            $userId,
+            $reviewNotes !== '' ? $reviewNotes : ('Approved — live alarm set to level ' . $targetAlarm),
+            $requestId
+        ]);
+
+        echo json_encode([
+            'ok' => true,
+            'message' => (string) ($raiseResult['message'] ?? 'Alarm raised.'),
+            'requestId' => $requestId,
+            'status' => 'approved',
+            'caseAlarmLevel' => (int) ($raiseResult['caseAlarmLevel'] ?? $targetAlarm),
+            'newStations' => (int) ($raiseResult['newStations'] ?? 0),
+            'syncedStations' => (int) ($raiseResult['syncedStations'] ?? 0)
+        ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    } catch (Throwable $e) {
+        http_response_code(500);
+        echo json_encode(['ok' => false, 'message' => 'Unable to review alarm raise request right now.']);
+    }
+    exit;
 }
 
 $reportType = trim((string) ($input['reportType'] ?? ''));
@@ -1944,7 +2800,7 @@ try {
     
     $allowedTypes = ['incident_report', 'equipment_report'];
     $allowedStages = ['call_intake', 'during_incident', 'after_incident'];
-    $allowedIncidentStatuses = ['under_control', 'fire_out'];
+    $allowedIncidentStatuses = ['ongoing', 'under_control', 'fire_out'];
     $allowedEquipmentUrgencies = ['low', 'medium', 'high', 'critical'];
     $allowedEquipmentOperationalStatuses = ['operational', 'limited', 'out_of_service'];
     
@@ -2166,6 +3022,23 @@ try {
                     echo json_encode(['ok' => false, 'message' => 'Only assigned responding stations can update incident progress.']);
                     exit;
                 }
+
+                $claimState = firenet_incident_load_for_claim($pdo, $reportId);
+                $handlerId = (int) ($claimState['handling_user_id'] ?? 0);
+                if ($handlerId < 1) {
+                    http_response_code(422);
+                    echo json_encode(['ok' => false, 'message' => 'Claim this incident before updating progress.']);
+                    exit;
+                }
+                if ($handlerId !== $userId) {
+                    $handlerName = trim((string) ($claimState['handling_username'] ?? 'another ComL user'));
+                    http_response_code(409);
+                    echo json_encode([
+                        'ok' => false,
+                        'message' => 'This incident is already being handled by ' . ($handlerName !== '' ? $handlerName : 'another ComL user') . '.'
+                    ]);
+                    exit;
+                }
             } else {
                 if (!firenet_incident_report_owned_by_station($pdo, $reportId, $sessionStationId)) {
                     http_response_code(404);
@@ -2249,6 +3122,7 @@ try {
 
                 $hasFirstProgressUpdate = $updatesCount > 1 || $changeCount > 0;
                 $isCompletedIncident = $currentStage === 'after_incident' || $currentStatus === 'fire_out';
+                $suppressAlarmChangeLog = false;
 
                 if ($isProgressionUpdate) {
                     if ($isCompletedIncident) {
@@ -2276,79 +3150,82 @@ try {
                 $stageId = $stageRow ? (int) $stageRow['incident_report_stage_id'] : 1;
                 
                 if ($isProgressionUpdate) {
-                    $progressAssignments = [];
-                    $incidentLat = isset($incident['latitude']) ? (float) $incident['latitude'] : 0.0;
-                    $incidentLng = isset($incident['longitude']) ? (float) $incident['longitude'] : 0.0;
-                    $shouldRefreshProgressAssignments = ($incidentLat !== 0.0 || $incidentLng !== 0.0);
-                    if ($shouldRefreshProgressAssignments) {
-                        $progressAssignments = firenet_find_station_assignments($pdo, $incidentLat, $incidentLng, $alarmLevel);
-                    }
-                    $primaryProgressAssignment = $progressAssignments[0] ?? null;
+                    $caseReportId = firenet_incident_case_report_id($pdo, $incidentId, $reportId);
+                    $caseAlarmLevel = firenet_case_max_alarm_level($pdo, $caseReportId);
+                    $isCentralActor = firenet_is_central_station($pdo, $sessionStationId);
+                    $requestedAlarmLevel = $alarmLevel;
+                    $oldAlarmLevel = max(1, (int) ($incident['alarm_level'] ?? 1));
 
-                    if ($shouldRefreshProgressAssignments) {
-                        $pdo->prepare('
-                            UPDATE incident_reports SET
-                                incident_report_stage_id = ?,
-                                alarm_level = ?,
-                                incident_status = ?,
-                                incident_finished_at = ?,
-                                assignment_method = ?,
-                                assignment_distance_km = ?,
-                                dispatched_station_id = ?,
-                                updated_by_user_id = ?
-                            WHERE report_id = ?
-                        ')->execute([
-                            $stageId,
-                            $alarmLevel,
-                            $incidentStatus,
-                            $incidentFinishedAt ?: null,
-                            $primaryProgressAssignment['method'] ?? null,
-                            isset($primaryProgressAssignment['distanceKm']) ? (float) $primaryProgressAssignment['distanceKm'] : null,
-                            isset($primaryProgressAssignment['stationId']) ? (int) $primaryProgressAssignment['stationId'] : null,
+                    // Live fire alarm is MCFS-controlled. Substations keep the case live level.
+                    if (!$isCentralActor) {
+                        $alarmLevel = $caseAlarmLevel;
+                    } elseif ($requestedAlarmLevel > $caseAlarmLevel) {
+                        $raiseResult = firenet_apply_case_alarm_raise(
+                            $pdo,
+                            $caseReportId,
+                            $requestedAlarmLevel,
                             $userId,
-                            $reportId
-                        ]);
-
-                        firenet_sync_incident_dispatch_stations($pdo, $incidentId, $progressAssignments);
-
-                        $caseStmt = $pdo->prepare('SELECT COALESCE(NULLIF(incident_case_id, 0), report_id) FROM incident_reports WHERE incident_report_id = ? LIMIT 1');
-                        $caseStmt->execute([$incidentId]);
-                        $caseReportId = (int) ($caseStmt->fetchColumn() ?: $reportId);
-                        firenet_sync_responder_station_reports($pdo, $caseReportId, $incidentId, $reportTypeId, $userId, $progressAssignments, [
-                            'stageId' => $stageId,
-                            'title' => $title !== '' ? $title : ('Incident ' . $caseReportId),
-                            'remarks' => $remarks,
-                            'callerName' => $callerName,
-                            'location' => $location,
-                            'latitude' => isset($incident['latitude']) ? (float) $incident['latitude'] : null,
-                            'longitude' => isset($incident['longitude']) ? (float) $incident['longitude'] : null,
-                            'geocodeStatus' => $geoContext['geocodeStatus'] ?? 'skipped',
-                            'assignmentMethod' => $primaryProgressAssignment['method'] ?? null,
-                            'assignmentDistanceKm' => isset($primaryProgressAssignment['distanceKm']) ? (float) $primaryProgressAssignment['distanceKm'] : null,
-                            'alarmLevel' => $alarmLevel,
-                            'incidentStatus' => $incidentStatus ?: null,
-                            'incidentStartedAt' => $incidentStartedAt ?: null,
-                            'incidentFinishedAt' => $incidentFinishedAt ?: null
-                        ]);
+                            'MCFS raised fire alarm from Reports progress update'
+                        );
+                        if (empty($raiseResult['ok'])) {
+                            http_response_code((int) ($raiseResult['status'] ?? 422));
+                            echo json_encode($raiseResult);
+                            exit;
+                        }
+                        $alarmLevel = (int) ($raiseResult['caseAlarmLevel'] ?? $requestedAlarmLevel);
+                        $caseAlarmLevel = $alarmLevel;
+                        $suppressAlarmChangeLog = true;
                     } else {
-                        $pdo->prepare('
-                            UPDATE incident_reports SET
-                                incident_report_stage_id = ?,
-                                alarm_level = ?,
-                                incident_status = ?,
-                                incident_finished_at = ?,
-                                updated_by_user_id = ?
-                            WHERE report_id = ?
-                        ')->execute([
-                            $stageId,
-                            $alarmLevel,
-                            $incidentStatus,
-                            $incidentFinishedAt ?: null,
-                            $userId,
-                            $reportId
-                        ]);
+                        $alarmLevel = $caseAlarmLevel;
+                    }
+
+                    // Status / finish updates on this station copy (alarm already synced when MCFS raised).
+                    $pdo->prepare('
+                        UPDATE incident_reports SET
+                            incident_report_stage_id = ?,
+                            alarm_level = ?,
+                            incident_status = ?,
+                            incident_finished_at = ?,
+                            updated_by_user_id = ?
+                        WHERE report_id = ?
+                    ')->execute([
+                        $stageId,
+                        $alarmLevel,
+                        $incidentStatus,
+                        $incidentFinishedAt ?: null,
+                        $userId,
+                        $reportId
+                    ]);
+
+                    // Non-MCFS status progression must not redistribute from a stale local alarm.
+                    // MCFS raise already redistributed inside firenet_apply_case_alarm_raise.
+                    if ($isCentralActor && $requestedAlarmLevel <= $oldAlarmLevel) {
+                        $incidentLat = isset($incident['latitude']) ? (float) $incident['latitude'] : 0.0;
+                        $incidentLng = isset($incident['longitude']) ? (float) $incident['longitude'] : 0.0;
+                        if ($incidentLat !== 0.0 || $incidentLng !== 0.0) {
+                            $progressAssignments = firenet_find_station_assignments($pdo, $incidentLat, $incidentLng, $alarmLevel);
+                            firenet_sync_incident_dispatch_stations($pdo, $incidentId, $progressAssignments);
+                            $primaryProgressAssignment = $progressAssignments[0] ?? null;
+                            if ($primaryProgressAssignment) {
+                                $pdo->prepare('
+                                    UPDATE incident_reports SET
+                                        assignment_method = ?,
+                                        assignment_distance_km = ?,
+                                        dispatched_station_id = ?
+                                    WHERE report_id = ?
+                                ')->execute([
+                                    $primaryProgressAssignment['method'] ?? null,
+                                    isset($primaryProgressAssignment['distanceKm']) ? (float) $primaryProgressAssignment['distanceKm'] : null,
+                                    isset($primaryProgressAssignment['stationId']) ? (int) $primaryProgressAssignment['stationId'] : null,
+                                    $reportId
+                                ]);
+                            }
+                        }
                     }
                 } else {
+                    if (!firenet_is_central_station($pdo, $sessionStationId)) {
+                        $alarmLevel = max(1, (int) ($incident['alarm_level'] ?? 1));
+                    }
                     $pdo->prepare('
                         UPDATE incident_reports SET
                             incident_report_stage_id = ?,
@@ -2408,6 +3285,9 @@ try {
                 
                 $oldAlarm = (int) $incident['alarm_level'];
                 $oldStatus = $incident['incident_status'];
+                if (!empty($suppressAlarmChangeLog)) {
+                    $oldAlarm = $alarmLevel;
+                }
 
                 if ($updateMode === 'progression') {
                     // Record change log if alarm or status changed during incident progression.
@@ -2438,6 +3318,7 @@ try {
                     ]);
 
                     if (strtolower((string) $incidentStatus) === 'fire_out' && strtolower((string) ($oldStatus ?? '')) !== 'fire_out') {
+                        firenet_incident_clear_handler($pdo, $reportId);
                         $cloudSyncResult = firenet_sync_incident_case_to_r2($pdo, $reportId, $userId);
                     }
                 }

@@ -36,10 +36,11 @@ $config = [
     'mail' => [
         'smtp_host' => 'smtp.gmail.com',
         'smtp_port' => 587,
-        'smtp_username' => 'yourgmail@',
-        'smtp_password' => 'your-app-password',
+        'smtp_username' => 'waterworldtest.noreply@gmail.com',
+        // Gmail app passwords work with or without spaces; keep without spaces for SMTP.
+        'smtp_password' => 'cwukzkykitrlynvt',
         'smtp_encryption' => 'tls',
-        'from_email' => 'yourgmail@gmail.com',
+        'from_email' => 'waterworldtest.noreply@gmail.com',
         'from_name' => 'FireNet Security'
     ],
 ];

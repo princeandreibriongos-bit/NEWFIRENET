@@ -2348,7 +2348,11 @@
       await fetchList();
       const threadIdFromUrl = Number(new URLSearchParams(window.location.search).get('thread') || 0);
       if (threadIdFromUrl > 0) {
-        await openThread(threadIdFromUrl);
+        try {
+          await openThread(threadIdFromUrl);
+        } catch (threadError) {
+          setMessage((threadError && threadError.message) || 'Unable to open the linked message.', true);
+        }
       }
       setMessage('Ready.', false);
     } catch (error) {

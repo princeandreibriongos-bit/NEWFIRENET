@@ -23,7 +23,7 @@
       </span>
       <div class="reports-tip-body">
         <strong>Your station</strong>
-        <p>Each station sees only its own incident copy. Central creates call intake; assigned responders update their station report. Completed incidents move to Incident Logs.</p>
+        <p>Each station sees its own incident copy. At MCFS, intake handed to other responders appears under Dispatched.</p>
       </div>
     </article>
     <article class="reports-tip">
@@ -41,7 +41,7 @@
       </span>
       <div class="reports-tip-body">
         <strong>Incident stages</strong>
-        <p>Track Call Intake, During Incident, and After Incident in one continuous timeline.</p>
+        <p>Position 1 (ComL) claims an active incident before updating it, so other ComL users can see who is already processing that report.</p>
       </div>
     </article>
     <article class="reports-tip">
@@ -71,10 +71,36 @@
   <section class="reports-history-panel" aria-labelledby="reportsHistoryTitle">
     <header class="reports-history-head">
       <div class="reports-history-intro">
-        <h2 class="reports-panel-title" id="reportsHistoryTitle">Transaction history</h2>
+        <p class="reports-history-kicker">Incidents</p>
+        <h2 class="reports-panel-title" id="reportsHistoryTitle">Incident queue</h2>
         <p class="reports-status-line" id="reportsOngoingHint">Loading incident activity…</p>
       </div>
     </header>
+
+    <div class="reports-ticket-toolbar">
+      <div class="reports-ticket-tabs" id="reportsTicketTabs" role="tablist" aria-label="Incident ticket views">
+        <button type="button" class="reports-ticket-tab is-active" data-ticket-tab="queue" role="tab" aria-selected="true">Queue</button>
+        <button type="button" class="reports-ticket-tab" data-ticket-tab="claimed" role="tab" aria-selected="false">In progress</button>
+        <button type="button" class="reports-ticket-tab" data-ticket-tab="alarm_requests" role="tab" aria-selected="false" id="reportsAlarmRequestsTab" hidden>
+          Alarm requests
+          <span class="reports-tab-badge" id="alarmRequestsBadge" hidden>0</span>
+        </button>
+        <button type="button" class="reports-ticket-tab" data-ticket-tab="dispatched" role="tab" aria-selected="false" id="reportsDispatchedTab" hidden>Dispatched</button>
+        <button type="button" class="reports-ticket-tab" data-ticket-tab="completed" role="tab" aria-selected="false">Completed</button>
+      </div>
+      <div class="reports-date-filters" id="reportsDateFilters" aria-label="Date filters">
+        <div class="reports-date-filter-toggles" role="group" aria-label="Quick date filters">
+          <button type="button" class="reports-date-filter-btn is-active" data-date-filter="all">All</button>
+          <button type="button" class="reports-date-filter-btn" data-date-filter="today">Today</button>
+          <button type="button" class="reports-date-filter-btn" data-date-filter="yesterday">Yesterday</button>
+        </div>
+        <label class="reports-date-filter-pick">
+          <span class="visually-hidden">Pick a date</span>
+          <input type="date" id="reportsDateFilterInput" title="Filter by specific date">
+        </label>
+      </div>
+    </div>
+
     <div class="reports-table-shell">
       <table class="reports-table" id="reportsTable">
         <thead>
@@ -173,31 +199,52 @@
 
                     <label id="incidentStageField" class="rm-field">
                       <span class="rm-field-label">Incident stage</span>
-                      <select id="incidentStage">
+                      <select id="incidentStage" class="rm-control">
                         <option value="call_intake">Call Intake</option>
                         <option value="during_incident">During Incident</option>
                         <option value="after_incident">After Incident</option>
                       </select>
+                      <span class="rm-field-hint" id="incidentStageHint">Stage advances as the response progresses.</span>
                     </label>
 
-                    <label id="alarmLevelField" class="rm-field">
+                    <div id="alarmLevelField" class="rm-field">
                       <span class="rm-field-label">Fire alarm level</span>
-                      <select id="alarmLevel">
+                      <select id="alarmLevel" class="rm-alarm-level-select rm-control">
                         <option value="1">1 — Lowest</option>
                         <option value="2">2</option>
                         <option value="3">3</option>
                         <option value="4">4</option>
                         <option value="5">5 — Highest</option>
                       </select>
-                    </label>
+                      <div id="alarmLevelReadonlyRow" class="rm-alarm-level-row" hidden>
+                        <strong id="alarmLevelDisplay" class="rm-alarm-level-value">Level 1</strong>
+                        <button type="button" class="rm-alarm-raise-btn" id="requestAlarmRaiseBtn" hidden>Request raise</button>
+                      </div>
+                      <span class="rm-field-hint" id="alarmLevelHint">Live fire alarm is controlled by MCFS.</span>
+                      <p class="rm-alarm-request-status" id="alarmRaiseRequestStatus" hidden></p>
+                    </div>
 
                     <label id="incidentStatusField" class="rm-field">
                       <span class="rm-field-label">Incident status</span>
-                      <select id="incidentStatus">
+                      <select id="incidentStatus" class="rm-control">
+                        <option value="ongoing">Ongoing</option>
                         <option value="under_control">Under Control</option>
-                        <option value="fire_out">Fire Out</option>
                       </select>
+                      <span class="rm-field-hint">Use Ongoing while response is active. Switch to Under Control when contained.</span>
                     </label>
+
+                    <div id="fireOutField" class="rm-field rm-field--fire-out">
+                      <span class="rm-field-label">Fire out</span>
+                      <input id="fireOutCheckbox" type="checkbox" class="rm-fire-out-checkbox" tabindex="-1" aria-hidden="true">
+                      <button type="button" id="fireOutToggleBtn" class="rm-fire-out-btn" aria-pressed="false">
+                        <span class="rm-fire-out-btn-icon" aria-hidden="true">■</span>
+                        <span class="rm-fire-out-btn-copy">
+                          <strong id="fireOutToggleLabel">Mark fire out</strong>
+                          <small id="fireOutToggleMeta">Completes this incident permanently</small>
+                        </span>
+                      </button>
+                      <span class="rm-field-hint" id="fireOutHint">Only mark when the fire is fully extinguished.</span>
+                    </div>
                   </div>
                 </section>
 
@@ -376,5 +423,74 @@
         </footer>
       </form>
     </div>
+  </div>
+</div>
+
+<div id="releaseConfirmModal" class="report-modal report-modal--confirm" hidden>
+  <div class="report-modal-backdrop" data-close-release-modal="true"></div>
+  <div class="report-confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="releaseConfirmTitle">
+    <header class="rm-header">
+      <div class="rm-header-copy">
+        <p class="rm-kicker">Incident claim</p>
+        <h3 class="rm-title" id="releaseConfirmTitle">Release this incident?</h3>
+        <p class="rm-lead" id="releaseConfirmLead">This returns the ticket to the queue so another ComL can claim and update it.</p>
+      </div>
+      <button type="button" class="rm-close modal-close-btn" id="closeReleaseConfirmModal" aria-label="Close">×</button>
+    </header>
+    <div class="report-confirm-body">
+      <div class="report-confirm-summary" id="releaseConfirmSummary"></div>
+      <p class="report-confirm-note">You will lose update access until you claim it again.</p>
+    </div>
+    <footer class="report-confirm-actions">
+      <button type="button" class="rm-btn rm-btn--ghost" id="cancelReleaseConfirmBtn">Keep claim</button>
+      <button type="button" class="rm-btn rm-btn--primary primary-btn" id="confirmReleaseBtn">Release to queue</button>
+    </footer>
+  </div>
+</div>
+
+<div id="fireOutConfirmModal" class="report-modal report-modal--confirm" hidden>
+  <div class="report-modal-backdrop" data-close-fireout-modal="true"></div>
+  <div class="report-confirm-dialog report-confirm-dialog--danger" role="dialog" aria-modal="true" aria-labelledby="fireOutConfirmTitle">
+    <header class="rm-header">
+      <div class="rm-header-copy">
+        <p class="rm-kicker">Critical action</p>
+        <h3 class="rm-title" id="fireOutConfirmTitle">Mark this incident as Fire Out?</h3>
+        <p class="rm-lead" id="fireOutConfirmLead">This is a permanent completion step. After you save, the incident is finished and cannot be reopened from progress updates.</p>
+      </div>
+      <button type="button" class="rm-close modal-close-btn" id="closeFireOutConfirmModal" aria-label="Close">×</button>
+    </header>
+    <div class="report-confirm-body">
+      <div class="report-confirm-summary">
+        <strong>Fire Out</strong>
+        <span>Confirms the fire is fully extinguished for this station report.</span>
+      </div>
+      <p class="report-confirm-note">Make sure the field situation is clear before continuing. You will not be able to unmark Fire Out on this update.</p>
+    </div>
+    <footer class="report-confirm-actions">
+      <button type="button" class="rm-btn rm-btn--ghost" id="cancelFireOutConfirmBtn">Cancel</button>
+      <button type="button" class="rm-btn rm-btn--primary primary-btn" id="confirmFireOutBtn">Yes, mark Fire Out</button>
+    </footer>
+  </div>
+</div>
+
+<div id="alarmRaiseConfirmModal" class="report-modal report-modal--confirm" hidden>
+  <div class="report-modal-backdrop" data-close-alarm-raise-modal="true"></div>
+  <div class="report-confirm-dialog report-confirm-dialog--danger" role="dialog" aria-modal="true" aria-labelledby="alarmRaiseConfirmTitle">
+    <header class="rm-header">
+      <div class="rm-header-copy">
+        <p class="rm-kicker" id="alarmRaiseConfirmKicker">Urgent · MCFS decision</p>
+        <h3 class="rm-title" id="alarmRaiseConfirmTitle">Raise the live fire alarm?</h3>
+        <p class="rm-lead" id="alarmRaiseConfirmLead">This updates every responding station and may dispatch additional stations.</p>
+      </div>
+      <button type="button" class="rm-close modal-close-btn" id="closeAlarmRaiseConfirmModal" aria-label="Close">×</button>
+    </header>
+    <div class="report-confirm-body">
+      <div class="report-confirm-summary" id="alarmRaiseConfirmSummary"></div>
+      <p class="report-confirm-note" id="alarmRaiseConfirmNote">Once raised, the live alarm cannot be lowered from this queue. Confirm only if the field situation requires it.</p>
+    </div>
+    <footer class="report-confirm-actions">
+      <button type="button" class="rm-btn rm-btn--ghost" id="cancelAlarmRaiseConfirmBtn">Cancel</button>
+      <button type="button" class="rm-btn rm-btn--primary primary-btn" id="confirmAlarmRaiseBtn">Raise alarm</button>
+    </footer>
   </div>
 </div>

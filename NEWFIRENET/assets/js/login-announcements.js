@@ -36,7 +36,8 @@
     const body = safeText(item?.body || '');
     const excerptText = truncateText(body, 140);
 
-    a.setAttribute('href', '/firenet/NEWFIRENET/pages/news.html?newsId=' + encodeURIComponent(newsId));
+    a.setAttribute('href', '/firenet/NEWFIRENET/pages/login.html?view=announcements&newsId=' + encodeURIComponent(newsId));
+    a.setAttribute('data-open-announcement', newsId);
     a.setAttribute('aria-label', 'Open announcement: ' + titleText);
 
     title.textContent = titleText;

@@ -331,6 +331,26 @@ function markNotificationRead(notificationId) {
 	}
 }
 
+function markAllNotificationsRead() {
+	const notifications = loadNotifications();
+	let changed = false;
+	const next = notifications.map(function (notification) {
+		if (notification && notification.read !== true) {
+			changed = true;
+			return Object.assign({}, notification, { read: true });
+		}
+		return notification;
+	});
+
+	if (changed) {
+		saveNotifications(next);
+		renderNotifications();
+		window.dispatchEvent(new CustomEvent('firenet:notifications-updated', { detail: { source: 'alerts-opened' } }));
+	} else {
+		renderNotifications();
+	}
+}
+
 function updateHeaderDateTime() {
 	if (!headerDateTime) {
 		return;
@@ -424,6 +444,10 @@ function setupDropdown(toggle, panel, closeOthersCallback) {
 
 		panel.hidden = false;
 		toggle.setAttribute('aria-expanded', 'true');
+
+		if (toggle === alertsToggle) {
+			markAllNotificationsRead();
+		}
 	});
 }
 

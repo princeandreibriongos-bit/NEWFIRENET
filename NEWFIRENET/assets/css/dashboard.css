@@ -555,6 +555,58 @@ body.has-dashboard-bg .app-main {
   backdrop-filter: blur(10px);
 }
 
+.dash-alarm-raise-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.85rem;
+  padding: 0.85rem 1rem;
+  border-radius: 14px;
+  border: 1px solid rgba(248, 113, 113, 0.55);
+  background: linear-gradient(135deg, rgba(127, 29, 29, 0.72), rgba(69, 10, 10, 0.55));
+  box-shadow: 0 0 0 1px rgba(254, 202, 202, 0.08), 0 10px 28px rgba(127, 29, 29, 0.28);
+}
+
+.dash-alarm-raise-kicker {
+  margin: 0 0 0.15rem;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #fecaca;
+}
+
+.dash-alarm-raise-title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #fff7f7;
+}
+
+.dash-alarm-raise-meta {
+  margin: 0.2rem 0 0;
+  font-size: 0.78rem;
+  color: rgba(254, 226, 226, 0.88);
+}
+
+.dash-alarm-raise-btn {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.55rem 0.9rem;
+  border-radius: 999px;
+  background: #fecaca;
+  color: #7f1d1d;
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.dash-alarm-raise-btn:hover {
+  background: #fff;
+}
+
 .dash-live-indicator {
   display: flex;
   align-items: center;

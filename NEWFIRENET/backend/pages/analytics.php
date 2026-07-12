@@ -618,6 +618,7 @@ try {
             CASE
                 WHEN s.stage_code = 'after_incident' OR i.incident_status = 'fire_out' OR i.incident_finished_at IS NOT NULL THEN 'Resolved'
                 WHEN i.incident_status = 'under_control' THEN 'Under Control'
+                WHEN i.incident_status = 'ongoing' THEN 'Ongoing'
                 ELSE 'Active'
             END AS status_bucket,
             COUNT(*) AS incident_count
@@ -681,7 +682,11 @@ try {
     if ($latest) {
         $analyticsContext['latestIncidentLabel'] = 'Alarm ' . (int) ($latest['alarm_level'] ?? 1) . ' - ' . (string) ($latest['incident_title'] ?? 'Unspecified location');
         $status = (string) ($latest['incident_status'] ?? 'newly_reported');
-        $statusLabel = $status === 'under_control' ? 'Under Control' : ($status === 'fire_out' ? 'Fire Out' : 'Newly Reported');
+        $statusLabel = $status === 'ongoing'
+            ? 'Ongoing'
+            : ($status === 'under_control'
+                ? 'Under Control'
+                : ($status === 'fire_out' ? 'Fire Out' : 'Newly Reported'));
         $stationName = (string) ($latest['station_name'] ?? 'Makati');
         $analyticsContext['latestIncidentMeta'] = 'Station: ' . $stationName . ' | Status: ' . $statusLabel . ' | Last update: ' . (string) ($latest['incident_time'] ?? '-');
     }
