@@ -531,3 +531,51 @@ if (sidebarLayout && sidebarCollapseBtn) {
 		}
 	});
 }
+
+(function initSystemThemeToggle() {
+	const btn = document.getElementById('themeToggle');
+	const label = document.getElementById('themeToggleLabel');
+	const storageKey = 'firenet_system_theme';
+	if (!btn) return;
+
+	function currentTheme() {
+		const theme = document.documentElement.getAttribute('data-theme');
+		return theme === 'light' ? 'light' : 'dark';
+	}
+
+	function syncLabel(theme) {
+		if (!label) return;
+		const nextIsLight = theme === 'dark';
+		label.textContent = nextIsLight ? 'Light' : 'Dark';
+		btn.setAttribute('aria-label', nextIsLight ? 'Switch to light mode' : 'Switch to dark mode');
+	}
+
+	// Migrate first-time users: old default "light" still looked dark because chrome is dark.
+	try {
+		if (!localStorage.getItem(storageKey)) {
+			document.documentElement.setAttribute('data-theme', 'dark');
+			localStorage.setItem(storageKey, 'dark');
+		}
+	} catch (e) {
+		document.documentElement.setAttribute('data-theme', 'dark');
+	}
+
+	syncLabel(currentTheme());
+
+	btn.addEventListener('click', function () {
+		const next = currentTheme() === 'dark' ? 'light' : 'dark';
+		btn.classList.remove('is-toggling');
+		void btn.offsetWidth;
+		btn.classList.add('is-toggling');
+		document.documentElement.setAttribute('data-theme', next);
+		try {
+			localStorage.setItem(storageKey, next);
+		} catch (e) {
+			// ignore
+		}
+		syncLabel(next);
+		window.setTimeout(function () {
+			btn.classList.remove('is-toggling');
+		}, 560);
+	});
+})();

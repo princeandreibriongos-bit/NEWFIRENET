@@ -1,0 +1,355 @@
+/* Light-mode page overrides — must load AFTER page CSS (dashboard, reports, etc.) */
+
+/* Remap command-center tokens */
+html[data-theme="light"] .dash-pro {
+  --dash-surface: rgba(255, 255, 255, 0.94);
+  --dash-surface-strong: #ffffff;
+  --dash-border: rgba(27, 36, 48, 0.12);
+  --dash-text: #121a24;
+  --dash-muted: rgba(27, 36, 48, 0.62);
+  color: var(--dash-text);
+}
+
+html[data-theme="light"] .ana-pro {
+  --ana-surface: rgba(255, 255, 255, 0.94);
+  --ana-surface-strong: #ffffff;
+  --ana-border: rgba(27, 36, 48, 0.12);
+  --ana-text: #121a24;
+  --ana-muted: rgba(27, 36, 48, 0.62);
+  color: var(--ana-text);
+}
+
+html[data-theme="light"] .reports-pro {
+  --reports-surface: rgba(255, 255, 255, 0.94);
+  --reports-surface-strong: #ffffff;
+  --reports-border: rgba(27, 36, 48, 0.12);
+  --reports-text: #121a24;
+  --reports-muted: rgba(27, 36, 48, 0.62);
+  color: var(--reports-text);
+}
+
+html[data-theme="light"] .cal-pro {
+  --cal-surface: rgba(255, 255, 255, 0.94);
+  --cal-surface-strong: #ffffff;
+  --cal-border: rgba(27, 36, 48, 0.12);
+  --cal-text: #121a24;
+  --cal-muted: rgba(27, 36, 48, 0.62);
+  --cal-accent-soft: rgba(188, 31, 45, 0.12);
+  color: var(--cal-text);
+}
+
+html[data-theme="light"] .settings-pro,
+html[data-theme="light"] .settings-shell {
+  --settings-surface: rgba(255, 255, 255, 0.94);
+  --settings-surface-strong: #ffffff;
+  --settings-border: rgba(27, 36, 48, 0.12);
+  --settings-text: #121a24;
+  --settings-muted: rgba(27, 36, 48, 0.62);
+  color: var(--settings-text);
+}
+
+html[data-theme="light"] .users-shell {
+  --users-surface: rgba(255, 255, 255, 0.94);
+  --users-surface-strong: #ffffff;
+  --users-surface-soft: rgba(18, 26, 36, 0.04);
+  --users-border: rgba(27, 36, 48, 0.12);
+  --users-border-soft: rgba(27, 36, 48, 0.08);
+  --users-text: #121a24;
+  --users-muted: rgba(27, 36, 48, 0.62);
+  color: var(--users-text);
+}
+
+html[data-theme="light"] .logs-pro {
+  --logs-surface: rgba(255, 255, 255, 0.94);
+  --logs-surface-strong: #ffffff;
+  --logs-border: rgba(27, 36, 48, 0.12);
+  --logs-text: #121a24;
+  --logs-muted: rgba(27, 36, 48, 0.62);
+  color: var(--logs-text);
+}
+
+html[data-theme="light"] .mail-pro {
+  --mail-surface: rgba(255, 255, 255, 0.94);
+  --mail-surface-strong: #ffffff;
+  --mail-border: rgba(27, 36, 48, 0.12);
+  --mail-text: #121a24;
+  --mail-muted: rgba(27, 36, 48, 0.62);
+  color: var(--mail-text);
+}
+
+html[data-theme="light"] .audit-pro {
+  --audit-surface: rgba(255, 255, 255, 0.94);
+  --audit-surface-strong: #ffffff;
+  --audit-border: rgba(27, 36, 48, 0.12);
+  --audit-text: #121a24;
+  --audit-muted: rgba(27, 36, 48, 0.62);
+  color: var(--audit-text);
+}
+
+/* Soften fixed page + body backgrounds */
+html[data-theme="light"] body.is-authenticated.has-dashboard-bg,
+html[data-theme="light"] body.is-authenticated.has-reports-bg {
+  background-color: #e8edf4 !important;
+}
+
+html[data-theme="light"] body.is-authenticated.has-dashboard-bg::before,
+html[data-theme="light"] body.is-authenticated.has-reports-bg::before {
+  background-image:
+    linear-gradient(160deg, rgba(238, 242, 247, 0.9) 0%, rgba(226, 232, 240, 0.92) 100%),
+    var(--firenet-bg-photo, url('/firenet/NEWFIRENET/uploads/photos/bg.jpg.png')) !important;
+  background-blend-mode: soft-light !important;
+  filter: blur(0.5px) saturate(0.85) brightness(1.1) !important;
+  opacity: 0.4 !important;
+}
+
+html[data-theme="light"] .dash-page-bg,
+html[data-theme="light"] .ana-page-bg,
+html[data-theme="light"] .reports-page-bg,
+html[data-theme="light"] .cal-page-bg,
+html[data-theme="light"] .settings-page-bg,
+html[data-theme="light"] .logs-page-bg,
+html[data-theme="light"] .mail-page-bg,
+html[data-theme="light"] .audit-page-bg {
+  background-image:
+    linear-gradient(160deg, rgba(238, 242, 247, 0.92) 0%, rgba(226, 232, 240, 0.94) 100%),
+    var(--firenet-bg-photo, url('/firenet/NEWFIRENET/uploads/photos/bg.jpg.png')) !important;
+  background-blend-mode: soft-light !important;
+  filter: blur(0.4px) saturate(0.8) brightness(1.12) !important;
+  opacity: 0.88;
+}
+
+html[data-theme="light"] .dash-page-bg::after,
+html[data-theme="light"] .ana-page-bg::after,
+html[data-theme="light"] .reports-page-bg::after,
+html[data-theme="light"] .cal-page-bg::after,
+html[data-theme="light"] .settings-page-bg::after,
+html[data-theme="light"] .logs-page-bg::after,
+html[data-theme="light"] .mail-page-bg::after,
+html[data-theme="light"] .audit-page-bg::after {
+  background:
+    radial-gradient(circle at 12% 10%, rgba(188, 31, 45, 0.08), transparent 34%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.4) 0%, rgba(232, 237, 244, 0.6) 100%) !important;
+}
+
+/* Force dark card shells → light surfaces */
+html[data-theme="light"] .dash-hero,
+html[data-theme="light"] .dash-kpi-card,
+html[data-theme="light"] .dash-panel,
+html[data-theme="light"] .dash-stat-tile,
+html[data-theme="light"] .dash-live-bar,
+html[data-theme="light"] .dash-summary-tile,
+html[data-theme="light"] .dash-search,
+html[data-theme="light"] .dash-search-panel,
+html[data-theme="light"] .dash-briefing-card,
+html[data-theme="light"] .dash-load-card,
+html[data-theme="light"] .dash-load-hero,
+html[data-theme="light"] .dash-ops-widget,
+html[data-theme="light"] .dash-chart-box,
+html[data-theme="light"] .ana-hero,
+html[data-theme="light"] .ana-side-card,
+html[data-theme="light"] .ana-stat-tile,
+html[data-theme="light"] .ana-toolbar,
+html[data-theme="light"] .ana-map-panel,
+html[data-theme="light"] .ana-live-bar,
+html[data-theme="light"] .ana-env-metric,
+html[data-theme="light"] .ana-env-warning,
+html[data-theme="light"] .ana-comparison-card,
+html[data-theme="light"] .ana-chart-box,
+html[data-theme="light"] .reports-hero,
+html[data-theme="light"] .reports-history-panel,
+html[data-theme="light"] .reports-scope-bar,
+html[data-theme="light"] .reports-table-shell,
+html[data-theme="light"] .cal-hero,
+html[data-theme="light"] .cal-side-card,
+html[data-theme="light"] .cal-toolbar,
+html[data-theme="light"] .cal-modal-dialog,
+html[data-theme="light"] .settings-hero-shell,
+html[data-theme="light"] .settings-profile-panel,
+html[data-theme="light"] .settings-section-card,
+html[data-theme="light"] .settings-modal-dialog,
+html[data-theme="light"] .settings-profile-card,
+html[data-theme="light"] .users-hero,
+html[data-theme="light"] .users-filter-card,
+html[data-theme="light"] .users-table-card,
+html[data-theme="light"] .users-brgy-panel,
+html[data-theme="light"] .logs-hero,
+html[data-theme="light"] .logs-card,
+html[data-theme="light"] .logs-panel,
+html[data-theme="light"] .mail-hero,
+html[data-theme="light"] .mail-landing-header,
+html[data-theme="light"] .mail-hub-card,
+html[data-theme="light"] .mail-stat-card,
+html[data-theme="light"] .mail-card,
+html[data-theme="light"] .mail-panel,
+html[data-theme="light"] .mail-list-panel,
+html[data-theme="light"] .mail-detail-panel,
+html[data-theme="light"] .mail-compose,
+html[data-theme="light"] .mail-thread,
+html[data-theme="light"] .audit-hero,
+html[data-theme="light"] .audit-card,
+html[data-theme="light"] .portal-card {
+  background: linear-gradient(180deg, #ffffff 0%, #f7f9fc 100%) !important;
+  border-color: rgba(27, 36, 48, 0.12) !important;
+  color: #121a24 !important;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 8px 20px rgba(15, 23, 42, 0.06) !important;
+}
+
+html[data-theme="light"] .dash-summary-tile--accent {
+  background: linear-gradient(180deg, #fff5f5 0%, #fde8ea 100%) !important;
+  border-color: rgba(188, 31, 45, 0.22) !important;
+}
+
+html[data-theme="light"] .dash-hero::after,
+html[data-theme="light"] .ana-hero::after,
+html[data-theme="light"] .reports-hero::after,
+html[data-theme="light"] .cal-hero::after,
+html[data-theme="light"] .settings-hero-shell::after,
+html[data-theme="light"] .users-hero::after,
+html[data-theme="light"] .logs-hero::after,
+html[data-theme="light"] .mail-hero::after,
+html[data-theme="light"] .audit-hero::after {
+  background: linear-gradient(90deg, transparent 0%, #bc1f2d 48%, #243f61 100%) !important;
+}
+
+/* Text that was hardcoded white / pale blue */
+html[data-theme="light"] .dash-title,
+html[data-theme="light"] .dash-kpi-value,
+html[data-theme="light"] .dash-summary-value,
+html[data-theme="light"] .dash-panel-title,
+html[data-theme="light"] .dash-live-title,
+html[data-theme="light"] .dash-ops-big,
+html[data-theme="light"] .dash-load-station,
+html[data-theme="light"] .dash-stat-value,
+html[data-theme="light"] .dash-meta-chip-value,
+html[data-theme="light"] .ana-title,
+html[data-theme="light"] .ana-panel-title,
+html[data-theme="light"] .ana-live-title,
+html[data-theme="light"] .ana-stat-value,
+html[data-theme="light"] .ana-meta-chip-value,
+html[data-theme="light"] .ana-load-summary-value,
+html[data-theme="light"] .reports-title,
+html[data-theme="light"] .reports-panel-title,
+html[data-theme="light"] .reports-meta-chip-value,
+html[data-theme="light"] .cal-stat-value,
+html[data-theme="light"] .settings-title,
+html[data-theme="light"] .settings-section-title,
+html[data-theme="light"] .users-title,
+html[data-theme="light"] .mail-landing-header h1,
+html[data-theme="light"] .mail-hero h1,
+html[data-theme="light"] .mail-hub-card h2,
+html[data-theme="light"] .mail-stat-card strong,
+html[data-theme="light"] .logs-hero h1 {
+  color: #121a24 !important;
+}
+
+html[data-theme="light"] .dash-kicker,
+html[data-theme="light"] .dash-subtitle,
+html[data-theme="light"] .dash-kpi-label,
+html[data-theme="light"] .dash-kpi-hint,
+html[data-theme="light"] .dash-kpi-value-suffix,
+html[data-theme="light"] .dash-summary-label,
+html[data-theme="light"] .dash-panel-desc,
+html[data-theme="light"] .dash-live-meta,
+html[data-theme="light"] .dash-ops-label,
+html[data-theme="light"] .dash-ops-caption,
+html[data-theme="light"] .dash-load-label,
+html[data-theme="light"] .dash-load-meta,
+html[data-theme="light"] .dash-stat-label,
+html[data-theme="light"] .dash-meta-chip-label,
+html[data-theme="light"] .ana-kicker,
+html[data-theme="light"] .ana-subtitle,
+html[data-theme="light"] .ana-stat-label,
+html[data-theme="light"] .ana-meta-chip-label,
+html[data-theme="light"] .ana-live-meta,
+html[data-theme="light"] .ana-map-meta,
+html[data-theme="light"] .ana-load-summary-meta,
+html[data-theme="light"] .ana-role-summary,
+html[data-theme="light"] .reports-kicker,
+html[data-theme="light"] .reports-subtitle,
+html[data-theme="light"] .reports-meta-chip-label,
+html[data-theme="light"] .reports-history-kicker,
+html[data-theme="light"] .reports-scope-label,
+html[data-theme="light"] .reports-scope-desc,
+html[data-theme="light"] .cal-legend-title,
+html[data-theme="light"] .cal-admin-note,
+html[data-theme="light"] .settings-kicker,
+html[data-theme="light"] .settings-section-kicker,
+html[data-theme="light"] .settings-muted,
+html[data-theme="light"] .users-kicker,
+html[data-theme="light"] .users-shell .muted-text {
+  color: rgba(27, 36, 48, 0.62) !important;
+}
+
+html[data-theme="light"] .dash-meta-chip,
+html[data-theme="light"] .dash-action--ghost,
+html[data-theme="light"] .dash-tag,
+html[data-theme="light"] .dash-refresh-pill,
+html[data-theme="light"] .ana-meta-chip,
+html[data-theme="light"] .ana-action,
+html[data-theme="light"] .ana-toggle-pill span,
+html[data-theme="light"] .ana-layer-pill,
+html[data-theme="light"] .ana-display-pill,
+html[data-theme="light"] .ana-map-badge,
+html[data-theme="light"] .ana-load-chip,
+html[data-theme="light"] .reports-meta-chip,
+html[data-theme="light"] .reports-tip,
+html[data-theme="light"] .reports-scope-btn,
+html[data-theme="light"] .reports-date-filter-btn,
+html[data-theme="light"] .cal-btn--ghost,
+html[data-theme="light"] .cal-pill,
+html[data-theme="light"] .cal-stat {
+  background: rgba(18, 26, 36, 0.05) !important;
+  border-color: rgba(27, 36, 48, 0.12) !important;
+  color: #121a24 !important;
+}
+
+html[data-theme="light"] .dash-kpi-bar,
+html[data-theme="light"] .dash-stat-strip {
+  background: rgba(18, 26, 36, 0.06) !important;
+}
+
+html[data-theme="light"] .dash-kpi-delta--neutral {
+  color: rgba(27, 36, 48, 0.45) !important;
+}
+
+html[data-theme="light"] .dash-kpi-delta--up {
+  color: #15803d !important;
+}
+
+html[data-theme="light"] .dash-kpi-delta--down {
+  color: #b91c1c !important;
+}
+
+/* Tables / feeds inside light cards */
+html[data-theme="light"] .dash-feed-item,
+html[data-theme="light"] .dash-load-item,
+html[data-theme="light"] .reports-ticket-toolbar,
+html[data-theme="light"] .cal-weekdays {
+  background: rgba(18, 26, 36, 0.03) !important;
+  border-color: rgba(27, 36, 48, 0.1) !important;
+  color: #121a24 !important;
+}
+
+html[data-theme="light"] .portal-table tbody tr,
+html[data-theme="light"] .users-table tbody tr {
+  background: #ffffff !important;
+  color: #121a24 !important;
+}
+
+html[data-theme="light"] .portal-table tbody tr:nth-child(even),
+html[data-theme="light"] .users-table tbody tr:nth-child(even) {
+  background: #fbfdff !important;
+}
+
+html[data-theme="light"] .portal-table thead th,
+html[data-theme="light"] .users-table thead th {
+  background: #edf3fb !important;
+  color: #263140 !important;
+}
+
+html[data-theme="light"] .ana-gis-select,
+html[data-theme="light"] .ana-tool-btn {
+  background: rgba(18, 26, 36, 0.05) !important;
+  border-color: rgba(27, 36, 48, 0.12) !important;
+  color: #121a24 !important;
+}

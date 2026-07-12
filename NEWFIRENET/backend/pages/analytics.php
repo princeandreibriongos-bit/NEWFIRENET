@@ -318,6 +318,15 @@ $analyticsContext = [
     'hydrantGeo' => [],
     'hydrantNotice' => 'Hydrant layer will appear after hydrant coordinates are loaded.',
     'hydrantSourceLabel' => 'OpenStreetMap public hydrants',
+    'publicIntel' => [
+        'subscribersTotal' => 0,
+        'subscribersEmail' => 0,
+        'subscribersSms' => 0,
+        'topicWeather' => 0,
+        'topicAnnouncements' => 0,
+        'topicSafety' => 0,
+        'recent7d' => 0
+    ],
     'dispatchLoadSummary' => [
         'busiestStationName' => 'No active dispatch load',
         'busiestStationActiveAssignments' => 0,
@@ -691,11 +700,11 @@ try {
         $analyticsContext['latestIncidentMeta'] = 'Station: ' . $stationName . ' | Status: ' . $statusLabel . ' | Last update: ' . (string) ($latest['incident_time'] ?? '-');
     }
 
-    $incidentHeatSql = "\n        SELECT\n            COALESCE(NULLIF(r.title, ''), NULLIF(i.incident_location, ''), CONCAT('Incident #', i.incident_report_id)) AS incident_label,\n            COALESCE(i.incident_status, 'newly_reported') AS incident_status,\n            COALESCE(i.alarm_level, 1) AS alarm_level,\n            COALESCE(i.updated_at, i.created_at, r.updated_at, r.created_at) AS incident_time,\n            COALESCE(st.station_name, '') AS station_name,\n            i.latitude,\n            i.longitude\n        FROM incident_reports i\n        JOIN reports r ON r.report_id = i.report_id\n        LEFT JOIN stations st ON st.station_id = r.station_id\n        LEFT JOIN incident_report_stage s ON s.incident_report_stage_id = i.incident_report_stage_id\n        WHERE i.latitude IS NOT NULL\n          AND i.longitude IS NOT NULL\n    ";
+    $incidentHeatSql = "\n        SELECT\n            i.incident_report_id,\n            i.report_id,\n            COALESCE(NULLIF(r.title, ''), NULLIF(i.incident_location, ''), CONCAT('Incident #', i.incident_report_id)) AS incident_label,\n            COALESCE(NULLIF(i.incident_location, ''), '') AS incident_location,\n            COALESCE(i.incident_status, 'newly_reported') AS incident_status,\n            COALESCE(i.alarm_level, 1) AS alarm_level,\n            COALESCE(rt.type_name, '') AS report_type_name,\n            COALESCE(i.updated_at, i.created_at, r.updated_at, r.created_at) AS incident_time,\n            COALESCE(st.station_name, '') AS station_name,\n            i.latitude,\n            i.longitude\n        FROM incident_reports i\n        JOIN reports r ON r.report_id = i.report_id\n        LEFT JOIN report_type rt ON rt.report_type_id = r.report_type_id\n        LEFT JOIN stations st ON st.station_id = r.station_id\n        LEFT JOIN incident_report_stage s ON s.incident_report_stage_id = i.incident_report_stage_id\n        WHERE i.latitude IS NOT NULL\n          AND i.longitude IS NOT NULL\n    ";
     if ($incidentWhereSql !== '') {
         $incidentHeatSql .= "\n          AND " . $incidentWhereSql;
     }
-    $incidentHeatSql .= "\n        ORDER BY COALESCE(i.updated_at, i.created_at, r.updated_at, r.created_at) DESC\n        LIMIT 750\n    ";
+    $incidentHeatSql .= "\n        ORDER BY COALESCE(i.updated_at, i.created_at, r.updated_at, r.created_at) DESC\n        LIMIT 1500\n    ";
 
     $incidentHeatStmt = $pdo->prepare($incidentHeatSql);
     $incidentHeatStmt->execute($incidentParams);
@@ -716,11 +725,15 @@ try {
         }
 
         $analyticsContext['incidentHeatmapPoints'][] = [
+            'incidentReportId' => (int) ($row['incident_report_id'] ?? 0),
+            'reportId' => (int) ($row['report_id'] ?? 0),
             'lat' => $latitude,
             'lng' => $longitude,
             'weight' => $weight,
             'label' => (string) ($row['incident_label'] ?? 'Incident'),
+            'location' => (string) ($row['incident_location'] ?? ''),
             'status' => $incidentStatus,
+            'reportType' => (string) ($row['report_type_name'] ?? ''),
             'stationName' => (string) ($row['station_name'] ?? ''),
             'alarmLevel' => $alarmLevel,
             'updatedAt' => (string) ($row['incident_time'] ?? '')
@@ -1025,6 +1038,47 @@ try {
         $incidentTo,
         (int) $analyticsContext['totalIncidentCount']
     );
+
+    // Public alert reach (civilian opt-in) for ops intelligence.
+    $analyticsContext['publicIntel'] = [
+        'subscribersTotal' => 0,
+        'subscribersEmail' => 0,
+        'subscribersSms' => 0,
+        'topicWeather' => 0,
+        'topicAnnouncements' => 0,
+        'topicSafety' => 0,
+        'recent7d' => 0
+    ];
+    try {
+        if (firenet_table_exists_for_analytics($pdo, 'civilian_alert_subscribers')) {
+            $subStmt = $pdo->query(
+                "SELECT
+                    COUNT(*) AS total_count,
+                    SUM(CASE WHEN channel_email = 1 THEN 1 ELSE 0 END) AS email_count,
+                    SUM(CASE WHEN channel_sms = 1 THEN 1 ELSE 0 END) AS sms_count,
+                    SUM(CASE WHEN FIND_IN_SET('weather', topics) THEN 1 ELSE 0 END) AS topic_weather,
+                    SUM(CASE WHEN FIND_IN_SET('announcements', topics) THEN 1 ELSE 0 END) AS topic_announcements,
+                    SUM(CASE WHEN FIND_IN_SET('safety', topics) THEN 1 ELSE 0 END) AS topic_safety,
+                    SUM(CASE WHEN created_at >= (NOW() - INTERVAL 7 DAY) THEN 1 ELSE 0 END) AS recent_7d
+                 FROM civilian_alert_subscribers
+                 WHERE is_active = 1"
+            );
+            $subRow = $subStmt ? $subStmt->fetch(PDO::FETCH_ASSOC) : null;
+            if (is_array($subRow)) {
+                $analyticsContext['publicIntel'] = [
+                    'subscribersTotal' => (int) ($subRow['total_count'] ?? 0),
+                    'subscribersEmail' => (int) ($subRow['email_count'] ?? 0),
+                    'subscribersSms' => (int) ($subRow['sms_count'] ?? 0),
+                    'topicWeather' => (int) ($subRow['topic_weather'] ?? 0),
+                    'topicAnnouncements' => (int) ($subRow['topic_announcements'] ?? 0),
+                    'topicSafety' => (int) ($subRow['topic_safety'] ?? 0),
+                    'recent7d' => (int) ($subRow['recent_7d'] ?? 0)
+                ];
+            }
+        }
+    } catch (Throwable $publicIntelError) {
+        // Keep analytics page usable if subscriber table is missing.
+    }
 } catch (Throwable $e) {
     // Keep page usable if analytics query fails.
 }

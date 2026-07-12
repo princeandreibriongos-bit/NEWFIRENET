@@ -770,8 +770,7 @@
     renderAlarmRaiseBanner();
     if (dot) {
       const open = Number(context.openIncidentCount || 0) > 0;
-      dot.style.background = open ? '#dc2626' : '#16a34a';
-      dot.style.boxShadow = open ? '0 0 0 6px rgba(220, 38, 38, 0.2)' : '0 0 0 6px rgba(22, 163, 74, 0.15)';
+      dot.classList.toggle('dash-activity-dot--alert', open);
     }
   }
 

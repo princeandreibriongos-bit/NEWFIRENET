@@ -1,28 +1,30 @@
-<div class="dash-pro">
+<div class="dash-pro dash-pro--compact">
   <div class="dash-page-bg" aria-hidden="true"></div>
 
   <div class="dash-body">
-    <header class="dash-hero" aria-label="Operations overview">
+    <header class="dash-hero dash-reveal" aria-label="Operations overview">
       <div class="dash-hero-top">
         <div class="dash-hero-copy">
-          <p class="dash-kicker">FireNet · Command center</p>
-          <h1 class="dash-title">Operations overview</h1>
-          <p class="dash-subtitle">Live readiness, incident volume, and station health for <span id="dashStationHint">your station</span>.</p>
+          <div class="dash-hero-heading">
+            <p class="dash-kicker">FireNet · Command</p>
+            <h1 class="dash-title">Operations</h1>
+            <p class="dash-subtitle">Live readiness for <span id="dashStationHint">your station</span></p>
+          </div>
           <ul class="dash-meta-chips" aria-label="Session summary">
             <li class="dash-meta-chip"><span class="dash-meta-chip-label">Station</span><span class="dash-meta-chip-value" id="dashHeroStationName">—</span></li>
             <li class="dash-meta-chip"><span class="dash-meta-chip-label">Role</span><span class="dash-meta-chip-value" id="dashHeroRoleChip">—</span></li>
             <li class="dash-meta-chip"><span class="dash-meta-chip-value" id="dashHeroStatusChip">Stable</span></li>
             <li class="dash-meta-chip dash-meta-chip--subtle"><span class="dash-meta-chip-value" id="dashHeroUpdatedChip">Updated —</span></li>
           </ul>
-          <p class="dash-refresh-line"><span class="dash-refresh-pill" id="dashRefreshedAt" title="Browser load time">Updated — …</span></p>
+          <span class="visually-hidden" id="dashRefreshedAt">Updated — …</span>
           <div class="dash-hero-actions">
             <a id="dashReportIncidentBtn" class="dash-action dash-action--report" href="/firenet/NEWFIRENET/backend/pages/reports.php?quick=intake" hidden>
               <span class="dash-action-icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24" focusable="false"><path d="M12 3a5 5 0 0 0-5 5v2.2c0 .8-.2 1.6-.6 2.3L5 15.2V17h14v-1.8l-1.4-1.7c-.4-.7-.6-1.5-.6-2.3V8a5 5 0 0 0-5-5zm0 18a2.2 2.2 0 0 0 2.1-1.5H9.9A2.2 2.2 0 0 0 12 21z" fill="currentColor"></path></svg>
               </span>
-              Report incident
+              Report
             </a>
-            <a class="dash-action dash-action--ghost" href="/firenet/NEWFIRENET/backend/pages/reports.php">All reports</a>
+            <a class="dash-action dash-action--ghost" href="/firenet/NEWFIRENET/backend/pages/reports.php">Reports</a>
             <a class="dash-action dash-action--ghost" href="/firenet/NEWFIRENET/backend/pages/analytics.php">Analytics</a>
           </div>
         </div>
@@ -45,25 +47,25 @@
 
       <div class="dash-stat-strip" aria-label="Headline metrics">
         <article class="dash-stat-tile">
-          <span class="dash-stat-label">Active incidents</span>
+          <span class="dash-stat-label">Active</span>
           <strong class="dash-stat-value" id="heroOpenCount">0</strong>
         </article>
         <article class="dash-stat-tile">
-          <span class="dash-stat-label">Resolved rate</span>
+          <span class="dash-stat-label">Resolved</span>
           <strong class="dash-stat-value" id="heroResolutionRate">0%</strong>
         </article>
         <article class="dash-stat-tile">
-          <span class="dash-stat-label">Station coverage</span>
+          <span class="dash-stat-label">Coverage</span>
           <strong class="dash-stat-value" id="heroStationCoverage">0%</strong>
         </article>
         <article class="dash-stat-tile dash-stat-tile--alert">
-          <span class="dash-stat-label">Offline stations</span>
+          <span class="dash-stat-label">Offline</span>
           <strong class="dash-stat-value" id="heroOfflineCount">0</strong>
         </article>
       </div>
     </header>
 
-    <section class="dash-live-bar" aria-label="Live incident status">
+    <section class="dash-live-bar dash-reveal" aria-label="Live incident status">
       <div class="dash-live-indicator">
         <span class="dash-activity-dot" aria-hidden="true"></span>
         <div class="dash-live-text">
@@ -71,13 +73,18 @@
           <p class="dash-live-meta" id="ongoingIncidentMeta">System ready</p>
         </div>
       </div>
+      <div class="dash-live-indices" aria-hidden="true">
+        <span id="darkReadiness">100%</span>
+        <span id="darkOpen">0</span>
+        <span id="darkResolution">0%</span>
+      </div>
       <a id="dashLiveReportBtn" class="dash-live-report" href="/firenet/NEWFIRENET/backend/pages/reports.php?quick=intake" hidden>
         <span class="dash-live-report-icon" aria-hidden="true">+</span>
         Report incident
       </a>
     </section>
 
-    <section id="dashAlarmRaiseBanner" class="dash-alarm-raise-banner" hidden aria-label="Urgent fire alarm raise requests">
+    <section id="dashAlarmRaiseBanner" class="dash-alarm-raise-banner dash-reveal" hidden aria-label="Urgent fire alarm raise requests">
       <div class="dash-alarm-raise-copy">
         <p class="dash-alarm-raise-kicker">Urgent</p>
         <p class="dash-alarm-raise-title" id="dashAlarmRaiseTitle">Fire alarm raise requests need MCFS review</p>
@@ -88,7 +95,7 @@
       </a>
     </section>
 
-    <section class="dash-kpi-row" aria-label="Key performance indicators">
+    <section class="dash-kpi-row dash-reveal" aria-label="Key performance indicators">
       <article class="dash-kpi-card dash-kpi-card--incidents">
         <div class="dash-kpi-head">
           <span class="dash-kpi-label">Active incidents</span>
@@ -102,22 +109,22 @@
       </article>
       <article class="dash-kpi-card dash-kpi-card--completed">
         <div class="dash-kpi-head">
-          <span class="dash-kpi-label">Completed (period)</span>
+          <span class="dash-kpi-label">Completed</span>
           <span class="dash-kpi-delta dash-kpi-delta--up" id="kpiDeltaCompleted" aria-hidden="true">▲</span>
         </div>
         <p class="dash-kpi-value"><span id="completedIncidentCount">0</span> <span class="dash-kpi-value-suffix">/ <span id="totalIncidentCount">0</span></span></p>
-        <p class="dash-kpi-hint">Resolved vs total at your station</p>
+        <p class="dash-kpi-hint">Resolved vs total</p>
         <div class="dash-kpi-spark">
           <canvas id="sparkCompleted" aria-hidden="true"></canvas>
         </div>
       </article>
       <article class="dash-kpi-card dash-kpi-card--readiness">
         <div class="dash-kpi-head">
-          <span class="dash-kpi-label">Readiness index</span>
+          <span class="dash-kpi-label">Readiness</span>
           <span class="dash-kpi-delta dash-kpi-delta--up" id="kpiDeltaReadiness" aria-hidden="true">▲</span>
         </div>
         <p class="dash-kpi-value" id="readinessScore">100%</p>
-        <p class="dash-kpi-hint">Incidents &amp; station status combined</p>
+        <p class="dash-kpi-hint">Incidents &amp; station status</p>
         <div class="dash-kpi-spark">
           <canvas id="sparkReadiness" aria-hidden="true"></canvas>
         </div>
@@ -127,71 +134,69 @@
       </article>
     </section>
 
-    <section class="dash-analytics-grid">
+    <section class="dash-board-grid dash-reveal">
       <article class="dash-panel dash-panel--chart">
-        <header class="dash-panel-head">
+        <header class="dash-panel-head dash-panel-head--compact">
           <div>
             <h2 class="dash-panel-title">Incident volume</h2>
-            <p class="dash-panel-desc">Last 7 days at your station</p>
+            <p class="dash-panel-desc">Last 7 days</p>
           </div>
-          <span class="dash-tag">7-day trend</span>
+          <span class="dash-tag">7-day</span>
         </header>
         <div class="dash-chart-box dash-chart-box--tall">
           <canvas id="incidentTrendChart"></canvas>
         </div>
       </article>
 
-      <aside class="dash-aside-stack">
-        <article class="dash-panel dash-ops-widget">
-          <p class="dash-ops-label">Operations pulse</p>
-          <p class="dash-ops-big" id="dashOpsBigNumber">0</p>
-          <p class="dash-ops-caption" id="dashOpsCaption">Monitoring network activity</p>
-          <ul class="dash-ops-list" id="dashOpsMiniList" aria-label="Fleet status breakdown"></ul>
-        </article>
+      <article class="dash-panel dash-ops-widget">
+        <p class="dash-ops-label">Ops pulse</p>
+        <p class="dash-ops-big" id="dashOpsBigNumber">0</p>
+        <p class="dash-ops-caption" id="dashOpsCaption">Monitoring network</p>
+        <ul class="dash-ops-list" id="dashOpsMiniList" aria-label="Fleet status breakdown"></ul>
+      </article>
 
-        <article class="dash-panel dash-health-card">
-          <header class="dash-panel-head dash-panel-head--compact">
-            <div>
-              <h2 class="dash-panel-title">Station health</h2>
-              <p class="dash-panel-desc">Responding · standby · offline</p>
-            </div>
-            <span class="dash-tag dash-tag--live">Live</span>
-          </header>
-          <div class="dash-chart-box dash-chart-box--mini">
-            <canvas id="stationHealthChart"></canvas>
+      <article class="dash-panel dash-health-card">
+        <header class="dash-panel-head dash-panel-head--compact">
+          <div>
+            <h2 class="dash-panel-title">Station health</h2>
+            <p class="dash-panel-desc">Responding · standby · offline</p>
           </div>
-        </article>
+          <span class="dash-tag dash-tag--live">Live</span>
+        </header>
+        <div class="dash-chart-box dash-chart-box--mini">
+          <canvas id="stationHealthChart"></canvas>
+        </div>
+      </article>
 
-        <article class="dash-panel dash-load-card">
-          <header class="dash-panel-head dash-panel-head--compact">
-            <div>
-              <h2 class="dash-panel-title">Dispatch load balance</h2>
-              <p class="dash-panel-desc" id="dashLoadBalanceSummary">Monitoring station load…</p>
-            </div>
-            <span class="dash-tag">Today</span>
-          </header>
-          <div class="dash-load-body">
-            <div class="dash-load-hero">
-              <p class="dash-load-label">Busiest station now</p>
-              <p class="dash-load-station" id="dashLoadBalanceLead">No active dispatch load</p>
-              <p class="dash-load-meta" id="dashLoadBalanceMeta">Waiting for assignments</p>
-            </div>
-            <ul class="dash-load-list" id="dashLoadBalanceList">
-              <li class="dash-load-item dash-load-item--empty">No dispatch activity yet.</li>
-            </ul>
+      <article class="dash-panel dash-load-card">
+        <header class="dash-panel-head dash-panel-head--compact">
+          <div>
+            <h2 class="dash-panel-title">Dispatch load</h2>
+            <p class="dash-panel-desc" id="dashLoadBalanceSummary">Monitoring…</p>
           </div>
-        </article>
+          <span class="dash-tag">Today</span>
+        </header>
+        <div class="dash-load-body">
+          <div class="dash-load-hero">
+            <p class="dash-load-label">Busiest now</p>
+            <p class="dash-load-station" id="dashLoadBalanceLead">No active dispatch load</p>
+            <p class="dash-load-meta" id="dashLoadBalanceMeta">Waiting for assignments</p>
+          </div>
+          <ul class="dash-load-list" id="dashLoadBalanceList">
+            <li class="dash-load-item dash-load-item--empty">No dispatch activity yet.</li>
+          </ul>
+        </div>
+      </article>
 
-        <article class="dash-panel dash-briefing-card">
-          <header class="dash-panel-head dash-panel-head--compact">
-            <h2 class="dash-panel-title">Briefing</h2>
-          </header>
-          <ul class="dash-feed" id="dashNewsFeed"></ul>
-        </article>
-      </aside>
+      <article class="dash-panel dash-briefing-card">
+        <header class="dash-panel-head dash-panel-head--compact">
+          <h2 class="dash-panel-title">Briefing</h2>
+        </header>
+        <ul class="dash-feed" id="dashNewsFeed"></ul>
+      </article>
     </section>
 
-    <section class="dash-bottom-grid">
+    <section class="dash-bottom-grid dash-reveal">
       <article class="dash-panel dash-roster-panel">
         <header class="dash-panel-head dash-panel-head--compact">
           <div>
@@ -215,21 +220,6 @@
           <canvas id="weeklyBarChart"></canvas>
         </div>
       </article>
-
-      <div class="dash-summary-stack" aria-label="Summary indices">
-        <article class="dash-summary-tile">
-          <p class="dash-summary-label">Readiness</p>
-          <p class="dash-summary-value" id="darkReadiness">100%</p>
-        </article>
-        <article class="dash-summary-tile">
-          <p class="dash-summary-label">Active queue</p>
-          <p class="dash-summary-value" id="darkOpen">0</p>
-        </article>
-        <article class="dash-summary-tile dash-summary-tile--accent">
-          <p class="dash-summary-label">Resolution rate</p>
-          <p class="dash-summary-value" id="darkResolution">0%</p>
-        </article>
-      </div>
     </section>
   </div>
 

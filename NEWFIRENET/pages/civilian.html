@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FireNet Public — Makati Fire District</title>
+    <meta name="description" content="Public safety portal for Makati civilians — emergency hotlines, weather warnings, district news, and alert opt-in.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="../assets/css/civilian.css">
+    <script>
+      (function () {
+        try {
+          var theme = localStorage.getItem('firenet_civilian_theme') || 'dark';
+          if (theme !== 'light' && theme !== 'dark') theme = 'dark';
+          document.documentElement.setAttribute('data-theme', theme);
+        } catch (e) {
+          document.documentElement.setAttribute('data-theme', 'dark');
+        }
+      })();
+    </script>
+</head>
+<body data-view="home">
+    <canvas id="emberCanvas" class="ember-canvas" aria-hidden="true"></canvas>
+    <div class="scene-bg" id="sceneBg" aria-hidden="true">
+        <div class="scene-layer is-active" data-scene="0"></div>
+        <div class="scene-layer" data-scene="1"></div>
+        <div class="scene-layer" data-scene="2"></div>
+        <div class="scene-veil"></div>
+    </div>
+
+    <aside class="side-ribbon" aria-label="Public portal navigation">
+        <div class="side-ribbon-brand">
+            <img src="../assets/img/bfpmakatilogo.jpg" alt="BFP Makati Logo" class="side-ribbon-logo">
+            <div class="side-ribbon-brand-text">
+                <span class="side-ribbon-eyebrow">Makati Fire District</span>
+                <span class="side-ribbon-title">FireNet</span>
+                <span class="side-ribbon-tag">Public</span>
+            </div>
+        </div>
+
+        <nav class="side-nav" aria-label="Sections">
+            <button type="button" class="side-nav-item is-active" data-view="home" aria-current="page">
+                <i class="bi bi-house-door" aria-hidden="true"></i>
+                <span>Home</span>
+            </button>
+            <button type="button" class="side-nav-item" data-view="hotlines">
+                <i class="bi bi-telephone-fill" aria-hidden="true"></i>
+                <span>Hotlines</span>
+                <span class="side-nav-badge">Call</span>
+            </button>
+            <button type="button" class="side-nav-item" data-view="news">
+                <i class="bi bi-newspaper" aria-hidden="true"></i>
+                <span>News</span>
+            </button>
+            <button type="button" class="side-nav-item" data-view="announcements">
+                <i class="bi bi-megaphone" aria-hidden="true"></i>
+                <span>Notices</span>
+            </button>
+            <button type="button" class="side-nav-item" data-view="alerts">
+                <i class="bi bi-bell" aria-hidden="true"></i>
+                <span>Alerts</span>
+            </button>
+            <button type="button" class="side-nav-item" data-view="safety">
+                <i class="bi bi-shield-check" aria-hidden="true"></i>
+                <span>Safety</span>
+            </button>
+        </nav>
+
+        <div class="side-ribbon-foot">
+            <a class="side-emergency-btn" href="tel:168" aria-label="Call Makati emergency hotline 168">
+                <i class="bi bi-lightning-charge-fill" aria-hidden="true"></i>
+                <span>Call 168</span>
+            </a>
+            <p class="side-ribbon-note">Civilian access · No login</p>
+        </div>
+    </aside>
+
+    <div class="app-shell">
+        <header class="top-bar" role="banner">
+            <div class="top-bar-left">
+                <button type="button" class="menu-toggle" id="menuToggle" aria-label="Open navigation">
+                    <i class="bi bi-list" aria-hidden="true"></i>
+                </button>
+                <div>
+                    <p class="top-bar-kicker" id="viewKicker">Public Safety Portal</p>
+                    <h1 class="top-bar-title" id="viewTitle">FireNet for Civilians</h1>
+                </div>
+            </div>
+
+            <div class="top-bar-right">
+                <button type="button" class="theme-toggle" id="themeToggle" aria-label="Switch to light mode" title="Toggle theme">
+                    <span class="theme-icon-orbit" aria-hidden="true">
+                        <i class="bi bi-sun-fill theme-icon-sun"></i>
+                        <i class="bi bi-moon-stars-fill theme-icon-moon"></i>
+                    </span>
+                    <span class="theme-toggle-label" id="themeToggleLabel">Light</span>
+                </button>
+                <div class="live-clock" aria-live="polite">
+                    <span class="live-clock-time" id="liveClock">--:--</span>
+                    <span class="live-clock-date" id="liveDate">—</span>
+                </div>
+                <div class="weather-chip" id="weatherChip" title="Makati weather">
+                    <i class="bi bi-cloud-sun" id="weatherChipIcon" aria-hidden="true"></i>
+                    <div>
+                        <strong id="weatherTemp">—°</strong>
+                        <span id="weatherLabel">Loading…</span>
+                    </div>
+                </div>
+                <button type="button" class="top-alert-btn" data-view="alerts">
+                    <i class="bi bi-bell-fill" aria-hidden="true"></i>
+                    Get alerts
+                </button>
+                <a class="top-call-btn" href="tel:+639311451493">
+                    <i class="bi bi-telephone-outbound" aria-hidden="true"></i>
+                    Call Central
+                </a>
+            </div>
+        </header>
+
+        <div id="warningBanner" class="warning-banner" hidden role="status" aria-live="polite">
+            <div class="warning-banner-inner">
+                <i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i>
+                <div>
+                    <strong id="warningBannerTitle">Weather advisory</strong>
+                    <p id="warningBannerText"></p>
+                </div>
+                <button type="button" class="warning-banner-close" id="warningBannerClose" aria-label="Dismiss">×</button>
+            </div>
+        </div>
+
+        <main class="main-stage">
+            <!-- HOME -->
+            <section id="viewHome" class="view-panel is-active" data-panel="home" aria-labelledby="homeHeroTitle">
+                <div class="dash-grid">
+                    <section class="home-hero widget">
+                        <p class="hero-eyebrow">Makati Fire District · Public Access</p>
+                        <h2 id="homeHeroTitle" class="hero-brand">FireNet</h2>
+                        <p class="hero-lead">Call for help fast, track weather warnings, and get district alerts — no staff login.</p>
+                        <div class="hero-actions">
+                            <a class="btn-primary" href="tel:168"><i class="bi bi-telephone-fill" aria-hidden="true"></i> Emergency 168</a>
+                            <button type="button" class="btn-ghost" data-view="hotlines">Hotlines</button>
+                            <button type="button" class="btn-ghost" data-view="alerts">Subscribe</button>
+                        </div>
+                    </section>
+
+                    <section class="widget widget-metrics" aria-label="Live conditions">
+                        <div class="metric">
+                            <p class="stat-label">Fire risk</p>
+                            <p class="stat-value" id="fireRiskValue">—</p>
+                            <p class="stat-meta" id="fireRiskMeta">Makati weather</p>
+                            <div class="risk-bar"><span id="fireRiskBar"></span></div>
+                        </div>
+                        <div class="metric">
+                            <p class="stat-label">Wind</p>
+                            <p class="stat-value" id="windValue">—</p>
+                            <p class="stat-meta">km/h</p>
+                        </div>
+                        <div class="metric">
+                            <p class="stat-label">Humidity</p>
+                            <p class="stat-value" id="humidityValue">—</p>
+                            <p class="stat-meta">Relative</p>
+                        </div>
+                        <div class="metric metric--accent">
+                            <p class="stat-label">Rain chance</p>
+                            <p class="stat-value" id="rainChanceValue">—</p>
+                            <p class="stat-meta">Next 24h max</p>
+                        </div>
+                    </section>
+
+                    <section class="widget widget-warnings" aria-labelledby="warningsTitle">
+                        <div class="section-head">
+                            <div>
+                                <p class="section-tag">Live weather</p>
+                                <h3 id="warningsTitle">Typhoon &amp; storm advisories</h3>
+                            </div>
+                            <span class="widget-live"><span class="pulse-dot"></span> Live</span>
+                        </div>
+                        <div id="warningsList" class="warnings-list">
+                            <p class="soft-loading">Checking Open-Meteo forecast…</p>
+                        </div>
+                    </section>
+
+                    <section class="widget widget-announce" aria-label="Announcements widget">
+                        <div class="section-head">
+                            <div class="section-head-left">
+                                <p class="section-tag">Announcements</p>
+                                <span class="pulse-dot" id="announcePulse" aria-hidden="true"></span>
+                            </div>
+                            <div class="widget-controls">
+                                <span class="widget-dots" id="announceDots" aria-hidden="true"></span>
+                                <button type="button" class="text-link" data-view="announcements">All</button>
+                            </div>
+                        </div>
+                        <div id="homeAnnouncements" class="announce-widget" aria-live="polite">
+                            <p class="soft-loading">Loading…</p>
+                        </div>
+                    </section>
+
+                    <section class="widget widget-news" id="homeNewsModule" aria-label="News widget">
+                        <div class="section-head">
+                            <div class="section-head-left">
+                                <p class="section-tag">News</p>
+                                <span class="pulse-dot" id="newsPulse" aria-hidden="true"></span>
+                            </div>
+                            <div class="widget-controls">
+                                <span class="widget-progress" aria-hidden="true"><i id="newsProgress"></i></span>
+                                <button type="button" class="text-link" data-view="news">All</button>
+                            </div>
+                        </div>
+                        <div class="news-widget" id="homeNewsRail">
+                            <p class="soft-loading">Loading…</p>
+                        </div>
+                    </section>
+
+                    <section class="widget widget-hotlines" aria-labelledby="quickHotlinesTitle">
+                        <div class="section-head">
+                            <div>
+                                <p class="section-tag">Tap to call</p>
+                                <h3 id="quickHotlinesTitle">Priority lines</h3>
+                            </div>
+                            <button type="button" class="text-link" data-view="hotlines">Full</button>
+                        </div>
+                        <div class="hotline-quick-grid">
+                            <a class="hotline-chip hotline-chip--urgent" href="tel:168">
+                                <span class="hotline-chip-num">168</span>
+                                <span class="hotline-chip-label">Emergency</span>
+                            </a>
+                            <a class="hotline-chip" href="tel:+63288185150">
+                                <span class="hotline-chip-num">8818-5150</span>
+                                <span class="hotline-chip-label">Central</span>
+                            </a>
+                            <a class="hotline-chip" href="tel:+639311451493">
+                                <span class="hotline-chip-num">0931-145-1493</span>
+                                <span class="hotline-chip-label">Mobile</span>
+                            </a>
+                            <a class="hotline-chip" href="tel:+639682507956">
+                                <span class="hotline-chip-num">9682-507-956</span>
+                                <span class="hotline-chip-label">EMS</span>
+                            </a>
+                        </div>
+                    </section>
+
+                    <section class="widget widget-mission" aria-labelledby="missionTitle">
+                        <p class="section-tag">Mission &amp; Vision</p>
+                        <h3 id="missionTitle">Service commitment</h3>
+                        <div class="mission-columns">
+                            <article>
+                                <p class="mission-label">Mission</p>
+                                <p>Protect life, property, and the environment through prevention, response, and investigation.</p>
+                            </article>
+                            <article>
+                                <p class="mission-label">Vision</p>
+                                <p>A modern, trusted fire and emergency service for safer, resilient communities.</p>
+                            </article>
+                        </div>
+                    </section>
+
+                    <section class="widget widget-cta incident-cta" aria-label="Emergency action">
+                        <div>
+                            <p class="section-tag">In an emergency</p>
+                            <h3>Smoke, fire, or someone in danger?</h3>
+                            <p>Call first. Stay clear. Give exact location and landmarks.</p>
+                        </div>
+                        <div class="incident-cta-actions">
+                            <a class="btn-primary" href="tel:168">Call 168</a>
+                            <button type="button" class="btn-ghost" data-view="safety" data-open-tip="0">What to say</button>
+                        </div>
+                    </section>
+                </div>
+            </section>
+
+            <!-- HOTLINES -->
+            <section id="viewHotlines" class="view-panel" data-panel="hotlines" hidden aria-labelledby="hotlinesTitle">
+                <header class="panel-intro">
+                    <p class="section-tag">Emergency contacts</p>
+                    <h2 id="hotlinesTitle">Hotlines that open your dialer</h2>
+                    <p class="panel-lead">Tap any number — your phone or PC dialer starts the call when supported.</p>
+                </header>
+                <div class="hotline-board">
+                    <a class="hotline-card hotline-card--hero" href="tel:168">
+                        <div class="hotline-card-icon"><i class="bi bi-broadcast" aria-hidden="true"></i></div>
+                        <div>
+                            <p class="hotline-card-kicker">Priority</p>
+                            <h3>Makati Local Emergency</h3>
+                            <p class="hotline-card-number">168</p>
+                            <p class="hotline-card-note">City hotline · <span class="underline-link">Makati portal</span></p>
+                        </div>
+                        <span class="hotline-card-action"><i class="bi bi-telephone-fill"></i> Call</span>
+                    </a>
+                    <a class="hotline-card" href="tel:+63288185150">
+                        <div class="hotline-card-icon"><i class="bi bi-building" aria-hidden="true"></i></div>
+                        <div>
+                            <p class="hotline-card-kicker">Landline</p>
+                            <h3>Makati Central Fire Station</h3>
+                            <p class="hotline-card-number">8818-5150</p>
+                        </div>
+                        <span class="hotline-card-action">Call</span>
+                    </a>
+                    <a class="hotline-card" href="tel:+63288162553">
+                        <div class="hotline-card-icon"><i class="bi bi-telephone" aria-hidden="true"></i></div>
+                        <div>
+                            <p class="hotline-card-kicker">Landline</p>
+                            <h3>Central Fire · Alternate</h3>
+                            <p class="hotline-card-number">8816-2553</p>
+                        </div>
+                        <span class="hotline-card-action">Call</span>
+                    </a>
+                    <a class="hotline-card" href="tel:+639311451493">
+                        <div class="hotline-card-icon"><i class="bi bi-phone" aria-hidden="true"></i></div>
+                        <div>
+                            <p class="hotline-card-kicker">Mobile</p>
+                            <h3>Makati Central Fire Mobile</h3>
+                            <p class="hotline-card-number">0931-145-1493</p>
+                        </div>
+                        <span class="hotline-card-action">Call</span>
+                    </a>
+                    <a class="hotline-card" href="tel:+639682507956">
+                        <div class="hotline-card-icon"><i class="bi bi-heart-pulse" aria-hidden="true"></i></div>
+                        <div>
+                            <p class="hotline-card-kicker">EMS</p>
+                            <h3>Emergency Medical Services</h3>
+                            <p class="hotline-card-number">9682-507-956</p>
+                        </div>
+                        <span class="hotline-card-action">Call</span>
+                    </a>
+                    <a class="hotline-card" href="tel:+63288185150">
+                        <div class="hotline-card-icon"><i class="bi bi-hospital" aria-hidden="true"></i></div>
+                        <div>
+                            <p class="hotline-card-kicker">EMS · Landline</p>
+                            <h3>EMS via Central Station</h3>
+                            <p class="hotline-card-number">8818-5150</p>
+                        </div>
+                        <span class="hotline-card-action">Call</span>
+                    </a>
+                </div>
+                <p class="hotline-footnote">
+                    More city hotlines:
+                    <a href="https://www.makati.gov.ph/content/makati-hotlines" target="_blank" rel="noopener noreferrer">makati.gov.ph/content/makati-hotlines</a>
+                </p>
+            </section>
+
+            <!-- NEWS -->
+            <section id="viewNews" class="view-panel" data-panel="news" hidden aria-labelledby="newsTitle">
+                <header class="panel-intro panel-intro--row">
+                    <div>
+                        <p class="section-tag">District updates</p>
+                        <h2 id="newsTitle">News</h2>
+                        <p class="panel-lead">Latest Makati Fire District updates for the public.</p>
+                    </div>
+                    <span class="count-pill" id="newsCountPill">—</span>
+                </header>
+                <p class="soft-loading" id="newsLoading">Loading district news…</p>
+                <article class="featured-story" id="newsFeatured" hidden>
+                    <img id="newsFeaturedImage" alt="" hidden>
+                    <div>
+                        <p class="section-tag">Featured</p>
+                        <h3 id="newsFeaturedTitle"></h3>
+                        <p id="newsFeaturedBody"></p>
+                        <p class="meta-line" id="newsFeaturedMeta"></p>
+                        <button type="button" class="btn-ghost" id="newsFeaturedOpen">Read full story</button>
+                    </div>
+                </article>
+                <div class="feed-list" id="newsFeed" aria-label="All news"></div>
+            </section>
+
+            <!-- ANNOUNCEMENTS -->
+            <section id="viewAnnouncements" class="view-panel" data-panel="announcements" hidden aria-labelledby="announcementsTitle">
+                <header class="panel-intro panel-intro--row">
+                    <div>
+                        <p class="section-tag">Public notices</p>
+                        <h2 id="announcementsTitle">Announcements</h2>
+                        <p class="panel-lead">Official notices from Makati Fire District.</p>
+                    </div>
+                    <span class="count-pill" id="announcementsCountPill">—</span>
+                </header>
+                <p class="soft-loading" id="announcementsLoading">Loading announcements…</p>
+                <div class="feed-list" id="announcementsFeed" aria-label="All announcements"></div>
+            </section>
+
+            <!-- ALERTS OPT-IN -->
+            <section id="viewAlerts" class="view-panel" data-panel="alerts" hidden aria-labelledby="alertsTitle">
+                <header class="panel-intro">
+                    <p class="section-tag">Stay ahead</p>
+                    <h2 id="alertsTitle">Get weather &amp; district alerts</h2>
+                    <p class="panel-lead">Opt in for typhoon / storm advisories and public notices by email and/or SMS. No staff account needed.</p>
+                </header>
+
+                <div class="alerts-layout">
+                    <form id="alertSubscribeForm" class="widget alerts-form" novalidate>
+                        <div class="alerts-channels">
+                            <label class="channel-toggle">
+                                <input type="checkbox" id="channelEmail" checked>
+                                <span><i class="bi bi-envelope"></i> Email</span>
+                            </label>
+                            <label class="channel-toggle">
+                                <input type="checkbox" id="channelSms" checked>
+                                <span><i class="bi bi-phone"></i> SMS</span>
+                            </label>
+                        </div>
+
+                        <div class="form-row">
+                            <label for="alertEmail">Email</label>
+                            <input type="email" id="alertEmail" name="email" placeholder="you@email.com" autocomplete="email">
+                        </div>
+                        <div class="form-row">
+                            <label for="alertPhone">Mobile (PH)</label>
+                            <input type="tel" id="alertPhone" name="phone" placeholder="09XXXXXXXXX" autocomplete="tel" inputmode="numeric">
+                        </div>
+                        <div class="form-row">
+                            <label for="alertBarangay">Barangay <span class="optional">(optional)</span></label>
+                            <input type="text" id="alertBarangay" name="barangay" placeholder="e.g. Poblacion" maxlength="120">
+                        </div>
+
+                        <fieldset class="topic-fieldset">
+                            <legend>Topics</legend>
+                            <label><input type="checkbox" name="topic" value="weather" checked> Weather / typhoon</label>
+                            <label><input type="checkbox" name="topic" value="announcements" checked> District announcements</label>
+                            <label><input type="checkbox" name="topic" value="safety"> Safety tips</label>
+                        </fieldset>
+
+                        <p id="alertFormMessage" class="form-message" hidden></p>
+                        <button type="submit" class="btn-primary btn-primary--block" id="alertSubmitBtn">
+                            <span class="btn-text">Subscribe to alerts</span>
+                            <span class="btn-loader" hidden aria-hidden="true"></span>
+                        </button>
+                        <p class="form-fineprint">Email confirmation uses FireNet mail settings. SMS numbers are stored for district broadcast.</p>
+                    </form>
+
+                    <aside class="widget alerts-aside">
+                        <p class="section-tag">What you get</p>
+                        <ul class="alerts-perks">
+                            <li><i class="bi bi-cloud-lightning-rain"></i> Storm, heavy rain, and strong wind advisories for Metro Manila</li>
+                            <li><i class="bi bi-megaphone"></i> Public district announcements as they publish</li>
+                            <li><i class="bi bi-shield"></i> Optional household safety reminders</li>
+                        </ul>
+                        <div class="alerts-live-box" id="alertsLiveBox">
+                            <p class="section-tag">Right now</p>
+                            <p id="alertsLiveSummary">Checking conditions…</p>
+                        </div>
+                    </aside>
+                </div>
+            </section>
+
+            <!-- SAFETY -->
+            <section id="viewSafety" class="view-panel" data-panel="safety" hidden aria-labelledby="safetyTitle">
+                <header class="panel-intro">
+                    <p class="section-tag">Preparedness</p>
+                    <h2 id="safetyTitle">Safety guide for households</h2>
+                    <p class="panel-lead">Tips and a checklist saved on this device only.</p>
+                </header>
+                <div class="safety-layout">
+                    <div class="tip-stack" id="tipStack" role="list"></div>
+                    <aside class="checklist-panel" aria-labelledby="checklistTitle">
+                        <p class="section-tag">Home checklist</p>
+                        <h3 id="checklistTitle">Ready in minutes</h3>
+                        <ul class="checklist" id="safetyChecklist"></ul>
+                        <button type="button" class="btn-ghost btn-ghost--block" id="resetChecklist">Reset checklist</button>
+                    </aside>
+                </div>
+            </section>
+        </main>
+
+        <footer class="app-footer">
+            <p>&copy; 2026 FireNet · Makati Fire District · Public civilian portal</p>
+            <a href="login.html" class="staff-link">Staff login</a>
+        </footer>
+    </div>
+
+    <div class="nav-scrim" id="navScrim" hidden></div>
+
+    <div id="articleModal" class="article-modal" hidden role="dialog" aria-modal="true" aria-labelledby="articleTitle">
+        <button type="button" class="article-modal-backdrop" data-close-article aria-label="Close article"></button>
+        <div class="article-modal-card">
+            <button type="button" class="article-modal-close" data-close-article aria-label="Close">&times;</button>
+            <p class="section-tag" id="articleKicker">News</p>
+            <h2 id="articleTitle"></h2>
+            <p class="meta-line" id="articleMeta"></p>
+            <img id="articleImage" alt="" hidden>
+            <div class="article-body" id="articleBody"></div>
+        </div>
+    </div>
+
+    <script src="../assets/js/civilian.js"></script>
+</body>
+</html>

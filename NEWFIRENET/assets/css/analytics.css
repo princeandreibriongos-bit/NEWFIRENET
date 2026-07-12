@@ -18,13 +18,14 @@
   --ana-border: rgba(255, 255, 255, 0.12);
   --ana-text: #edf3ff;
   --ana-muted: rgba(210, 221, 242, 0.72);
-  --ana-radius: 18px;
-  --ana-gap: clamp(0.55rem, 1.2vw, 0.8rem);
+  --ana-radius: 14px;
+  --ana-gap: clamp(0.4rem, 0.9vw, 0.55rem);
+  --ana-ease: cubic-bezier(0.22, 1, 0.36, 1);
 
   position: relative;
   isolation: isolate;
   width: 100%;
-  min-height: calc(100dvh - var(--header-h) - 1rem);
+  min-height: calc(100dvh - var(--header-h) - 0.75rem);
   color: var(--ana-text);
 }
 
@@ -38,6 +39,7 @@ body.has-dashboard-bg .app-main:has(.ana-pro) {
   flex: 1 1 auto;
   display: flex;
   flex-direction: column;
+  padding: clamp(0.4rem, 1vw, 0.65rem);
 }
 
 .ana-page-bg {
@@ -71,8 +73,31 @@ body.has-dashboard-bg .app-main:has(.ana-pro) {
   z-index: 1;
   display: grid;
   gap: var(--ana-gap);
-  padding-bottom: 0.75rem;
-  animation: ana-enter 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+  padding-bottom: 0.35rem;
+}
+
+.ana-reveal {
+  animation: ana-rise 0.5s var(--ana-ease) both;
+}
+
+.ana-body > .ana-reveal:nth-child(1) { animation-delay: 0.02s; }
+.ana-body > .ana-reveal:nth-child(2) { animation-delay: 0.07s; }
+.ana-body > .ana-reveal:nth-child(3) { animation-delay: 0.12s; }
+.ana-body > .ana-reveal:nth-child(4) { animation-delay: 0.16s; }
+.ana-body > .ana-reveal:nth-child(5) { animation-delay: 0.2s; }
+.ana-body > .ana-reveal:nth-child(6) { animation-delay: 0.24s; }
+.ana-body > .ana-reveal:nth-child(7) { animation-delay: 0.28s; }
+.ana-body > .ana-reveal:nth-child(8) { animation-delay: 0.32s; }
+
+@keyframes ana-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @keyframes ana-enter {
@@ -754,6 +779,132 @@ body.has-dashboard-bg .app-main:has(.ana-pro) {
   gap: var(--ana-gap);
 }
 
+.ana-env-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--ana-gap);
+  margin-top: var(--ana-gap);
+}
+
+.ana-env-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.55rem;
+  margin-bottom: 0.75rem;
+}
+
+.ana-env-metrics--compact {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.ana-env-metric {
+  padding: 0.65rem 0.7rem;
+  border-radius: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  background: rgba(248, 250, 252, 0.9);
+}
+
+.ana-env-metric span {
+  display: block;
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.ana-env-metric strong {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: 1.05rem;
+  color: #0f172a;
+}
+
+.ana-env-warnings {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  min-height: 96px;
+}
+
+.ana-env-warning {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.55rem;
+  padding: 0.65rem 0.7rem;
+  border-radius: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  background: #fff;
+}
+
+.ana-env-warning.is-high {
+  border-color: rgba(188, 31, 45, 0.35);
+  background: rgba(188, 31, 45, 0.06);
+}
+
+.ana-env-warning.is-clear {
+  border-color: rgba(15, 118, 110, 0.28);
+  background: rgba(15, 118, 110, 0.06);
+}
+
+.ana-env-warning i {
+  color: #bc1f2d;
+  margin-top: 0.1rem;
+}
+
+.ana-env-warning.is-clear i { color: #0f766e; }
+
+.ana-env-warning strong {
+  display: block;
+  font-size: 0.88rem;
+  color: #0f172a;
+}
+
+.ana-env-warning p {
+  margin: 0.15rem 0 0;
+  font-size: 0.78rem;
+  color: #64748b;
+  line-height: 1.4;
+}
+
+.ana-aqi-hero { margin-bottom: 0.75rem; }
+
+.ana-aqi-label {
+  display: block;
+  font-size: 0.7rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.ana-aqi-value {
+  display: block;
+  font-size: 2rem;
+  line-height: 1.1;
+  color: #0f172a;
+}
+
+.ana-aqi-meta {
+  margin: 0.2rem 0 0.55rem;
+  color: #64748b;
+  font-size: 0.84rem;
+}
+
+.ana-aqi-bar {
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.2);
+  overflow: hidden;
+}
+
+.ana-aqi-bar span {
+  display: block;
+  height: 100%;
+  width: 10%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #22c55e, #eab308, #f97316, #ef4444, #7c3aed);
+  transition: width 0.7s ease;
+}
+
 .ana-classification-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1109,7 +1260,8 @@ body.has-dashboard-bg .app-main:has(.ana-pro) {
   }
 
   .ana-trend-grid,
-  .ana-insights-grid {
+  .ana-insights-grid,
+  .ana-env-grid {
     grid-template-columns: 1fr;
   }
 
@@ -1117,9 +1269,13 @@ body.has-dashboard-bg .app-main:has(.ana-pro) {
     grid-template-columns: 1fr;
   }
 
-  .ana-classification-grid {
-    grid-template-columns: 1fr;
-  }
+.ana-classification-grid {
+  grid-template-columns: 1fr;
+}
+
+.ana-env-grid {
+  grid-template-columns: 1fr;
+}
 
   .ana-side-panel {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1197,4 +1353,282 @@ body.has-dashboard-bg .app-main:has(.ana-pro) {
   .ana-map-canvas {
     height: 340px;
   }
+}
+
+/* Compact + GIS enhancements */
+.ana-pro--compact .ana-hero-top {
+  gap: 0.55rem 0.85rem;
+  padding: 0.65rem 0.8rem 0.5rem;
+  align-items: center;
+}
+
+.ana-pro--compact .ana-hero-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.2rem 0.5rem;
+}
+
+.ana-pro--compact .ana-kicker {
+  width: 100%;
+  margin: 0;
+  font-size: 0.6rem;
+}
+
+.ana-pro--compact .ana-title {
+  margin: 0;
+  font-size: clamp(1.15rem, 1.9vw, 1.45rem);
+}
+
+.ana-pro--compact .ana-subtitle {
+  margin: 0;
+  font-size: 0.78rem;
+  max-width: none;
+}
+
+.ana-pro--compact .ana-meta-chips {
+  margin-top: 0.35rem;
+}
+
+.ana-pro--compact .ana-stat-tile {
+  padding: 0.45rem 0.65rem;
+}
+
+.ana-pro--compact .ana-stat-value {
+  font-size: clamp(1.05rem, 1.8vw, 1.35rem);
+}
+
+.ana-pro--compact .ana-live-bar,
+.ana-pro--compact .ana-toolbar {
+  padding: 0.45rem 0.7rem;
+}
+
+.ana-pro--compact .ana-map-wrap {
+  min-height: 320px;
+}
+
+.ana-pro--compact .ana-map-canvas {
+  height: clamp(280px, 42vh, 420px);
+}
+
+.ana-pro--compact .ana-chart-box {
+  min-height: 140px;
+}
+
+.ana-pro--compact .ana-chart-box--short {
+  min-height: 110px;
+}
+
+.ana-pro--compact .ana-side-card,
+.ana-pro--compact .ana-map-panel,
+.ana-pro--compact .ana-toolbar {
+  transition: transform 0.25s var(--ana-ease), box-shadow 0.25s ease, border-color 0.25s ease;
+}
+
+.ana-pro--compact .ana-side-card:hover,
+.ana-pro--compact .ana-map-panel:hover {
+  border-color: rgba(255, 255, 255, 0.16);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.22);
+}
+
+.ana-gis-filters,
+.ana-map-tools {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.ana-gis-select {
+  min-height: 30px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.08);
+  color: #edf3ff;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.2rem 0.65rem;
+}
+
+.ana-tool-btn {
+  min-height: 30px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.08);
+  color: #edf3ff;
+  font-size: 0.72rem;
+  font-weight: 800;
+  padding: 0.2rem 0.7rem;
+  cursor: pointer;
+  transition: transform 0.2s var(--ana-ease), background 0.2s ease;
+}
+
+.ana-tool-btn:hover {
+  background: rgba(255, 255, 255, 0.14);
+  transform: translateY(-1px);
+}
+
+.ana-layer-pill {
+  transition: transform 0.2s var(--ana-ease), background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.ana-layer-pill:hover {
+  transform: translateY(-1px);
+}
+
+.ana-map-badge--incident {
+  border-color: rgba(239, 68, 68, 0.35);
+  background: rgba(239, 68, 68, 0.12);
+}
+
+.ana-legend-item--incident-pin {
+  border-color: rgba(239, 68, 68, 0.4);
+  background: rgba(239, 68, 68, 0.14);
+}
+
+.ana-map-infowindow {
+  color: #0f172a;
+  font-size: 12px;
+  line-height: 1.4;
+  max-width: 220px;
+}
+
+.ana-map-infowindow strong {
+  display: block;
+  margin-bottom: 0.25rem;
+  font-size: 13px;
+}
+
+.ana-map-infowindow a {
+  display: inline-block;
+  margin-top: 0.35rem;
+  color: #bc1f2d;
+  font-weight: 700;
+}
+
+.ana-env-metrics {
+  grid-template-columns: repeat(auto-fit, minmax(88px, 1fr));
+}
+
+.ana-activity-dot {
+  animation: ana-pulse 2s ease-out infinite;
+}
+
+@keyframes ana-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(22, 163, 74, 0.45); }
+  50% { box-shadow: 0 0 0 7px rgba(22, 163, 74, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ana-reveal,
+  .ana-activity-dot,
+  .ana-layer-pill,
+  .ana-tool-btn,
+  .ana-side-card,
+  .ana-map-panel {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* Icon polish */
+.ana-kicker .bi,
+.ana-toolbar-label .bi,
+.ana-meta-chip-label .bi,
+.ana-meta-chip-value .bi,
+.ana-comparison-label .bi,
+.ana-load-summary-label .bi,
+.ana-aqi-label .bi,
+.ana-live-title .bi,
+.ana-map-source .bi,
+.ana-load-empty .bi {
+  margin-right: 0.28rem;
+  opacity: 0.9;
+}
+
+.ana-title-icon {
+  margin-right: 0.35rem;
+  color: #ff8a96;
+  vertical-align: -0.08em;
+}
+
+.ana-inline-icon {
+  margin-right: 0.3rem;
+  color: #fbbf24;
+}
+
+.ana-action .bi,
+.ana-filter-submit .bi,
+.ana-filter-reset .bi,
+.ana-layer-pill .bi,
+.ana-display-pill .bi,
+.ana-tool-btn .bi,
+.ana-legend-item .bi {
+  margin-right: 0.3rem;
+}
+
+.ana-map-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.ana-map-badge .bi {
+  font-size: 0.78rem;
+  opacity: 0.85;
+}
+
+.ana-load-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.ana-load-chip .bi {
+  font-size: 0.78rem;
+  opacity: 0.8;
+}
+
+.ana-list {
+  list-style: none;
+  padding-left: 0;
+}
+
+.ana-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.45rem;
+}
+
+.ana-list-icon {
+  flex-shrink: 0;
+  margin-top: 0.15rem;
+  color: #93c5fd;
+}
+
+.ana-env-metric span .bi {
+  margin-right: 0.28rem;
+  color: #bc1f2d;
+}
+
+.ana-side-card--env .ana-env-metric span .bi {
+  color: #d97706;
+}
+
+.ana-side-card--aqi .ana-env-metric span .bi {
+  color: #7c3aed;
+}
+
+.ana-map-status .bi {
+  margin-right: 0.35rem;
+}
+
+.ana-layer-pill .bi,
+.ana-display-pill .bi,
+.ana-tool-btn .bi {
+  font-size: 0.85em;
+}
+
+.ana-stat-icon .bi {
+  line-height: 1;
 }

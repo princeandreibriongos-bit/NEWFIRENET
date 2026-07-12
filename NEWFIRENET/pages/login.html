@@ -3,182 +3,214 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FIRENET - Login</title>
+    <title>FIRENET - Staff Login</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
     <link rel="stylesheet" href="../assets/css/login.css">
+    <script>
+      (function () {
+        try {
+          var theme = localStorage.getItem('firenet_login_theme') || 'light';
+          if (theme !== 'light' && theme !== 'dark') theme = 'light';
+          document.documentElement.setAttribute('data-theme', theme);
+        } catch (e) {
+          document.documentElement.setAttribute('data-theme', 'light');
+        }
+      })();
+    </script>
 </head>
-<body>
+<body class="login-ops">
     <div class="page-bg" aria-hidden="true"></div>
+    <canvas id="opsGridCanvas" class="ops-grid-canvas" aria-hidden="true"></canvas>
 
-    <div class="login-ribbon" role="banner" aria-label="FireNet login header">
+    <div class="login-ribbon" role="banner" aria-label="FireNet staff portal header">
         <div class="login-ribbon-inner">
             <div class="login-ribbon-brand">
                 <img src="../assets/img/bfpmakatilogo.jpg" alt="BFP Makati Logo" class="login-ribbon-logo">
                 <div class="login-ribbon-brand-copy">
                     <span class="login-ribbon-eyebrow">Makati Fire District</span>
-                    <span class="login-ribbon-title">FireNet</span>
-                    <span class="login-ribbon-subtitle">Operations portal for dispatch, reporting, and live station updates</span>
+                    <span class="login-ribbon-title">FireNet Command</span>
+                    <span class="login-ribbon-subtitle">Staff operations portal · dispatch, reporting, live updates</span>
                 </div>
             </div>
 
             <nav class="login-ribbon-nav" aria-label="Portal sections">
-                <a class="login-ribbon-pill is-active" href="#login" data-portal-view="login" aria-current="page">login</a>
+                <a class="login-ribbon-pill is-active" href="#login" data-portal-view="login" aria-current="page">sign in</a>
                 <a class="login-ribbon-pill" href="#news" data-portal-view="news">news</a>
-                <a class="login-ribbon-pill" href="#announcements" data-portal-view="announcements">announcements</a>
+                <a class="login-ribbon-pill" href="#announcements" data-portal-view="announcements">notices</a>
+                <a class="login-ribbon-pill" href="#ops" data-portal-view="login" data-scroll-ops="weather">ops intel</a>
             </nav>
 
             <div class="login-ribbon-status" aria-label="System status">
-                <span class="login-ribbon-status-pill">24/7 Operations</span>
-                <span class="login-ribbon-status-pill login-ribbon-status-pill--muted">Internal Access</span>
+                <button type="button" class="login-ribbon-status-pill theme-toggle" id="themeToggle" aria-label="Switch to dark mode" title="Toggle theme">
+                    <span class="theme-icon-orbit" aria-hidden="true">
+                        <i class="bi bi-sun-fill theme-icon-sun"></i>
+                        <i class="bi bi-moon-stars-fill theme-icon-moon"></i>
+                    </span>
+                    <span id="themeToggleLabel">Dark</span>
+                </button>
+                <span class="login-ribbon-status-pill" id="opsClockPill">--:--</span>
+                <span class="login-ribbon-status-pill" id="opsWeatherPill">Makati —°</span>
+                <span class="login-ribbon-status-pill login-ribbon-status-pill--muted">Internal</span>
+                <a class="login-ribbon-status-pill login-ribbon-public-link" href="civilian.html">Public portal</a>
             </div>
         </div>
     </div>
 
-    <main id="portalLoginView" class="auth-shell portal-view is-active-portal-view" aria-labelledby="pageTitle" data-portal-panel="login">
-        <aside class="auth-aside">
-            <div class="login-top-row">
-                <div class="login-intro-copy">
-                    <p class="aside-label">Makati Fire District</p>
+    <div id="opsWarningBanner" class="ops-warning-banner" hidden role="status" aria-live="polite">
+        <div class="ops-warning-inner">
+            <i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i>
+            <div>
+                <strong id="opsWarningTitle">Weather advisory</strong>
+                <p id="opsWarningText"></p>
+            </div>
+            <button type="button" class="ops-warning-close" id="opsWarningClose" aria-label="Dismiss">×</button>
+        </div>
+    </div>
 
+    <main id="portalLoginView" class="auth-shell portal-view is-active-portal-view ops-shell" aria-labelledby="pageTitle" data-portal-panel="login">
+        <aside class="auth-aside ops-aside">
+            <div class="ops-dash">
+                <section class="ops-hero ops-card">
+                    <p class="aside-label">Staff access</p>
                     <div class="logo-row">
                         <img src="../assets/img/bfpmakatilogo.jpg" alt="BFP Makati Logo" class="brand-logo">
                     </div>
-
                     <h1 id="pageTitle">FIRENET</h1>
-                    <p class="subtitle">A simple command page for dispatch, people, and emergency operations.</p>
-                </div>
-
-                <section class="login-mission-vision" aria-labelledby="missionVisionTitle">
-                    <div class="login-mission-vision-brand-copy">
-                        <p class="login-mission-vision-kicker">Mission and Vision</p>
-                        <h2 id="missionVisionTitle">Guiding the FireNet service commitment</h2>
+                    <p class="subtitle">Command sign-in for dispatch, people, and emergency operations.</p>
+                    <div class="ops-hero-actions">
+                        <a class="ops-chip-btn" href="tel:168"><i class="bi bi-telephone-fill"></i> 168</a>
+                        <a class="ops-chip-btn" href="tel:+63288185150"><i class="bi bi-building"></i> Central</a>
+                        <a class="ops-chip-btn ops-chip-btn--ghost" href="civilian.html">Civilian view</a>
                     </div>
+                </section>
 
-                    <p class="login-mission-vision-copy">
-                        The Bureau of Fire Protection’s new Mission and Vision embody a renewed commitment that strengthens our direction, sharpens our purpose, and guides every member of the organization in delivering responsive, professional, and compassionate public service.
-                    </p>
-                    <p class="login-mission-vision-copy">
-                        As we continue to evolve in the face of modern challenges, these guiding principles reflect our unwavering dedication to excellence, integrity, and genuine service to the Filipino people, ensuring safer, more resilient communities for generations to come.
-                    </p>
+                <section class="ops-card ops-metrics" aria-label="Live ops metrics" id="opsWeather">
+                    <article>
+                        <p class="ops-metric-label">Fire risk</p>
+                        <p class="ops-metric-value" id="opsFireRisk">—</p>
+                        <p class="ops-metric-meta" id="opsFireRiskMeta">Makati index</p>
+                        <div class="ops-risk-bar"><span id="opsFireRiskBar"></span></div>
+                    </article>
+                    <article>
+                        <p class="ops-metric-label">Wind</p>
+                        <p class="ops-metric-value" id="opsWind">—</p>
+                        <p class="ops-metric-meta">km/h</p>
+                    </article>
+                    <article>
+                        <p class="ops-metric-label">Humidity</p>
+                        <p class="ops-metric-value" id="opsHumidity">—</p>
+                        <p class="ops-metric-meta">Relative</p>
+                    </article>
+                    <article>
+                        <p class="ops-metric-label">Rain 24h</p>
+                        <p class="ops-metric-value" id="opsRain">—</p>
+                        <p class="ops-metric-meta">Max chance</p>
+                    </article>
+                </section>
 
-                    <div class="login-mission-vision-columns">
-                        <article class="login-mission-vision-card">
+                <section class="ops-card ops-warnings" aria-labelledby="opsWarningsTitle">
+                    <div class="ops-card-head">
+                        <div>
+                            <p class="login-section-tag">Ops intel</p>
+                            <h2 id="opsWarningsTitle">Storm &amp; typhoon watch</h2>
+                        </div>
+                        <span class="ops-live"><span class="ops-pulse"></span> Live</span>
+                    </div>
+                    <div id="opsWarningsList" class="ops-warnings-list">
+                        <p class="ops-soft">Checking forecast…</p>
+                    </div>
+                </section>
+
+                <section class="ops-card ops-announce-widget" aria-label="Announcements widget">
+                    <div class="ops-card-head">
+                        <div class="ops-card-head-left">
+                            <p class="login-section-tag">Announcements</p>
+                            <span class="ops-pulse" id="opsAnnouncePulse" aria-hidden="true"></span>
+                        </div>
+                        <div class="ops-widget-controls">
+                            <span class="ops-dots" id="opsAnnounceDots" aria-hidden="true"></span>
+                            <button type="button" class="login-news-view-all" data-portal-view="announcements">All</button>
+                        </div>
+                    </div>
+                    <div id="opsAnnounceRail" class="ops-announce-rail" aria-live="polite">
+                        <p class="ops-soft">Loading…</p>
+                    </div>
+                </section>
+
+                <section class="ops-card ops-news-widget" id="loginNewsModule" aria-label="News widget">
+                    <div class="ops-card-head">
+                        <div class="ops-card-head-left">
+                            <p class="login-section-tag">News</p>
+                            <span class="ops-pulse" id="opsNewsPulse" aria-hidden="true"></span>
+                        </div>
+                        <div class="ops-widget-controls">
+                            <span class="ops-progress" aria-hidden="true"><i id="opsNewsProgress"></i></span>
+                            <button type="button" class="login-news-view-all" data-portal-view="news">All</button>
+                        </div>
+                    </div>
+                    <div id="opsNewsRail" class="ops-news-rail">
+                        <p class="ops-soft">Loading…</p>
+                    </div>
+                </section>
+
+                <section class="ops-card ops-hotlines" aria-labelledby="opsHotlinesTitle">
+                    <div class="ops-card-head">
+                        <div>
+                            <p class="login-section-tag">Hotlines</p>
+                            <h2 id="opsHotlinesTitle">Tap to call</h2>
+                        </div>
+                    </div>
+                    <div class="ops-hotline-grid">
+                        <a class="ops-hotline ops-hotline--urgent" href="tel:168">
+                            <strong>168</strong><span>Makati Emergency</span>
+                        </a>
+                        <a class="ops-hotline" href="tel:+63288185150">
+                            <strong>8818-5150</strong><span>Central Fire</span>
+                        </a>
+                        <a class="ops-hotline" href="tel:+639311451493">
+                            <strong>0931-145-1493</strong><span>Mobile</span>
+                        </a>
+                        <a class="ops-hotline" href="tel:+639682507956">
+                            <strong>9682-507-956</strong><span>EMS</span>
+                        </a>
+                    </div>
+                </section>
+
+                <section class="ops-card ops-mission" aria-labelledby="missionVisionTitle">
+                    <p class="login-section-tag">Mission &amp; Vision</p>
+                    <h2 id="missionVisionTitle">Service commitment</h2>
+                    <div class="ops-mission-cols">
+                        <article>
                             <p class="login-mission-vision-label">Mission</p>
-                            <p class="login-mission-vision-text">We protect life, property, and the environment through an integrated system of prevention, response, and investigation, strengthening public safety and community resilience.</p>
+                            <p>Protect life, property, and the environment through prevention, response, and investigation.</p>
                         </article>
-
-                        <article class="login-mission-vision-card">
+                        <article>
                             <p class="login-mission-vision-label">Vision</p>
-                            <p class="login-mission-vision-text">A modern and trusted fire and emergency service building safe and resilient communities.</p>
+                            <p>A modern, trusted fire and emergency service for safer communities.</p>
                         </article>
                     </div>
                 </section>
-            </div>
 
-            <div class="login-left-content">
-                <div class="login-info-grid">
-                    <section class="login-emergency" aria-labelledby="emergencyTitle">
-                        <div class="login-section-head">
-                            <p class="login-section-tag">Emergency Info</p>
-                            <h2 id="emergencyTitle">Important landlines and hotlines</h2>
-                        </div>
-
-                        <ul class="login-emergency-list">
-                            <li><strong>Makati Central Fire Station Landlines:</strong> 8818-5150 / 8816-2553</li>
-                            <li><strong>Makati Central Fire Mobile Line:</strong> 0931-145-1493</li>
-                            <li><strong>Makati Central Emergency Medical Services (EMS):</strong> 9682507956 / 8818-5150</li>
-                            <li><strong>Makati Local Emergency Hotline:</strong> 168 via the <a href="https://www.makati.gov.ph/content/makati-hotlines" target="_blank" rel="noopener noreferrer">Makati Web Portal</a></li>
-                        </ul>
-                    </section>
-
-                    <section class="login-announcement-slot" aria-label="Announcement space">
-                        <div class="login-section-head login-section-head--row">
-                            <div>
-                                <p class="login-section-tag">Announcements</p>
-                            </div>
-                            <button type="button" class="login-news-view-all" data-portal-view="announcements">View all</button>
-                        </div>
-
-                        <div id="loginAnnouncementsContainer" aria-label="Announcements list">
-                            <div class="login-news-loading" id="loginAnnouncementsLoading">Loading announcements...</div>
-                        </div>
-
-                        <template id="loginAnnouncementCardTemplate">
-                            <a class="login-news-card" href="#" data-announcement-id="" aria-label="Open announcement details">
-                                <div class="login-news-card-media" aria-hidden="true">
-                                    <img class="login-news-card-image" data-announcement-image="" alt="" loading="lazy" decoding="async" style="display:none;">
-                                    <div class="login-news-card-gradient"></div>
-                                </div>
-
-                                <div class="login-news-card-text">
-                                    <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
-                                        <h3 class="login-news-card-title" data-announcement-title=""></h3>
-                                        <span class="login-news-card-meta" data-announcement-type=""></span>
-                                    </div>
-                                    <p class="login-news-card-body" data-announcement-excerpt=""></p>
-                                    <p class="login-news-card-meta" data-announcement-meta=""></p>
-                                </div>
-                            </a>
-                        </template>
-
-                        <p class="login-announcement-text" id="loginAnnouncementsEmptyText" hidden>
-                            Reserved space for station advisories, district notices, and live updates.
-                        </p>
-                    </section>
-
-                    <section class="login-report-cta" aria-label="Report an incident">
-                        <div>
-                            <p class="login-report-kicker">Report an incident?</p>
-                            <p class="login-report-text">Open the reporting flow for fire, smoke, rescue, or urgent safety concerns.</p>
-                        </div>
-                        <button type="button" class="login-report-button">Start report</button>
-                    </section>
-                </div>
-            </div>
-
-            <section class="login-news" id="loginNewsModule" aria-label="News updates">
-                <div class="login-news-head">
-                    <div class="login-news-head-left">
-                        <span class="login-news-kicker">NEWS</span>
-                        <span class="login-news-pulse" id="loginNewsPulse" aria-hidden="true"></span>
+                <section class="ops-card ops-report" aria-label="Report an incident">
+                    <div>
+                        <p class="login-report-kicker">Field report</p>
+                        <p class="login-report-text">Sign in first to open the full reporting workspace for fire, smoke, rescue, or safety concerns.</p>
                     </div>
-                    <button type="button" class="login-news-view-all" data-portal-view="news">View all</button>
-                </div>
-
-                <div class="login-news-grid" id="loginNewsGrid" aria-label="News collage">
-                    <div class="login-news-loading" id="loginNewsLoading">
-                        Loading news...
-                    </div>
-                </div>
-
-                <template id="loginNewsCardTemplate">
-                    <a class="login-news-card" href="#" data-news-id="" aria-label="Open news details">
-                        <div class="login-news-card-media" aria-hidden="true">
-                            <img class="login-news-card-image" alt="" loading="lazy" decoding="async">
-                            <div class="login-news-card-gradient"></div>
-                        </div>
-                        <div class="login-news-card-text">
-                            <h3 class="login-news-card-title"></h3>
-                            <p class="login-news-card-body"></p>
-                            <p class="login-news-card-meta"></p>
-                        </div>
-                    </a>
-                </template>
-            </section>
+                    <button type="button" class="login-report-button" id="opsReportHint">Sign in to report</button>
+                </section>
+            </div>
         </aside>
 
-        <section class="auth-panel">
+        <section class="auth-panel ops-auth-panel">
             <div class="panel-top-bar" aria-hidden="true"></div>
             <div class="panel-header">
                 <p class="overline">Secure Access</p>
                 <h2>Welcome Back</h2>
-                <p>Sign in to continue to the operations workspace.</p>
+                <p>Sign in to the operations workspace.</p>
             </div>
-
-
 
             <div id="messageBox" hidden class="message-box"></div>
 
@@ -232,10 +264,14 @@
                 <p class="social-login-note">Google account must match your FireNet email.</p>
             </div>
 
-
-
-            <div class="footer-text">
-                <p>&copy; 2026 FIRENET. All rights reserved.</p>
+            <div class="ops-auth-foot">
+                <div class="ops-auth-stat">
+                    <span id="opsAuthRisk">Risk —</span>
+                    <span id="opsAuthWarn">Checking weather…</span>
+                </div>
+                <div class="footer-text">
+                    <p>&copy; 2026 FIRENET. All rights reserved.</p>
+                </div>
             </div>
         </section>
     </main>
@@ -405,12 +441,8 @@
 
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script src="../assets/js/login.js"></script>
-    <script src="../assets/js/login-news.js"></script>
-    <script src="../assets/js/login-announcements.js"></script>
+    <script src="../assets/js/login-ops.js"></script>
     <script src="../assets/js/login-portal.js"></script>
     <script src="../assets/js/forgot-password.js"></script>
 </body>
 </html>
-
-
-

@@ -64,7 +64,12 @@
   const analyticsDateRange = document.getElementById('analyticsDateRange');
   const analyticsToggleStationNames = document.getElementById('analyticsToggleStationNames');
   const analyticsToggleStationAor = document.getElementById('analyticsToggleStationAor');
-  const layerFilterButtons = Array.from(document.querySelectorAll('[data-layer-filter]'));
+  const analyticsIncidentStatusFilter = document.getElementById('analyticsIncidentStatusFilter');
+  const analyticsIncidentAlarmFilter = document.getElementById('analyticsIncidentAlarmFilter');
+  const analyticsFitBoundsBtn = document.getElementById('analyticsFitBoundsBtn');
+  const analyticsRecenterBtn = document.getElementById('analyticsRecenterBtn');
+  const analyticsVisibleIncidentCount = document.getElementById('analyticsVisibleIncidentCount');
+  const layerToggleButtons = Array.from(document.querySelectorAll('[data-layer-toggle]'));
 
   let analyticsMapInstance = null;
   let heatmapLayer = null;
@@ -72,16 +77,29 @@
   let stationAorCircles = [];
   let stationLabelOverlays = [];
   let hydrantMarkers = [];
+  let incidentMarkers = [];
+  let incidentInfoWindow = null;
   let routePolylines = [];
   let routeMarkers = [];
   let selectedLiveIncidentId = null;
   let routeRenderSequence = 0;
-  let activeLayerFilter = 'all';
+  let lastMapBounds = null;
+  let layerVisibility = {
+    stations: true,
+    incidents: true,
+    heatmap: true,
+    hydrants: true,
+    routes: true
+  };
   let showStationNames = true;
   let showStationAor = true;
+  let incidentStatusFilter = 'all';
+  let incidentAlarmMin = 1;
   let trendCharts = {};
 
   const stationColorPalette = ['#1e6bd6', '#0f766e', '#7c3aed', '#d97706', '#bc1f2d', '#0f172a'];
+  const REPORTS_URL = '/firenet/NEWFIRENET/backend/pages/reports.php';
+  const ENV_PROXY = '/firenet/NEWFIRENET/backend/controllers/env_intel.php';
 
   if (analyticsWelcome) {
     const scopeText = context.incidentScopeLabel || 'Current incidents';
@@ -750,27 +768,120 @@
     });
   }
 
-  function normalizeLayerFilter(value) {
+  function normalizeLayerKey(value) {
     const normalized = String(value || '').toLowerCase();
-    if (normalized === 'stations' || normalized === 'heatmap' || normalized === 'hydrants') {
+    if (Object.prototype.hasOwnProperty.call(layerVisibility, normalized)) {
       return normalized;
     }
-    return 'all';
+    return '';
   }
 
-  function syncLayerFilterButtons() {
-    layerFilterButtons.forEach(function (button) {
-      const isActive = String(button.getAttribute('data-layer-filter') || '') === activeLayerFilter;
+  function syncLayerToggleButtons() {
+    layerToggleButtons.forEach(function (button) {
+      const key = normalizeLayerKey(button.getAttribute('data-layer-toggle'));
+      const isActive = key ? Boolean(layerVisibility[key]) : false;
       button.classList.toggle('is-active', isActive);
       button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
     });
   }
 
-  function setLayerFilter(value) {
-    activeLayerFilter = normalizeLayerFilter(value);
-    syncLayerFilterButtons();
+  function toggleLayerVisibility(value) {
+    const key = normalizeLayerKey(value);
+    if (!key) {
+      return;
+    }
+    layerVisibility[key] = !layerVisibility[key];
+    const anyOn = Object.keys(layerVisibility).some(function (k) {
+      return layerVisibility[k];
+    });
+    if (!anyOn) {
+      layerVisibility[key] = true;
+    }
+    syncLayerToggleButtons();
     syncStationDisplayAvailability();
     renderAnalyticsMap();
+  }
+
+  function getFilteredIncidents() {
+    const incidents = Array.isArray(context.incidentHeatmapPoints) ? context.incidentHeatmapPoints : [];
+    return incidents.filter(function (incident) {
+      const status = String(incident.status || '').toLowerCase();
+      const alarm = Math.max(1, Number(incident.alarmLevel || 1));
+      if (alarm < incidentAlarmMin) {
+        return false;
+      }
+      if (incidentStatusFilter === 'all') {
+        return true;
+      }
+      if (incidentStatusFilter === 'active') {
+        return status !== 'fire_out' && status !== 'completed' && status !== 'closed';
+      }
+      return status === incidentStatusFilter;
+    });
+  }
+
+  function buildIncidentSymbol(color) {
+    return {
+      path: window.google.maps.SymbolPath.CIRCLE,
+      scale: 7,
+      fillColor: color,
+      fillOpacity: 0.95,
+      strokeColor: '#ffffff',
+      strokeWeight: 1.5
+    };
+  }
+
+  function incidentStatusColor(status, alarmLevel) {
+    const normalized = String(status || '').toLowerCase();
+    if (normalized === 'fire_out' || normalized === 'completed' || normalized === 'closed') {
+      return '#64748b';
+    }
+    if (Number(alarmLevel || 1) >= 4) {
+      return '#dc2626';
+    }
+    if (Number(alarmLevel || 1) >= 3) {
+      return '#ea580c';
+    }
+    if (normalized.indexOf('respond') !== -1) {
+      return '#f59e0b';
+    }
+    return '#ef4444';
+  }
+
+  function escapeHtml(value) {
+    return String(value == null ? '' : value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function openIncidentInfo(marker, incident) {
+    if (!analyticsMapInstance) {
+      return;
+    }
+    if (!incidentInfoWindow) {
+      incidentInfoWindow = new window.google.maps.InfoWindow();
+    }
+    const reportId = Number(incident.reportId || 0);
+    const incidentId = Number(incident.incidentReportId || 0);
+    const href = reportId > 0
+      ? (REPORTS_URL + '?focus=' + encodeURIComponent(String(reportId)))
+      : REPORTS_URL;
+    const html =
+      '<div class="ana-map-infowindow">'
+      + '<strong>' + escapeHtml(incident.label || ('Incident #' + incidentId)) + '</strong>'
+      + '<div>Status: ' + escapeHtml(String(incident.status || '—').replace(/_/g, ' ')) + '</div>'
+      + '<div>Alarm: ' + escapeHtml(String(incident.alarmLevel || 1)) + '</div>'
+      + '<div>Station: ' + escapeHtml(incident.stationName || '—') + '</div>'
+      + (incident.reportType ? ('<div>Type: ' + escapeHtml(incident.reportType) + '</div>') : '')
+      + (incident.location ? ('<div>Loc: ' + escapeHtml(incident.location) + '</div>') : '')
+      + '<div>Updated: ' + escapeHtml(incident.updatedAt || '—') + '</div>'
+      + '<a href="' + escapeHtml(href) + '">Open in Reports</a>'
+      + '</div>';
+    incidentInfoWindow.setContent(html);
+    incidentInfoWindow.open({ map: analyticsMapInstance, anchor: marker });
   }
 
   function syncLiveIncidentSelector() {
@@ -832,6 +943,15 @@
       marker.setMap(null);
     });
     hydrantMarkers = [];
+
+    incidentMarkers.forEach(function (marker) {
+      marker.setMap(null);
+    });
+    incidentMarkers = [];
+
+    if (incidentInfoWindow) {
+      incidentInfoWindow.close();
+    }
 
     routePolylines.forEach(function (routeLine) {
       routeLine.setMap(null);
@@ -1066,7 +1186,6 @@
     }
 
     const stations = Array.isArray(context.stationGeo) ? context.stationGeo : [];
-    const incidents = Array.isArray(context.incidentHeatmapPoints) ? context.incidentHeatmapPoints : [];
     const hydrants = Array.isArray(context.hydrantGeo) ? context.hydrantGeo : [];
     const fallbackCenter = context.mapCenter && Number.isFinite(Number(context.mapCenter.lat)) && Number.isFinite(Number(context.mapCenter.lng))
       ? { lat: Number(context.mapCenter.lat), lng: Number(context.mapCenter.lng) }
@@ -1097,9 +1216,16 @@
 
     const map = analyticsMapInstance;
     clearMapArtifacts();
-    const showStations = activeLayerFilter === 'all' || activeLayerFilter === 'stations';
-    const showHeatmap = activeLayerFilter === 'all' || activeLayerFilter === 'heatmap';
-    const showHydrants = activeLayerFilter === 'all' || activeLayerFilter === 'hydrants';
+    const showStations = Boolean(layerVisibility.stations);
+    const showIncidents = Boolean(layerVisibility.incidents);
+    const showHeatmap = Boolean(layerVisibility.heatmap);
+    const showHydrants = Boolean(layerVisibility.hydrants);
+    const showRoutes = Boolean(layerVisibility.routes);
+    const filteredIncidents = getFilteredIncidents();
+
+    if (analyticsVisibleIncidentCount) {
+      analyticsVisibleIncidentCount.textContent = String(filteredIncidents.length);
+    }
 
     const bounds = new window.google.maps.LatLngBounds();
     let hasPoints = false;
@@ -1175,8 +1301,8 @@
     }
 
     const heatmapData = [];
-    if (showHeatmap) {
-      incidents.forEach(function (incident) {
+    if (showHeatmap || showIncidents) {
+      filteredIncidents.forEach(function (incident) {
         const latitude = Number(incident.lat || 0);
         const longitude = Number(incident.lng || 0);
         if (!Number.isFinite(latitude) || !Number.isFinite(longitude) || (latitude === 0 && longitude === 0)) {
@@ -1185,13 +1311,31 @@
 
         hasPoints = true;
         bounds.extend({ lat: latitude, lng: longitude });
-        heatmapData.push({
-          location: new window.google.maps.LatLng(latitude, longitude),
-          weight: Number(incident.weight || 1)
-        });
+
+        if (showHeatmap) {
+          heatmapData.push({
+            location: new window.google.maps.LatLng(latitude, longitude),
+            weight: Number(incident.weight || 1)
+          });
+        }
+
+        if (showIncidents) {
+          const color = incidentStatusColor(incident.status, incident.alarmLevel);
+          const marker = new window.google.maps.Marker({
+            position: { lat: latitude, lng: longitude },
+            map: map,
+            title: String(incident.label || 'Incident') + ' · Alarm ' + String(incident.alarmLevel || 1),
+            icon: buildIncidentSymbol(color),
+            zIndex: 25
+          });
+          marker.addListener('click', function () {
+            openIncidentInfo(marker, incident);
+          });
+          incidentMarkers.push(marker);
+        }
       });
 
-      if (heatmapData.length > 0) {
+      if (showHeatmap && heatmapData.length > 0) {
         heatmapLayer = new window.google.maps.visualization.HeatmapLayer({
           data: heatmapData,
           map: map,
@@ -1215,49 +1359,45 @@
         hasPoints = true;
         bounds.extend(position);
 
+        const status = String(hydrant.status || 'public').toLowerCase();
+        const hydrantColor = (status === 'inactive' || status === 'maintenance') ? '#94a3b8' : '#ff8a2a';
         const marker = new window.google.maps.Marker({
           position: position,
           map: map,
-          title: String(hydrant.hydrantName || 'Fire Hydrant'),
-          icon: buildHydrantSymbol('#ff8a2a')
+          title: String(hydrant.hydrantName || 'Fire Hydrant') + (status ? (' · ' + status) : ''),
+          icon: buildHydrantSymbol(hydrantColor),
+          zIndex: 15
         });
         hydrantMarkers.push(marker);
       });
     }
 
-    if (activeLayerFilter === 'all' || activeLayerFilter === 'heatmap') {
+    if (showRoutes) {
       renderLiveRoutes(map, bounds);
     } else {
       renderRouteEtaList([], null);
     }
 
+    lastMapBounds = hasPoints ? bounds : null;
     if (hasPoints) {
       map.fitBounds(bounds, 36);
     }
 
-    const layerLabels = {
-      all: 'All layers',
-      stations: 'Stations only',
-      heatmap: 'Heatmap only',
-      hydrants: 'Hydrants only'
-    };
-    const layerLabel = layerLabels[activeLayerFilter] || 'All layers';
-    let statusMessage = layerLabel + ' loaded with ' + String(showStations ? stations.length : 0) + ' stations';
-    if (showStations && showStationAor) {
-      statusMessage += ' (AOR shown)';
-    }
-    if (showStations && showStationNames) {
-      statusMessage += ' (names shown)';
-    }
-    statusMessage += ', ' + String(showHeatmap ? heatmapData.length : 0) + ' incident heat points, and ' + String(showHydrants ? hydrants.length : 0) + ' hydrants.';
-    if (activeLayerFilter === 'all' || activeLayerFilter === 'heatmap') {
-      statusMessage += ' Select a live incident to view station route ETAs.';
+    const activeLayers = Object.keys(layerVisibility).filter(function (key) {
+      return layerVisibility[key];
+    });
+    let statusMessage = 'Layers: ' + (activeLayers.join(', ') || 'none');
+    statusMessage += ' · ' + String(showStations ? stations.length : 0) + ' stations';
+    statusMessage += ' · ' + String(showIncidents || showHeatmap ? filteredIncidents.length : 0) + ' incidents';
+    statusMessage += ' · ' + String(showHydrants ? hydrants.length : 0) + ' hydrants';
+    if (showRoutes) {
+      statusMessage += ' · routing ready';
     }
     updateMapStatus(statusMessage);
   }
 
   function syncStationDisplayAvailability() {
-    const stationsVisible = activeLayerFilter === 'all' || activeLayerFilter === 'stations';
+    const stationsVisible = Boolean(layerVisibility.stations);
     [analyticsToggleStationNames, analyticsToggleStationAor].forEach(function (button) {
       if (!button) {
         return;
@@ -1270,7 +1410,7 @@
   function toggleStationNames() {
     showStationNames = !showStationNames;
     syncStationDisplayButtons();
-    if (activeLayerFilter === 'all' || activeLayerFilter === 'stations') {
+    if (layerVisibility.stations) {
       renderAnalyticsMap();
     }
   }
@@ -1278,17 +1418,44 @@
   function toggleStationAor() {
     showStationAor = !showStationAor;
     syncStationDisplayButtons();
-    if (activeLayerFilter === 'all' || activeLayerFilter === 'stations') {
+    if (layerVisibility.stations) {
       renderAnalyticsMap();
     }
   }
 
-  function waitForGoogleMapsAndRender() {
-    if (window.google && window.google.maps && window.google.maps.Map && window.google.maps.visualization && window.google.maps.visualization.HeatmapLayer) {
-      renderAnalyticsMap();
-    } else {
-      setTimeout(waitForGoogleMapsAndRender, 100);
+  function fitVisibleBounds() {
+    if (!analyticsMapInstance || !lastMapBounds) {
+      return;
     }
+    analyticsMapInstance.fitBounds(lastMapBounds, 36);
+  }
+
+  function recenterMakati() {
+    if (!analyticsMapInstance) {
+      return;
+    }
+    const center = context.mapCenter && Number.isFinite(Number(context.mapCenter.lat)) && Number.isFinite(Number(context.mapCenter.lng))
+      ? { lat: Number(context.mapCenter.lat), lng: Number(context.mapCenter.lng) }
+      : { lat: 14.5547, lng: 121.0244 };
+    analyticsMapInstance.setCenter(center);
+    analyticsMapInstance.setZoom(12);
+  }
+
+  function waitForGoogleMapsAndRender() {
+    let attempts = 0;
+    function poll() {
+      if (window.google && window.google.maps && window.google.maps.Map && window.google.maps.visualization && window.google.maps.visualization.HeatmapLayer) {
+        renderAnalyticsMap();
+        return;
+      }
+      attempts += 1;
+      if (attempts > 80) {
+        updateMapStatus('Google Maps failed to load. Check API key and network.');
+        return;
+      }
+      setTimeout(poll, 100);
+    }
+    poll();
   }
 
   function waitForChartJsAndRender(maxAttempts) {
@@ -1296,6 +1463,7 @@
     if (typeof Chart !== 'undefined') {
       renderTimeSeriesCharts();
       renderClassificationCharts();
+      renderPublicIntelCharts();
       return;
     }
     if (remaining > 0) {
@@ -1304,6 +1472,262 @@
       }, 100);
     }
   }
+
+  function aqiCategory(aqi) {
+    if (aqi <= 50) return 'Good';
+    if (aqi <= 100) return 'Moderate';
+    if (aqi <= 150) return 'Unhealthy for sensitive groups';
+    if (aqi <= 200) return 'Unhealthy';
+    if (aqi <= 300) return 'Very unhealthy';
+    return 'Hazardous';
+  }
+
+  function computeFireRisk(tempC, humidity, windKmh) {
+    let score = 20;
+    score += Math.max(0, (tempC - 28) * 4);
+    score += Math.max(0, (55 - humidity) * 0.9);
+    score += Math.min(25, windKmh * 0.8);
+    score = Math.max(5, Math.min(98, Math.round(score)));
+    let label = 'Low';
+    if (score >= 70) label = 'Elevated';
+    else if (score >= 45) label = 'Moderate';
+    else if (score >= 30) label = 'Guarded';
+    return { score: score, label: label };
+  }
+
+  function buildEnvWarnings(data) {
+    const warnings = [];
+    const current = data.current || {};
+    const daily = data.daily || {};
+    const hourly = data.hourly || {};
+    const code = Number(current.weather_code || 0);
+    const wind = Number(current.wind_speed_10m || 0);
+    const gust = Number(current.wind_gusts_10m || 0);
+    const maxRainChance = Array.isArray(hourly.precipitation_probability)
+      ? Math.max.apply(null, hourly.precipitation_probability.slice(0, 24).map(Number))
+      : 0;
+    const maxDailyWind = Array.isArray(daily.wind_speed_10m_max)
+      ? Math.max.apply(null, daily.wind_speed_10m_max.map(Number))
+      : wind;
+    const maxDailyGust = Array.isArray(daily.wind_gusts_10m_max)
+      ? Math.max.apply(null, daily.wind_gusts_10m_max.map(Number))
+      : gust;
+    const maxPrecipSum = Array.isArray(daily.precipitation_sum)
+      ? Math.max.apply(null, daily.precipitation_sum.map(Number))
+      : 0;
+
+    if (code >= 95) {
+      warnings.push({ level: 'high', icon: 'bi-cloud-lightning-rain', title: 'Thunderstorm watch', text: 'Storm activity flagged for Metro Manila.' });
+    }
+    if (maxDailyWind >= 45 || maxDailyGust >= 60 || wind >= 40) {
+      warnings.push({ level: 'high', icon: 'bi-wind', title: 'Strong wind advisory', text: 'Peak winds near ' + Math.round(Math.max(maxDailyWind, wind)) + ' km/h.' });
+    }
+    if (maxRainChance >= 70 || maxPrecipSum >= 20) {
+      warnings.push({ level: 'high', icon: 'bi-cloud-rain-heavy', title: 'Heavy rain / flood watch', text: 'Rain chance up to ' + Math.round(maxRainChance) + '%.' });
+    }
+    if ((maxDailyWind >= 62 || maxDailyGust >= 80) && (maxRainChance >= 60 || maxPrecipSum >= 25)) {
+      warnings.unshift({ level: 'high', icon: 'bi-tropical-storm', title: 'Tropical storm–like risk', text: 'Combined wind + rain signal elevated storm risk.' });
+    }
+    if (!warnings.length) {
+      warnings.push({ level: 'clear', icon: 'bi-shield-check', title: 'No severe weather flags', text: 'Conditions look manageable for standard ops.' });
+    }
+    return { warnings: warnings.slice(0, 3), maxRainChance: maxRainChance };
+  }
+
+  function renderPublicIntelCharts() {
+    const intel = context.publicIntel && typeof context.publicIntel === 'object' ? context.publicIntel : {};
+    const totalEl = document.getElementById('anaPublicTotal');
+    const emailEl = document.getElementById('anaPublicEmail');
+    const smsEl = document.getElementById('anaPublicSms');
+    const recentEl = document.getElementById('anaPublicRecent');
+    const metaEl = document.getElementById('anaPublicMeta');
+    const canvas = document.getElementById('analyticsPublicTopicsChart');
+
+    if (totalEl) totalEl.textContent = String(intel.subscribersTotal || 0);
+    if (emailEl) emailEl.textContent = String(intel.subscribersEmail || 0);
+    if (smsEl) smsEl.textContent = String(intel.subscribersSms || 0);
+    if (recentEl) recentEl.textContent = String(intel.recent7d || 0);
+    if (metaEl) {
+      metaEl.textContent = (intel.subscribersTotal || 0) + ' active civilian opt-ins across email/SMS channels';
+    }
+
+    if (!canvas || typeof Chart === 'undefined') return;
+    destroyTrendChart('publicTopics');
+    trendCharts.publicTopics = new Chart(canvas.getContext('2d'), {
+      type: 'doughnut',
+      data: {
+        labels: ['Weather', 'Announcements', 'Safety'],
+        datasets: [{
+          data: [
+            Number(intel.topicWeather || 0),
+            Number(intel.topicAnnouncements || 0),
+            Number(intel.topicSafety || 0)
+          ],
+          backgroundColor: ['#1e6bd6', '#bc1f2d', '#0f766e'],
+          borderWidth: 0
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'bottom', labels: { boxWidth: 10, color: '#64748b' } }
+        },
+        cutout: '62%'
+      }
+    });
+  }
+
+  async function fetchEnvJson(kind) {
+    const proxyUrl = ENV_PROXY + '?kind=' + encodeURIComponent(kind);
+    try {
+      const proxyRes = await fetch(proxyUrl, { cache: 'no-store', credentials: 'same-origin' });
+      if (proxyRes.ok) {
+        const data = await proxyRes.json();
+        if (data && data.ok !== false) {
+          return data;
+        }
+      }
+    } catch (proxyError) {
+      // Fall through to direct Open-Meteo.
+    }
+
+    const directUrl = kind === 'aqi'
+      ? (
+        'https://air-quality-api.open-meteo.com/v1/air-quality?latitude=14.5547&longitude=121.0244'
+        + '&current=us_aqi,pm2_5,pm10,nitrogen_dioxide,ozone'
+        + '&hourly=us_aqi&timezone=Asia%2FManila&forecast_days=1'
+      )
+      : (
+        'https://api.open-meteo.com/v1/forecast?latitude=14.5547&longitude=121.0244'
+        + '&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m,wind_gusts_10m,apparent_temperature,visibility,surface_pressure'
+        + '&hourly=precipitation_probability,weather_code,wind_speed_10m'
+        + '&daily=precipitation_sum,precipitation_probability_max,wind_speed_10m_max,wind_gusts_10m_max,uv_index_max,sunrise,sunset'
+        + '&timezone=Asia%2FManila&forecast_days=3'
+      );
+
+    const directRes = await fetch(directUrl, { cache: 'no-store' });
+    if (!directRes.ok) {
+      throw new Error('env_fetch_failed');
+    }
+    return directRes.json();
+  }
+
+  function formatClockFromIso(value) {
+    if (!value) {
+      return '—';
+    }
+    const text = String(value);
+    const timePart = text.indexOf('T') !== -1 ? text.split('T')[1] : text;
+    return timePart.slice(0, 5) || '—';
+  }
+
+  async function loadEnvironmentalIntel() {
+    try {
+      const weather = await fetchEnvJson('weather');
+      const current = weather.current || {};
+      const temp = Number(current.temperature_2m || 0);
+      const feels = Number(current.apparent_temperature || temp);
+      const humidity = Number(current.relative_humidity_2m || 0);
+      const wind = Number(current.wind_speed_10m || 0);
+      const visibilityM = Number(current.visibility || 0);
+      const pressure = Number(current.surface_pressure || 0);
+      const risk = computeFireRisk(temp, humidity, wind);
+      const built = buildEnvWarnings(weather);
+      const uv = Array.isArray(weather.daily && weather.daily.uv_index_max)
+        ? Number(weather.daily.uv_index_max[0] || 0)
+        : 0;
+      const sunrise = Array.isArray(weather.daily && weather.daily.sunrise) ? weather.daily.sunrise[0] : '';
+      const sunset = Array.isArray(weather.daily && weather.daily.sunset) ? weather.daily.sunset[0] : '';
+
+      const setText = function (id, value) {
+        const el = document.getElementById(id);
+        if (el) el.textContent = value;
+      };
+      setText('anaEnvTemp', Math.round(temp) + '°');
+      setText('anaEnvFeels', Math.round(feels) + '°');
+      setText('anaEnvWind', Math.round(wind) + ' km/h');
+      setText('anaEnvRain', Math.round(built.maxRainChance || 0) + '%');
+      setText('anaEnvFireRisk', risk.label);
+      setText('anaEnvUv', uv ? uv.toFixed(1) : '—');
+      setText('anaEnvHumidity', Math.round(humidity) + '%');
+      setText('anaEnvVisibility', visibilityM ? (Math.round(visibilityM / 1000 * 10) / 10) + ' km' : '—');
+      setText('anaEnvPressure', pressure ? Math.round(pressure) + ' hPa' : '—');
+      setText('anaEnvSunrise', formatClockFromIso(sunrise));
+      setText('anaEnvSunset', formatClockFromIso(sunset));
+
+      const warningsEl = document.getElementById('analyticsEnvWarnings');
+      if (warningsEl) {
+        warningsEl.innerHTML = built.warnings.map(function (w) {
+          return (
+            '<article class="ana-env-warning ' + (w.level === 'high' ? 'is-high' : (w.level === 'clear' ? 'is-clear' : '')) + '">' +
+              '<i class="bi ' + w.icon + '" aria-hidden="true"></i>' +
+              '<div><strong>' + w.title + '</strong><p>' + w.text + '</p></div>' +
+            '</article>'
+          );
+        }).join('');
+      }
+    } catch (error) {
+      const warningsEl = document.getElementById('analyticsEnvWarnings');
+      if (warningsEl) warningsEl.innerHTML = '<p class="ana-load-empty">Weather intel unavailable.</p>';
+    }
+
+    try {
+      const aqiData = await fetchEnvJson('aqi');
+      const current = aqiData.current || {};
+      const aqi = Number(current.us_aqi || 0);
+      const setText = function (id, value) {
+        const el = document.getElementById(id);
+        if (el) el.textContent = value;
+      };
+      setText('anaAqiValue', aqi ? String(Math.round(aqi)) : '—');
+      setText('anaAqiLabel', aqi ? aqiCategory(aqi) : 'No AQI data');
+      setText('anaPm25', current.pm2_5 != null ? Number(current.pm2_5).toFixed(1) : '—');
+      setText('anaPm10', current.pm10 != null ? Number(current.pm10).toFixed(1) : '—');
+      setText('anaNo2', current.nitrogen_dioxide != null ? Number(current.nitrogen_dioxide).toFixed(1) : '—');
+      setText('anaO3', current.ozone != null ? Number(current.ozone).toFixed(1) : '—');
+      const bar = document.getElementById('anaAqiBar');
+      if (bar) bar.style.width = Math.max(8, Math.min(100, aqi / 3)) + '%';
+
+      const canvas = document.getElementById('analyticsAqiTrendChart');
+      if (canvas && typeof Chart !== 'undefined' && Array.isArray(aqiData.hourly && aqiData.hourly.us_aqi)) {
+        const labels = (aqiData.hourly.time || []).slice(0, 12).map(function (t) {
+          return String(t).slice(11, 16);
+        });
+        const values = aqiData.hourly.us_aqi.slice(0, 12).map(Number);
+        destroyTrendChart('aqiTrend');
+        trendCharts.aqiTrend = new Chart(canvas.getContext('2d'), {
+          type: 'line',
+          data: {
+            labels: labels,
+            datasets: [{
+              data: values,
+              borderColor: '#7c3aed',
+              backgroundColor: 'rgba(124, 58, 237, 0.12)',
+              fill: true,
+              tension: 0.35,
+              pointRadius: 0
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+              y: { beginAtZero: true, ticks: { color: '#94a3b8', precision: 0 }, grid: { color: 'rgba(148,163,184,0.16)' } },
+              x: { ticks: { color: '#94a3b8', maxRotation: 0 }, grid: { display: false } }
+            }
+          }
+        });
+      }
+    } catch (error) {
+      const label = document.getElementById('anaAqiLabel');
+      if (label) label.textContent = 'Air quality feed offline';
+    }
+  }
+
+  loadEnvironmentalIntel();
+  renderPublicIntelCharts();
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', function () {
@@ -1316,7 +1740,7 @@
   }
 
   syncLiveIncidentSelector();
-  syncLayerFilterButtons();
+  syncLayerToggleButtons();
   syncStationDisplayAvailability();
 
   if (analyticsLiveIncidentSelect) {
@@ -1326,11 +1750,33 @@
     });
   }
 
-  layerFilterButtons.forEach(function (button) {
+  layerToggleButtons.forEach(function (button) {
     button.addEventListener('click', function () {
-      setLayerFilter(button.getAttribute('data-layer-filter'));
+      toggleLayerVisibility(button.getAttribute('data-layer-toggle'));
     });
   });
+
+  if (analyticsIncidentStatusFilter) {
+    analyticsIncidentStatusFilter.addEventListener('change', function () {
+      incidentStatusFilter = String(analyticsIncidentStatusFilter.value || 'all').toLowerCase();
+      renderAnalyticsMap();
+    });
+  }
+
+  if (analyticsIncidentAlarmFilter) {
+    analyticsIncidentAlarmFilter.addEventListener('change', function () {
+      incidentAlarmMin = Math.max(1, Number(analyticsIncidentAlarmFilter.value || 1));
+      renderAnalyticsMap();
+    });
+  }
+
+  if (analyticsFitBoundsBtn) {
+    analyticsFitBoundsBtn.addEventListener('click', fitVisibleBounds);
+  }
+
+  if (analyticsRecenterBtn) {
+    analyticsRecenterBtn.addEventListener('click', recenterMakati);
+  }
 
   if (analyticsScopeCurrent) {
     analyticsScopeCurrent.addEventListener('change', syncIncidentScopeUi);

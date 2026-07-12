@@ -12,7 +12,7 @@ if (!headers_sent()) {
   header('Referrer-Policy: no-referrer-when-downgrade');
   header('Permissions-Policy: geolocation=(), microphone=()');
   header('Strict-Transport-Security: max-age=31536000; includeSubDomains; preload');
-  header("Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://maps.googleapis.com https://www.gstatic.com https://accounts.google.com https://apis.google.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net data:; img-src 'self' data: https:; connect-src 'self' https://maps.googleapis.com https://accounts.google.com https://www.googleapis.com; frame-src 'self' https://accounts.google.com https://www.google.com;");
+  header("Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://maps.googleapis.com https://www.gstatic.com https://accounts.google.com https://apis.google.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net data:; img-src 'self' data: https:; connect-src 'self' https://maps.googleapis.com https://accounts.google.com https://www.googleapis.com https://api.open-meteo.com https://air-quality-api.open-meteo.com; frame-src 'self' https://accounts.google.com https://www.google.com;");
 }
 
 $currentPath = (string) parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH);
@@ -134,6 +134,18 @@ if ($sessionUserId > 0) {
       <link rel="stylesheet" href="<?php echo htmlspecialchars($stylePath); ?>">
     <?php endforeach; ?>
   <?php endif; ?>
+  <link rel="stylesheet" href="/firenet/NEWFIRENET/assets/css/portal-theme-light.css">
+  <script>
+    (function () {
+      try {
+        var theme = localStorage.getItem('firenet_system_theme');
+        if (theme !== 'light' && theme !== 'dark') theme = 'dark';
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) {
+        document.documentElement.setAttribute('data-theme', 'dark');
+      }
+    })();
+  </script>
 </head>
 <body class="<?php echo trim(((isset($_SESSION['user']) ? 'is-authenticated' : '') . ' ' . ($bodyClass ?? ''))); ?>">
   <header class="app-header">
@@ -170,6 +182,13 @@ if ($sessionUserId > 0) {
 
       <?php if (isset($_SESSION['user'])): ?>
         <div class="header-right">
+          <button type="button" class="theme-toggle" id="themeToggle" aria-label="Switch to light mode" title="Toggle theme">
+            <span class="theme-icon-orbit" aria-hidden="true">
+              <i class="bi bi-sun-fill theme-icon-sun"></i>
+              <i class="bi bi-moon-stars-fill theme-icon-moon"></i>
+            </span>
+            <span class="theme-toggle-label" id="themeToggleLabel">Light</span>
+          </button>
           <span class="header-datetime" id="headerDateTime" aria-live="polite">Loading time…</span>
           <span class="header-role-chip" id="headerRoleChip"><?php echo htmlspecialchars($sessionRole); ?></span>
           <div class="header-quick-actions" aria-label="Quick actions">

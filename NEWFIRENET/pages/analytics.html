@@ -1,53 +1,55 @@
-<div class="ana-pro">
+<div class="ana-pro ana-pro--compact">
   <div class="ana-page-bg" aria-hidden="true"></div>
 
   <div class="ana-body">
-    <header class="ana-hero" aria-label="Analytics overview">
+    <header class="ana-hero ana-reveal" aria-label="Analytics overview">
       <div class="ana-hero-top">
         <div class="ana-hero-copy">
-          <p class="ana-kicker">FireNet · Operations intelligence</p>
-          <h1 class="ana-title">Station Analytics</h1>
-          <p class="ana-subtitle" id="analyticsWelcome">Loading session context…</p>
+          <div class="ana-hero-heading">
+            <p class="ana-kicker"><i class="bi bi-radar" aria-hidden="true"></i> FireNet · Ops intel</p>
+            <h1 class="ana-title"><i class="bi bi-graph-up-arrow ana-title-icon" aria-hidden="true"></i> Analytics</h1>
+            <p class="ana-subtitle" id="analyticsWelcome">Loading session context…</p>
+          </div>
           <p class="ana-role-summary" id="analyticsRoleSummary" hidden></p>
           <ul class="ana-meta-chips" aria-label="Session context">
             <li class="ana-meta-chip">
-              <span class="ana-meta-chip-label">Role</span>
+              <span class="ana-meta-chip-label"><i class="bi bi-person-badge" aria-hidden="true"></i> Role</span>
               <span class="ana-meta-chip-value" id="analyticsRoleTitle">—</span>
             </li>
             <li class="ana-meta-chip">
-              <span class="ana-meta-chip-label">Station</span>
+              <span class="ana-meta-chip-label"><i class="bi bi-building" aria-hidden="true"></i> Station</span>
               <span class="ana-meta-chip-value" id="analyticsStationId">—</span>
             </li>
             <li class="ana-meta-chip ana-meta-chip--scope">
-              <span class="ana-meta-chip-value" id="analyticsFilterSummary">Current incidents</span>
+              <span class="ana-meta-chip-value"><i class="bi bi-funnel" aria-hidden="true"></i> <span id="analyticsFilterSummary">Current incidents</span></span>
             </li>
           </ul>
         </div>
         <div class="ana-hero-actions">
-          <a class="ana-action ana-action--ghost" href="/firenet/NEWFIRENET/backend/pages/reports.php">All reports</a>
-          <a class="ana-action ana-action--ghost" href="/firenet/NEWFIRENET/backend/pages/dashboard.php">Dashboard</a>
+          <a class="ana-action ana-action--ghost" href="/firenet/NEWFIRENET/backend/pages/reports.php"><i class="bi bi-file-earmark-text" aria-hidden="true"></i> Reports</a>
+          <a class="ana-action ana-action--ghost" href="/firenet/NEWFIRENET/backend/pages/dashboard.php"><i class="bi bi-speedometer2" aria-hidden="true"></i> Dashboard</a>
         </div>
       </div>
 
       <div class="ana-stat-strip" aria-label="Incident metrics">
         <article class="ana-stat-tile ana-stat-tile--active">
-          <span class="ana-stat-icon" aria-hidden="true"><i class="bi bi-exclamation-triangle"></i></span>
+          <span class="ana-stat-icon" aria-hidden="true"><i class="bi bi-exclamation-triangle-fill"></i></span>
           <span class="ana-stat-label">Active</span>
           <strong class="ana-stat-value" id="analyticsActiveCount">0</strong>
         </article>
         <article class="ana-stat-tile ana-stat-tile--completed">
-          <span class="ana-stat-icon" aria-hidden="true"><i class="bi bi-check-circle"></i></span>
+          <span class="ana-stat-icon" aria-hidden="true"><i class="bi bi-check-circle-fill"></i></span>
           <span class="ana-stat-label">Completed</span>
           <strong class="ana-stat-value" id="analyticsCompletedCount">0</strong>
         </article>
         <article class="ana-stat-tile ana-stat-tile--total">
-          <span class="ana-stat-icon" aria-hidden="true"><i class="bi bi-bar-chart"></i></span>
-          <span class="ana-stat-label">Total (scope)</span>
+          <span class="ana-stat-icon" aria-hidden="true"><i class="bi bi-bar-chart-fill"></i></span>
+          <span class="ana-stat-label">Total</span>
           <strong class="ana-stat-value" id="analyticsTotalCount">0</strong>
         </article>
         <article class="ana-stat-tile ana-stat-tile--map">
-          <span class="ana-stat-icon" aria-hidden="true"><i class="bi bi-geo-alt"></i></span>
-          <span class="ana-stat-label">Heat points</span>
+          <span class="ana-stat-icon" aria-hidden="true"><i class="bi bi-geo-alt-fill"></i></span>
+          <span class="ana-stat-label">Mapped</span>
           <strong class="ana-stat-value" id="analyticsIncidentHeatPointCount">0</strong>
         </article>
       </div>
@@ -56,14 +58,14 @@
         <div class="ana-live-indicator">
           <span class="ana-activity-dot" aria-hidden="true"></span>
           <div class="ana-live-text">
-            <p class="ana-live-title" id="analyticsLatestLabel">No active incidents.</p>
+            <p class="ana-live-title"><i class="bi bi-lightning-charge-fill ana-inline-icon" aria-hidden="true"></i> <span id="analyticsLatestLabel">No active incidents.</span></p>
             <p class="ana-live-meta" id="analyticsLatestMeta">Analytics will update when new incidents are recorded.</p>
           </div>
         </div>
       </div>
     </header>
 
-    <section class="ana-toolbar" aria-label="Map filters and layers">
+    <section class="ana-toolbar ana-reveal" aria-label="Map filters and layers">
       <form class="ana-filter-form" method="get" action="/firenet/NEWFIRENET/backend/pages/analytics.php">
         <div class="ana-toolbar-row ana-toolbar-row--primary">
           <div class="ana-filter-toggle" role="radiogroup" aria-label="Incident scope">
@@ -90,29 +92,60 @@
           </div>
 
           <div class="ana-filter-actions">
-            <button type="submit" class="ana-filter-submit">Apply view</button>
-            <a class="ana-filter-reset" href="/firenet/NEWFIRENET/backend/pages/analytics.php">Reset</a>
+            <button type="submit" class="ana-filter-submit"><i class="bi bi-check2" aria-hidden="true"></i> Apply</button>
+            <a class="ana-filter-reset" href="/firenet/NEWFIRENET/backend/pages/analytics.php"><i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i> Reset</a>
           </div>
         </div>
 
         <div class="ana-toolbar-row ana-toolbar-row--secondary">
-          <div class="ana-layer-filter" role="group" aria-label="Map layer filter">
-            <span class="ana-toolbar-label">Layers</span>
-            <button type="button" class="ana-layer-pill is-active" data-layer-filter="all" aria-pressed="true">All</button>
-            <button type="button" class="ana-layer-pill" data-layer-filter="stations" aria-pressed="false">Stations</button>
-            <button type="button" class="ana-layer-pill" data-layer-filter="heatmap" aria-pressed="false">Heatmap</button>
-            <button type="button" class="ana-layer-pill" data-layer-filter="hydrants" aria-pressed="false">Hydrants</button>
+          <div class="ana-layer-filter" role="group" aria-label="Map layer toggles">
+            <span class="ana-toolbar-label"><i class="bi bi-layers" aria-hidden="true"></i> Layers</span>
+            <button type="button" class="ana-layer-pill is-active" data-layer-toggle="stations" aria-pressed="true"><i class="bi bi-building" aria-hidden="true"></i> Stations</button>
+            <button type="button" class="ana-layer-pill is-active" data-layer-toggle="incidents" aria-pressed="true"><i class="bi bi-geo-fill" aria-hidden="true"></i> Incidents</button>
+            <button type="button" class="ana-layer-pill is-active" data-layer-toggle="heatmap" aria-pressed="true"><i class="bi bi-thermometer-half" aria-hidden="true"></i> Heatmap</button>
+            <button type="button" class="ana-layer-pill is-active" data-layer-toggle="hydrants" aria-pressed="true"><i class="bi bi-droplet-fill" aria-hidden="true"></i> Hydrants</button>
+            <button type="button" class="ana-layer-pill is-active" data-layer-toggle="routes" aria-pressed="true"><i class="bi bi-signpost-split-fill" aria-hidden="true"></i> Routes</button>
           </div>
 
           <div class="ana-station-display" role="group" aria-label="Station map display">
-            <span class="ana-toolbar-label">Show</span>
-            <button type="button" class="ana-display-pill is-active" id="analyticsToggleStationNames" aria-pressed="true">Names</button>
-            <button type="button" class="ana-display-pill is-active" id="analyticsToggleStationAor" aria-pressed="true">AOR radius</button>
+            <span class="ana-toolbar-label"><i class="bi bi-eye" aria-hidden="true"></i> Show</span>
+            <button type="button" class="ana-display-pill is-active" id="analyticsToggleStationNames" aria-pressed="true"><i class="bi bi-type" aria-hidden="true"></i> Names</button>
+            <button type="button" class="ana-display-pill is-active" id="analyticsToggleStationAor" aria-pressed="true"><i class="bi bi-circle" aria-hidden="true"></i> AOR</button>
+          </div>
+
+          <div class="ana-gis-filters" role="group" aria-label="Incident element filters">
+            <span class="ana-toolbar-label"><i class="bi bi-funnel-fill" aria-hidden="true"></i> Filter</span>
+            <label class="ana-gis-select-wrap">
+              <span class="visually-hidden">Incident status</span>
+              <select id="analyticsIncidentStatusFilter" class="ana-gis-select" aria-label="Filter incidents by status">
+                <option value="all">All statuses</option>
+                <option value="active">Active only</option>
+                <option value="fire_out">Fire out</option>
+                <option value="newly_reported">Newly reported</option>
+                <option value="responding">Responding</option>
+              </select>
+            </label>
+            <label class="ana-gis-select-wrap">
+              <span class="visually-hidden">Minimum alarm</span>
+              <select id="analyticsIncidentAlarmFilter" class="ana-gis-select" aria-label="Filter by minimum alarm level">
+                <option value="1">Alarm ≥ 1</option>
+                <option value="2">Alarm ≥ 2</option>
+                <option value="3">Alarm ≥ 3</option>
+                <option value="4">Alarm ≥ 4</option>
+                <option value="5">Alarm ≥ 5</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="ana-map-tools" role="group" aria-label="Map tools">
+            <button type="button" class="ana-tool-btn" id="analyticsFitBoundsBtn" title="Fit map to visible layers"><i class="bi bi-arrows-fullscreen" aria-hidden="true"></i> Fit</button>
+            <button type="button" class="ana-tool-btn" id="analyticsRecenterBtn" title="Recenter on Makati"><i class="bi bi-crosshair" aria-hidden="true"></i> Center</button>
           </div>
 
           <div class="ana-map-badges" aria-label="Map data counts">
-            <span class="ana-map-badge ana-map-badge--station"><strong id="analyticsStationCount">0</strong><small>Stations</small></span>
-            <span class="ana-map-badge ana-map-badge--hydrant"><strong id="analyticsHydrantCount">0</strong><small>Hydrants</small></span>
+            <span class="ana-map-badge ana-map-badge--station"><i class="bi bi-building" aria-hidden="true"></i><strong id="analyticsStationCount">0</strong><small>Stations</small></span>
+            <span class="ana-map-badge ana-map-badge--incident"><i class="bi bi-geo-alt-fill" aria-hidden="true"></i><strong id="analyticsVisibleIncidentCount">0</strong><small>Incidents</small></span>
+            <span class="ana-map-badge ana-map-badge--hydrant"><i class="bi bi-droplet-fill" aria-hidden="true"></i><strong id="analyticsHydrantCount">0</strong><small>Hydrants</small></span>
           </div>
 
           <div class="ana-hydrant-source" title="Hydrant data source">
@@ -123,38 +156,39 @@
       </form>
     </section>
 
-    <div class="ana-main-grid">
+    <div class="ana-main-grid ana-reveal">
       <section class="ana-map-panel" aria-label="Makati response map">
         <div class="ana-map-panel-head">
           <div>
-            <p class="ana-kicker">GIS layer</p>
+            <p class="ana-kicker"><i class="bi bi-map" aria-hidden="true"></i> GIS layer</p>
             <h2 class="ana-panel-title">Makati response map</h2>
-            <p class="ana-map-meta" id="analyticsMapMeta">Stations, incident heat points, and hydrants are rendered here.</p>
+            <p class="ana-map-meta" id="analyticsMapMeta">Toggle layers and filters to inspect stations, incidents, heat density, and hydrants.</p>
           </div>
           <div class="ana-map-legend" aria-label="Map legend">
-            <span class="ana-legend-item ana-legend-item--station">Stations</span>
-            <span class="ana-legend-item ana-legend-item--incident">Heatmap</span>
-            <span class="ana-legend-item ana-legend-item--hydrant">Hydrants</span>
+            <span class="ana-legend-item ana-legend-item--station"><i class="bi bi-building" aria-hidden="true"></i> Stations</span>
+            <span class="ana-legend-item ana-legend-item--incident-pin"><i class="bi bi-geo-fill" aria-hidden="true"></i> Incidents</span>
+            <span class="ana-legend-item ana-legend-item--incident"><i class="bi bi-thermometer-half" aria-hidden="true"></i> Heatmap</span>
+            <span class="ana-legend-item ana-legend-item--hydrant"><i class="bi bi-droplet-fill" aria-hidden="true"></i> Hydrants</span>
           </div>
         </div>
 
         <div class="ana-map-wrap">
           <div id="analyticsMap" class="ana-map-canvas" role="img" aria-label="GIS map of Makati fire stations, incidents, and hydrants"></div>
-          <div id="analyticsMapStatus" class="ana-map-status">Loading GIS map…</div>
+          <div id="analyticsMapStatus" class="ana-map-status"><i class="bi bi-hourglass-split" aria-hidden="true"></i> Loading GIS map…</div>
         </div>
 
-        <p class="ana-map-source" id="analyticsMapSource">Hydrants will use the public OpenStreetMap layer when available.</p>
+        <p class="ana-map-source"><i class="bi bi-info-circle" aria-hidden="true"></i> <span id="analyticsMapSource">Hydrants will use the public OpenStreetMap layer when available.</span></p>
       </section>
 
       <aside class="ana-side-panel" aria-label="Routing and reference">
         <section class="ana-side-card ana-side-card--routing">
           <div class="ana-side-card-head">
-            <p class="ana-kicker">Live routing</p>
+            <p class="ana-kicker"><i class="bi bi-signpost-2" aria-hidden="true"></i> Live routing</p>
             <h2 class="ana-panel-title">Station route ETA</h2>
           </div>
 
           <label class="ana-live-routing-field" for="analyticsLiveIncidentSelect">
-            <span>Select live incident</span>
+            <span><i class="bi bi-cursor" aria-hidden="true"></i> Select live incident</span>
             <select id="analyticsLiveIncidentSelect" class="ana-live-routing-select">
               <option value="">No live incidents available</option>
             </select>
@@ -165,44 +199,43 @@
 
         <section class="ana-side-card ana-side-card--notes">
           <div class="ana-side-card-head">
-            <p class="ana-kicker">Reference</p>
+            <p class="ana-kicker"><i class="bi bi-journal-text" aria-hidden="true"></i> Reference</p>
             <h2 class="ana-panel-title">How to read</h2>
           </div>
           <ul class="ana-list">
-            <li>Active incidents exclude completed and fire-out records.</li>
-            <li>Switch to <strong>History</strong> to filter by a custom date range.</li>
-            <li>Use <strong>Show</strong> toggles to hide station names or AOR radius circles on the map.</li>
-            <li>Layer pills: <strong>All</strong>, <strong>Stations</strong>, <strong>Heatmap</strong>, or <strong>Hydrants</strong> — control what appears on the map.</li>
-            <li>Open <a href="/firenet/NEWFIRENET/backend/pages/reports.php">Reports</a> for full incident timelines.</li>
+            <li><i class="bi bi-layers ana-list-icon" aria-hidden="true"></i> Toggle each <strong>Layer</strong> independently — Stations, Incidents, Heatmap, Hydrants, Routes.</li>
+            <li><i class="bi bi-geo-alt ana-list-icon" aria-hidden="true"></i> <strong>Incidents</strong> plots FireNet geo records (scoped Current/History). Click a pin for details.</li>
+            <li><i class="bi bi-funnel ana-list-icon" aria-hidden="true"></i> Use <strong>Filter</strong> to narrow incident pins by status and alarm level.</li>
+            <li><i class="bi bi-box-arrow-up-right ana-list-icon" aria-hidden="true"></i> Open <a href="/firenet/NEWFIRENET/backend/pages/reports.php">Reports</a> for full timelines.</li>
           </ul>
         </section>
       </aside>
     </div>
 
-    <section class="ana-trend-grid" aria-label="Trend and comparison insights">
+    <section class="ana-trend-grid ana-reveal" aria-label="Trend and comparison insights">
       <article class="ana-side-card ana-side-card--comparison">
         <div class="ana-side-card-head">
-          <p class="ana-kicker">Time-series comparison</p>
+          <p class="ana-kicker"><i class="bi bi-calendar3" aria-hidden="true"></i> Time-series</p>
           <h2 class="ana-panel-title">Period snapshot</h2>
         </div>
         <div class="ana-comparison-cards">
           <div class="ana-comparison-card">
-            <span class="ana-comparison-label">This week</span>
+            <span class="ana-comparison-label"><i class="bi bi-calendar-week" aria-hidden="true"></i> This week</span>
             <strong class="ana-comparison-value" id="analyticsCurrentWeekCount">0</strong>
             <small class="ana-comparison-meta" id="analyticsCurrentWeekMeta">vs previous week</small>
           </div>
           <div class="ana-comparison-card">
-            <span class="ana-comparison-label">Previous week</span>
+            <span class="ana-comparison-label"><i class="bi bi-calendar-minus" aria-hidden="true"></i> Previous week</span>
             <strong class="ana-comparison-value" id="analyticsPreviousWeekCount">0</strong>
             <small class="ana-comparison-meta">Last 7-day window</small>
           </div>
           <div class="ana-comparison-card">
-            <span class="ana-comparison-label">This month</span>
+            <span class="ana-comparison-label"><i class="bi bi-calendar-month" aria-hidden="true"></i> This month</span>
             <strong class="ana-comparison-value" id="analyticsCurrentMonthCount">0</strong>
             <small class="ana-comparison-meta" id="analyticsCurrentMonthMeta">vs previous month</small>
           </div>
           <div class="ana-comparison-card">
-            <span class="ana-comparison-label">Previous month</span>
+            <span class="ana-comparison-label"><i class="bi bi-calendar2" aria-hidden="true"></i> Previous month</span>
             <strong class="ana-comparison-value" id="analyticsPreviousMonthCount">0</strong>
             <small class="ana-comparison-meta">Last month baseline</small>
           </div>
@@ -211,7 +244,7 @@
 
       <article class="ana-side-card ana-side-card--trend-chart">
         <div class="ana-side-card-head">
-          <p class="ana-kicker">Volume trend</p>
+          <p class="ana-kicker"><i class="bi bi-graph-up" aria-hidden="true"></i> Volume</p>
           <h2 class="ana-panel-title">Last 14 days</h2>
         </div>
         <div class="ana-chart-box">
@@ -221,8 +254,8 @@
 
       <article class="ana-side-card ana-side-card--hourly-chart">
         <div class="ana-side-card-head">
-          <p class="ana-kicker">Hourly pattern</p>
-          <h2 class="ana-panel-title">Incident activity by hour</h2>
+          <p class="ana-kicker"><i class="bi bi-clock" aria-hidden="true"></i> Hourly</p>
+          <h2 class="ana-panel-title">Activity by hour</h2>
         </div>
         <div class="ana-chart-box ana-chart-box--short">
           <canvas id="analyticsHourlyTrendChart" aria-label="Hourly incident pattern" role="img"></canvas>
@@ -230,30 +263,30 @@
       </article>
     </section>
 
-    <section class="ana-insights-grid" aria-label="Dispatch workload insights">
+    <section class="ana-insights-grid ana-reveal" aria-label="Dispatch workload insights">
       <article class="ana-side-card ana-side-card--dispatch">
         <div class="ana-side-card-head">
-          <p class="ana-kicker">Dispatch workload</p>
+          <p class="ana-kicker"><i class="bi bi-truck" aria-hidden="true"></i> Dispatch</p>
           <h2 class="ana-panel-title">Load balance</h2>
         </div>
         <div class="ana-load-summary">
           <div class="ana-load-summary-main">
-            <span class="ana-load-summary-label">Busiest station now</span>
+            <span class="ana-load-summary-label"><i class="bi bi-fire" aria-hidden="true"></i> Busiest station now</span>
             <strong class="ana-load-summary-value" id="analyticsDispatchLead">No active dispatch load</strong>
             <p class="ana-load-summary-meta" id="analyticsDispatchLeadMeta">Waiting for assignments.</p>
           </div>
           <div class="ana-load-summary-stats">
-            <span class="ana-load-chip"><strong id="analyticsDispatchActiveStations">0</strong><small>Handling now</small></span>
-            <span class="ana-load-chip"><strong id="analyticsDispatchZeroCoverage">0</strong><small>Idle stations</small></span>
-            <span class="ana-load-chip"><strong id="analyticsDispatchFallbackToday">0</strong><small>Fallback today</small></span>
+            <span class="ana-load-chip"><i class="bi bi-activity" aria-hidden="true"></i><strong id="analyticsDispatchActiveStations">0</strong><small>Handling</small></span>
+            <span class="ana-load-chip"><i class="bi bi-pause-circle" aria-hidden="true"></i><strong id="analyticsDispatchZeroCoverage">0</strong><small>Idle</small></span>
+            <span class="ana-load-chip"><i class="bi bi-shuffle" aria-hidden="true"></i><strong id="analyticsDispatchFallbackToday">0</strong><small>Fallback</small></span>
           </div>
         </div>
       </article>
 
       <article class="ana-side-card ana-side-card--dispatch-table">
         <div class="ana-side-card-head">
-          <p class="ana-kicker">Station comparison</p>
-          <h2 class="ana-panel-title">Incidents handled today</h2>
+          <p class="ana-kicker"><i class="bi bi-building" aria-hidden="true"></i> Stations</p>
+          <h2 class="ana-panel-title">Handled today</h2>
         </div>
         <div class="ana-load-table" id="analyticsDispatchTable" aria-live="polite">
           <p class="ana-load-empty">No station dispatch workload available yet.</p>
@@ -261,10 +294,10 @@
       </article>
     </section>
 
-    <section class="ana-geo-grid" aria-label="Geographic analytics insights">
+    <section class="ana-geo-grid ana-reveal" aria-label="Geographic analytics insights">
       <article class="ana-side-card">
         <div class="ana-side-card-head">
-          <p class="ana-kicker">Geographic analytics</p>
+          <p class="ana-kicker"><i class="bi bi-pin-map-fill" aria-hidden="true"></i> Geo</p>
           <h2 class="ana-panel-title">Top hotspots</h2>
         </div>
         <div class="ana-geo-list" id="analyticsHotspotList">
@@ -274,8 +307,8 @@
 
       <article class="ana-side-card">
         <div class="ana-side-card-head">
-          <p class="ana-kicker">AOR density</p>
-          <h2 class="ana-panel-title">Incidents inside station coverage</h2>
+          <p class="ana-kicker"><i class="bi bi-bullseye" aria-hidden="true"></i> AOR</p>
+          <h2 class="ana-panel-title">Coverage density</h2>
         </div>
         <div class="ana-geo-list" id="analyticsAorDensityList">
           <p class="ana-load-empty">No AOR density summary available yet.</p>
@@ -284,12 +317,12 @@
 
       <article class="ana-side-card">
         <div class="ana-side-card-head">
-          <p class="ana-kicker">Hydrant risk</p>
-          <h2 class="ana-panel-title">Inactive hydrants near incidents</h2>
+          <p class="ana-kicker"><i class="bi bi-droplet-half" aria-hidden="true"></i> Hydrants</p>
+          <h2 class="ana-panel-title">Risk near incidents</h2>
         </div>
         <div class="ana-load-summary">
           <div class="ana-load-summary-main">
-            <span class="ana-load-summary-label">Risk snapshot</span>
+            <span class="ana-load-summary-label"><i class="bi bi-exclamation-octagon" aria-hidden="true"></i> Risk snapshot</span>
             <strong class="ana-load-summary-value" id="analyticsHydrantRiskLead">0 affected incidents</strong>
             <p class="ana-load-summary-meta" id="analyticsHydrantRiskMeta">0 inactive or maintenance hydrants are near current incident zones.</p>
           </div>
@@ -300,10 +333,81 @@
       </article>
     </section>
 
-    <section class="ana-classification-grid" aria-label="Incident classification breakdown">
+    <section class="ana-env-grid ana-reveal" aria-label="Environmental and public alert intelligence">
+      <article class="ana-side-card ana-side-card--env">
+        <div class="ana-side-card-head">
+          <p class="ana-kicker"><i class="bi bi-cloud-sun" aria-hidden="true"></i> Environment</p>
+          <h2 class="ana-panel-title">Makati weather &amp; risk</h2>
+        </div>
+        <div class="ana-env-metrics" id="analyticsEnvMetrics">
+          <div class="ana-env-metric"><span><i class="bi bi-thermometer-half" aria-hidden="true"></i> Temp</span><strong id="anaEnvTemp">—</strong></div>
+          <div class="ana-env-metric"><span><i class="bi bi-emoji-smile" aria-hidden="true"></i> Feels</span><strong id="anaEnvFeels">—</strong></div>
+          <div class="ana-env-metric"><span><i class="bi bi-wind" aria-hidden="true"></i> Wind</span><strong id="anaEnvWind">—</strong></div>
+          <div class="ana-env-metric"><span><i class="bi bi-cloud-rain" aria-hidden="true"></i> Rain 24h</span><strong id="anaEnvRain">—</strong></div>
+          <div class="ana-env-metric"><span><i class="bi bi-fire" aria-hidden="true"></i> Fire risk</span><strong id="anaEnvFireRisk">—</strong></div>
+          <div class="ana-env-metric"><span><i class="bi bi-sun" aria-hidden="true"></i> UV max</span><strong id="anaEnvUv">—</strong></div>
+          <div class="ana-env-metric"><span><i class="bi bi-moisture" aria-hidden="true"></i> Humidity</span><strong id="anaEnvHumidity">—</strong></div>
+          <div class="ana-env-metric"><span><i class="bi bi-eye" aria-hidden="true"></i> Visibility</span><strong id="anaEnvVisibility">—</strong></div>
+          <div class="ana-env-metric"><span><i class="bi bi-speedometer" aria-hidden="true"></i> Pressure</span><strong id="anaEnvPressure">—</strong></div>
+          <div class="ana-env-metric"><span><i class="bi bi-sunrise" aria-hidden="true"></i> Sunrise</span><strong id="anaEnvSunrise">—</strong></div>
+          <div class="ana-env-metric"><span><i class="bi bi-sunset" aria-hidden="true"></i> Sunset</span><strong id="anaEnvSunset">—</strong></div>
+        </div>
+        <div class="ana-env-warnings" id="analyticsEnvWarnings">
+          <p class="ana-load-empty"><i class="bi bi-hourglass-split" aria-hidden="true"></i> Loading Open-Meteo forecast…</p>
+        </div>
+      </article>
+
+      <article class="ana-side-card ana-side-card--aqi">
+        <div class="ana-side-card-head">
+          <p class="ana-kicker"><i class="bi bi-lungs" aria-hidden="true"></i> Air quality</p>
+          <h2 class="ana-panel-title">Smoke &amp; particulates</h2>
+        </div>
+        <div class="ana-aqi-hero">
+          <div>
+            <span class="ana-aqi-label"><i class="bi bi-activity" aria-hidden="true"></i> US AQI</span>
+            <strong class="ana-aqi-value" id="anaAqiValue">—</strong>
+            <p class="ana-aqi-meta" id="anaAqiLabel">Loading…</p>
+          </div>
+          <div class="ana-aqi-bar"><span id="anaAqiBar"></span></div>
+        </div>
+        <div class="ana-env-metrics ana-env-metrics--compact">
+          <div class="ana-env-metric"><span><i class="bi bi-circle-fill" aria-hidden="true"></i> PM2.5</span><strong id="anaPm25">—</strong></div>
+          <div class="ana-env-metric"><span><i class="bi bi-circle" aria-hidden="true"></i> PM10</span><strong id="anaPm10">—</strong></div>
+          <div class="ana-env-metric"><span><i class="bi bi-cloud" aria-hidden="true"></i> NO₂</span><strong id="anaNo2">—</strong></div>
+          <div class="ana-env-metric"><span><i class="bi bi-brightness-high" aria-hidden="true"></i> O₃</span><strong id="anaO3">—</strong></div>
+        </div>
+        <div class="ana-chart-box ana-chart-box--short">
+          <canvas id="analyticsAqiTrendChart" aria-label="Hourly AQI trend" role="img"></canvas>
+        </div>
+      </article>
+
+      <article class="ana-side-card ana-side-card--public">
+        <div class="ana-side-card-head">
+          <p class="ana-kicker"><i class="bi bi-people" aria-hidden="true"></i> Public reach</p>
+          <h2 class="ana-panel-title">Civilian alerts</h2>
+        </div>
+        <div class="ana-load-summary">
+          <div class="ana-load-summary-main">
+            <span class="ana-load-summary-label"><i class="bi bi-bell" aria-hidden="true"></i> Active opt-ins</span>
+            <strong class="ana-load-summary-value" id="anaPublicTotal">0</strong>
+            <p class="ana-load-summary-meta" id="anaPublicMeta">From FireNet civilian alert portal</p>
+          </div>
+          <div class="ana-load-summary-stats">
+            <span class="ana-load-chip"><i class="bi bi-envelope" aria-hidden="true"></i><strong id="anaPublicEmail">0</strong><small>Email</small></span>
+            <span class="ana-load-chip"><i class="bi bi-phone" aria-hidden="true"></i><strong id="anaPublicSms">0</strong><small>SMS</small></span>
+            <span class="ana-load-chip"><i class="bi bi-plus-circle" aria-hidden="true"></i><strong id="anaPublicRecent">0</strong><small>New 7d</small></span>
+          </div>
+        </div>
+        <div class="ana-chart-box ana-chart-box--short">
+          <canvas id="analyticsPublicTopicsChart" aria-label="Alert topic mix" role="img"></canvas>
+        </div>
+      </article>
+    </section>
+
+    <section class="ana-classification-grid ana-reveal" aria-label="Incident classification breakdown">
       <article class="ana-side-card">
         <div class="ana-side-card-head">
-          <p class="ana-kicker">Classification</p>
+          <p class="ana-kicker"><i class="bi bi-bell-fill" aria-hidden="true"></i> Class</p>
           <h2 class="ana-panel-title">Alarm levels</h2>
         </div>
         <div class="ana-chart-box ana-chart-box--short">
@@ -313,8 +417,8 @@
 
       <article class="ana-side-card">
         <div class="ana-side-card-head">
-          <p class="ana-kicker">Classification</p>
-          <h2 class="ana-panel-title">Incident status mix</h2>
+          <p class="ana-kicker"><i class="bi bi-pie-chart-fill" aria-hidden="true"></i> Class</p>
+          <h2 class="ana-panel-title">Status mix</h2>
         </div>
         <div class="ana-chart-box ana-chart-box--short">
           <canvas id="analyticsStatusBreakdownChart" aria-label="Incident status breakdown" role="img"></canvas>
@@ -323,7 +427,7 @@
 
       <article class="ana-side-card">
         <div class="ana-side-card-head">
-          <p class="ana-kicker">Classification</p>
+          <p class="ana-kicker"><i class="bi bi-tags-fill" aria-hidden="true"></i> Class</p>
           <h2 class="ana-panel-title">Report categories</h2>
         </div>
         <div class="ana-chart-box ana-chart-box--short">
