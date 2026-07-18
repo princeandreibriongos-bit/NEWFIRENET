@@ -2,75 +2,86 @@
   <div class="settings-page-bg" aria-hidden="true"></div>
 
   <div class="settings-body">
-    <header class="settings-hero-shell" aria-label="Account settings overview">
-      <div class="settings-hero-top">
+    <header class="settings-hero-shell">
+      <div class="settings-hero-top settings-hero-top--split">
         <div class="settings-hero-copy">
-          <p class="settings-kicker">FireNet · Account center</p>
-          <h1 class="settings-title">Settings</h1>
-          <p class="settings-subtitle">Manage your profile, workspace preferences, and account protection from one place.</p>
-          <ul class="settings-meta-chips" aria-label="Settings context">
-            <li class="settings-meta-chip"><span class="settings-meta-chip-label">Account</span><span class="settings-meta-chip-value" id="settingsDisplayName">Loading...</span></li>
-            <li class="settings-meta-chip"><span class="settings-meta-chip-label">Contact</span><span class="settings-meta-chip-value" id="settingsDisplayEmail">Loading profile...</span></li>
-            <li class="settings-meta-chip settings-meta-chip--subtle"><span class="settings-meta-chip-value">Secure preferences and password controls</span></li>
+          <p class="settings-kicker">Account center</p>
+          <h1 class="settings-title">Your Settings</h1>
+          <p class="settings-subtitle">Personalize FireNet for your station work — display, security, and quick habits that stick across pages.</p>
+          <ul class="settings-meta-chips" aria-label="Account summary">
+            <li class="settings-meta-chip"><span class="settings-meta-chip-label">User</span><span class="settings-meta-chip-value" id="settingsDisplayName">—</span></li>
+            <li class="settings-meta-chip"><span class="settings-meta-chip-label">Role</span><span class="settings-meta-chip-value" id="settingsDisplayRole">—</span></li>
+            <li class="settings-meta-chip"><span class="settings-meta-chip-label">Station</span><span class="settings-meta-chip-value" id="settingsDisplayStation">—</span></li>
           </ul>
+        </div>
+        <div class="settings-hero-side">
+          <div class="settings-avatar settings-avatar--hero" id="settingsAvatar">
+            <img id="settingsAvatarImage" alt="Profile photo" hidden>
+            <span id="settingsAvatarInitials">FN</span>
+          </div>
+          <input id="profilePhotoInput" type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden>
+          <div class="settings-photo-buttons">
+            <button type="button" class="secondary-btn" id="uploadProfilePhotoBtn">Upload photo</button>
+            <button type="button" class="secondary-btn" id="removeProfilePhotoBtn">Remove</button>
+          </div>
         </div>
       </div>
     </header>
 
-    <section class="settings-profile-panel">
-      <div class="settings-profile-head">
-        <div class="settings-avatar-card">
-          <div class="settings-avatar" id="settingsAvatar">
-            <img id="settingsAvatarImage" alt="Profile photo" hidden>
-            <span id="settingsAvatarInitials">FN</span>
+    <nav class="settings-rail" aria-label="Settings sections">
+      <button type="button" class="settings-rail-btn is-active" data-settings-section="profile">Profile</button>
+      <button type="button" class="settings-rail-btn" data-settings-section="workspace">Workspace</button>
+      <button type="button" class="settings-rail-btn" data-settings-section="security">Security</button>
+      <button type="button" class="settings-rail-btn" data-settings-section="shortcuts">Shortcuts</button>
+    </nav>
+
+    <div class="settings-panels">
+      <!-- PROFILE -->
+      <section class="settings-section-card is-active" data-settings-panel="profile">
+        <div class="settings-section-head">
+          <div>
+            <p class="settings-section-kicker">Identity</p>
+            <h2 class="settings-panel-title">Profile</h2>
+            <p class="settings-panel-desc">Your station identity. Username and email are managed by administrators.</p>
           </div>
-          <div class="settings-avatar-copy">
-            <p class="settings-section-kicker">Profile photo</p>
-            <h2 class="settings-panel-title">Identity</h2>
-            <p class="settings-panel-desc">Keep your station account recognizable across dashboard, mail, and reports.</p>
+        </div>
+
+        <div class="settings-form">
+          <div class="settings-grid">
+            <label>
+              <span>Username</span>
+              <input id="settingsUsername" type="text" readonly>
+            </label>
+            <label>
+              <span>Email</span>
+              <input id="settingsEmail" type="email" readonly>
+            </label>
+            <label>
+              <span>Status</span>
+              <input id="settingsStatus" type="text" readonly>
+            </label>
+            <label>
+              <span>Station</span>
+              <input id="settingsStation" type="text" readonly>
+            </label>
           </div>
-        </div>
 
-        <div class="settings-photo-card">
-          <input id="profilePhotoInput" type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden>
-          <div class="settings-photo-buttons">
-            <button type="button" class="secondary-btn" id="uploadProfilePhotoBtn">Upload Profile Photo</button>
-            <button type="button" class="secondary-btn" id="removeProfilePhotoBtn">Remove Photo</button>
+          <div class="settings-quick-row">
+            <button type="button" class="secondary-btn" id="copyEmailBtn">Copy email</button>
+            <button type="button" class="secondary-btn" id="openPasswordModalBtn">Change password</button>
+            <a class="secondary-btn" id="openCivilianPortalBtn" href="/firenet/NEWFIRENET/pages/civilian.html" target="_blank" rel="noopener">Open public portal</a>
           </div>
-          <p class="settings-photo-note">Accepted: JPG, PNG, WEBP, GIF up to 2MB.</p>
+          <p id="settingsMessage" class="settings-inline-message"></p>
         </div>
-      </div>
+      </section>
 
-      <form id="settingsForm" class="settings-form" novalidate>
-        <div class="settings-grid">
-          <label>
-            <span>Username</span>
-            <input id="settingsUsername" type="text" maxlength="60" required readonly>
-          </label>
-
-          <label>
-            <span>Email</span>
-            <input id="settingsEmail" type="email" maxlength="120" required readonly>
-          </label>
-        </div>
-
-        <p class="settings-admin-note">Username and email are administrator-managed. Contact your station administrator if account identity details need to change.</p>
-
-        <div class="settings-actions">
-          <button type="button" class="secondary-btn" id="openPasswordModalBtn">Change Password</button>
-          <button type="submit" class="primary-btn" id="settingsSaveBtn" disabled title="Username and email are managed by administrators">Save Profile</button>
-        </div>
-        <p id="settingsMessage" class="settings-inline-message"></p>
-      </form>
-    </section>
-
-    <section class="settings-section-grid">
-      <section class="settings-section-card">
+      <!-- WORKSPACE -->
+      <section class="settings-section-card" data-settings-panel="workspace" hidden>
         <div class="settings-section-head">
           <div>
             <p class="settings-section-kicker">Display</p>
-            <h2 class="settings-panel-title">Workspace Preferences</h2>
-            <p class="settings-panel-desc">Tune how the portal feels during long operations and reviews.</p>
+            <h2 class="settings-panel-title">Workspace</h2>
+            <p class="settings-panel-desc">Controls how FireNet looks and where you land after sign-in.</p>
           </div>
         </div>
 
@@ -79,7 +90,7 @@
             <label class="settings-toggle-item">
               <span>
                 <strong>Compact interface</strong>
-                <small>Use tighter spacing across portal cards and tables.</small>
+                <small>Tighter spacing on tables and cards for dense ops screens.</small>
               </span>
               <input id="compactModeToggle" type="checkbox">
             </label>
@@ -87,33 +98,57 @@
             <label class="settings-toggle-item">
               <span>
                 <strong>Reduce motion</strong>
-                <small>Minimize transitions and hover motion in the dashboard.</small>
+                <small>Cut animations — easier on shared PCs and accessibility.</small>
               </span>
               <input id="reduceMotionToggle" type="checkbox">
             </label>
 
             <label class="settings-toggle-item">
               <span>
-                <strong>Keep navigation compact</strong>
-                <small>Save the collapsed sidebar state so dense workspaces open with more room.</small>
+                <strong>Large text</strong>
+                <small>Increase base font size across the authenticated portal.</small>
               </span>
-              <input id="darkModeToggle" type="checkbox">
+              <input id="largeTextToggle" type="checkbox">
+            </label>
+
+            <label class="settings-toggle-item">
+              <span>
+                <strong>Compact sidebar</strong>
+                <small>Start with the sidebar collapsed for more map/table room.</small>
+              </span>
+              <input id="sidebarCompactToggle" type="checkbox">
+            </label>
+
+            <label class="settings-field-inline">
+              <span>
+                <strong>Home after login</strong>
+                <small>Where FireNet takes you right after you sign in.</small>
+              </span>
+              <select id="preferredLandingSelect">
+                <option value="dashboard">Dashboard</option>
+                <option value="calendar">Calendar</option>
+                <option value="reports">Reports</option>
+                <option value="station_mails">Station Mail</option>
+                <option value="analytics">Analytics</option>
+                <option value="settings">Settings</option>
+              </select>
             </label>
           </div>
 
           <div class="settings-actions">
-            <button type="submit" class="primary-btn" id="savePreferencesBtn">Save Preferences</button>
+            <button type="submit" class="primary-btn" id="savePreferencesBtn">Save workspace</button>
           </div>
           <p id="preferencesMessage" class="settings-inline-message"></p>
         </form>
       </section>
 
-      <section class="settings-section-card">
+      <!-- SECURITY -->
+      <section class="settings-section-card" data-settings-panel="security" hidden>
         <div class="settings-section-head">
           <div>
-            <p class="settings-section-kicker">Security</p>
-            <h2 class="settings-panel-title">System Protection</h2>
-            <p class="settings-panel-desc">Control alerts, hidden details, and session expiry for shared workstations.</p>
+            <p class="settings-section-kicker">Protection</p>
+            <h2 class="settings-panel-title">Security &amp; alerts</h2>
+            <p class="settings-panel-desc">Session safety and how FireNet notifies you on shared workstations.</p>
           </div>
         </div>
 
@@ -121,16 +156,32 @@
           <div class="settings-stack">
             <label class="settings-toggle-item">
               <span>
-                <strong>Security alerts</strong>
-                <small>Show account and system security notices inside the portal.</small>
+                <strong>Portal alert badges</strong>
+                <small>Show the header alerts bell for calendar, mail, and warning notices.</small>
               </span>
               <input id="securityAlertsToggle" type="checkbox">
             </label>
 
             <label class="settings-toggle-item">
               <span>
+                <strong>Alert sound</strong>
+                <small>Play a short chime when new unread alerts arrive.</small>
+              </span>
+              <input id="soundNotificationsToggle" type="checkbox">
+            </label>
+
+            <label class="settings-toggle-item">
+              <span>
+                <strong>Desktop notifications</strong>
+                <small>Ask the browser to notify you even when FireNet is in another tab.</small>
+              </span>
+              <input id="desktopNotificationsToggle" type="checkbox">
+            </label>
+
+            <label class="settings-toggle-item">
+              <span>
                 <strong>Hide sensitive details</strong>
-                <small>Mask sensitive incident information until you click to reveal it.</small>
+                <small>Blur sensitive fields until you focus or reveal them.</small>
               </span>
               <input id="hideSensitiveToggle" type="checkbox">
             </label>
@@ -138,7 +189,7 @@
             <label class="settings-field-inline">
               <span>
                 <strong>Auto logout</strong>
-                <small>Sign out automatically after inactivity to protect the session.</small>
+                <small>Sign out after inactivity on shared station PCs.</small>
               </span>
               <select id="autoLogoutSelect">
                 <option value="0">Disabled</option>
@@ -151,12 +202,47 @@
           </div>
 
           <div class="settings-actions">
-            <button type="submit" class="primary-btn" id="saveSecurityBtn">Save Security</button>
+            <button type="button" class="secondary-btn" id="openPasswordModalBtn2">Change password</button>
+            <button type="submit" class="primary-btn" id="saveSecurityBtn">Save security</button>
           </div>
           <p id="securityMessage" class="settings-inline-message"></p>
         </form>
       </section>
-    </section>
+
+      <!-- SHORTCUTS -->
+      <section class="settings-section-card" data-settings-panel="shortcuts" hidden>
+        <div class="settings-section-head">
+          <div>
+            <p class="settings-section-kicker">Speed</p>
+            <h2 class="settings-panel-title">Shortcuts &amp; tips</h2>
+            <p class="settings-panel-desc">Built-in habits for faster dispatch and review work.</p>
+          </div>
+        </div>
+
+        <div class="settings-tips-grid">
+          <article class="settings-tip-card">
+            <i class="bi bi-layout-sidebar-inset" aria-hidden="true"></i>
+            <h3>Sidebar collapse</h3>
+            <p>Use the rail chevron or enable Compact sidebar here for map-heavy pages.</p>
+          </article>
+          <article class="settings-tip-card">
+            <i class="bi bi-bell" aria-hidden="true"></i>
+            <h3>Alerts bell</h3>
+            <p>Calendar due items, station mail, and warnings appear in the header alerts menu.</p>
+          </article>
+          <article class="settings-tip-card">
+            <i class="bi bi-shield-lock" aria-hidden="true"></i>
+            <h3>Shared PC safety</h3>
+            <p>Turn on Auto logout + Hide sensitive details when working on a public station desk.</p>
+          </article>
+          <article class="settings-tip-card">
+            <i class="bi bi-house-door" aria-hidden="true"></i>
+            <h3>Custom home</h3>
+            <p>Set Home after login to Calendar or Reports if that’s your first task every shift.</p>
+          </article>
+        </div>
+      </section>
+    </div>
   </div>
 
   <div id="passwordModal" class="settings-modal" hidden>
@@ -167,33 +253,33 @@
           <p class="settings-section-kicker">Security</p>
           <h3 id="passwordModalTitle">Change Password</h3>
         </div>
-        <button type="button" class="modal-close-btn" id="closePasswordModalBtn" data-close-password-modal="true" aria-label="Close dialog">&times;</button>
+        <button type="button" class="modal-close-btn" id="closePasswordModalBtn" data-close-password-modal="true" aria-label="Close">&times;</button>
       </div>
 
       <form id="passwordForm" class="settings-password-form" novalidate>
         <label>
-          <span>Current Password</span>
-          <input id="currentPassword" type="password" maxlength="255" required>
+          <span>Current password</span>
+          <input id="currentPassword" type="password" maxlength="255" required autocomplete="current-password">
         </label>
-
         <label>
-          <span>New Password</span>
-          <input id="newPassword" type="password" maxlength="255" required>
+          <span>New password</span>
+          <input id="newPassword" type="password" maxlength="255" required autocomplete="new-password">
         </label>
-
+        <div class="settings-password-meter" aria-hidden="true">
+          <span id="passwordStrengthBar"></span>
+        </div>
+        <p class="settings-password-hint" id="passwordStrengthLabel">Use at least 6 characters.</p>
         <label>
-          <span>Confirm New Password</span>
-          <input id="confirmPassword" type="password" maxlength="255" required>
+          <span>Confirm new password</span>
+          <input id="confirmPassword" type="password" maxlength="255" required autocomplete="new-password">
         </label>
-
         <label class="settings-show-password">
           <input id="showPasswordToggle" type="checkbox">
           <span>Show passwords</span>
         </label>
-
         <div class="settings-actions settings-actions--modal">
           <button type="button" class="secondary-btn" id="cancelPasswordBtn">Cancel</button>
-          <button type="submit" class="primary-btn" id="savePasswordBtn">Continue</button>
+          <button type="submit" class="primary-btn" id="savePasswordBtn">Update password</button>
         </div>
         <p id="passwordMessage" class="settings-inline-message"></p>
       </form>

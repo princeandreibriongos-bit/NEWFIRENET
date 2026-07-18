@@ -593,6 +593,7 @@ html[data-theme="light"] body.is-authenticated .ribbon-pill.is-active {
 }
 
 html[data-theme="light"] body.is-authenticated .header-datetime,
+html[data-theme="light"] body.is-authenticated .header-weather,
 html[data-theme="light"] body.is-authenticated .header-role-chip,
 html[data-theme="light"] body.is-authenticated .header-quick-actions {
   background: rgba(247, 248, 250, 0.95);

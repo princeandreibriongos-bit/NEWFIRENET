@@ -6,7 +6,7 @@ html[data-theme="light"] .dash-pro {
   --dash-surface-strong: #ffffff;
   --dash-border: rgba(27, 36, 48, 0.12);
   --dash-text: #121a24;
-  --dash-muted: rgba(27, 36, 48, 0.62);
+  --dash-muted: #4a5568;
   color: var(--dash-text);
 }
 
@@ -15,7 +15,7 @@ html[data-theme="light"] .ana-pro {
   --ana-surface-strong: #ffffff;
   --ana-border: rgba(27, 36, 48, 0.12);
   --ana-text: #121a24;
-  --ana-muted: rgba(27, 36, 48, 0.62);
+  --ana-muted: #4a5568;
   color: var(--ana-text);
 }
 
@@ -24,7 +24,7 @@ html[data-theme="light"] .reports-pro {
   --reports-surface-strong: #ffffff;
   --reports-border: rgba(27, 36, 48, 0.12);
   --reports-text: #121a24;
-  --reports-muted: rgba(27, 36, 48, 0.62);
+  --reports-muted: #4a5568;
   color: var(--reports-text);
 }
 
@@ -33,7 +33,7 @@ html[data-theme="light"] .cal-pro {
   --cal-surface-strong: #ffffff;
   --cal-border: rgba(27, 36, 48, 0.12);
   --cal-text: #121a24;
-  --cal-muted: rgba(27, 36, 48, 0.62);
+  --cal-muted: #4a5568;
   --cal-accent-soft: rgba(188, 31, 45, 0.12);
   color: var(--cal-text);
 }
@@ -44,7 +44,7 @@ html[data-theme="light"] .settings-shell {
   --settings-surface-strong: #ffffff;
   --settings-border: rgba(27, 36, 48, 0.12);
   --settings-text: #121a24;
-  --settings-muted: rgba(27, 36, 48, 0.62);
+  --settings-muted: #4a5568;
   color: var(--settings-text);
 }
 
@@ -55,7 +55,7 @@ html[data-theme="light"] .users-shell {
   --users-border: rgba(27, 36, 48, 0.12);
   --users-border-soft: rgba(27, 36, 48, 0.08);
   --users-text: #121a24;
-  --users-muted: rgba(27, 36, 48, 0.62);
+  --users-muted: #4a5568;
   color: var(--users-text);
 }
 
@@ -64,7 +64,7 @@ html[data-theme="light"] .logs-pro {
   --logs-surface-strong: #ffffff;
   --logs-border: rgba(27, 36, 48, 0.12);
   --logs-text: #121a24;
-  --logs-muted: rgba(27, 36, 48, 0.62);
+  --logs-muted: #4a5568;
   color: var(--logs-text);
 }
 
@@ -73,7 +73,7 @@ html[data-theme="light"] .mail-pro {
   --mail-surface-strong: #ffffff;
   --mail-border: rgba(27, 36, 48, 0.12);
   --mail-text: #121a24;
-  --mail-muted: rgba(27, 36, 48, 0.62);
+  --mail-muted: #4a5568;
   color: var(--mail-text);
 }
 
@@ -82,7 +82,7 @@ html[data-theme="light"] .audit-pro {
   --audit-surface-strong: #ffffff;
   --audit-border: rgba(27, 36, 48, 0.12);
   --audit-text: #121a24;
-  --audit-muted: rgba(27, 36, 48, 0.62);
+  --audit-muted: #4a5568;
   color: var(--audit-text);
 }
 
@@ -277,7 +277,7 @@ html[data-theme="light"] .settings-section-kicker,
 html[data-theme="light"] .settings-muted,
 html[data-theme="light"] .users-kicker,
 html[data-theme="light"] .users-shell .muted-text {
-  color: rgba(27, 36, 48, 0.62) !important;
+  color: #4a5568 !important;
 }
 
 html[data-theme="light"] .dash-meta-chip,

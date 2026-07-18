@@ -1,0 +1,602 @@
+/* FireNet premium design layer — dashboard, login, and system-wide surface upgrades.
+   Loaded AFTER page CSS so it can refine page modules; light-theme rules scoped inline. */
+
+/* ═══════════════════════════════════════════
+   1. DASHBOARD — command deck upgrade
+   ═══════════════════════════════════════════ */
+
+.dash-pro .dash-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.dash-pro .dash-kicker::before {
+  content: '';
+  width: 1.4rem;
+  height: 2px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #d42536, #f0c674);
+}
+
+.dash-pro .dash-title {
+  font-family: "Sora", "Manrope", sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  background: linear-gradient(115deg, #ffffff 0%, #ffd9dc 55%, #f0d9a0 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent !important;
+}
+
+html[data-theme="light"] .dash-pro .dash-title {
+  background: linear-gradient(115deg, #121a24 0%, #8f1722 60%, #9a6b12 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent !important;
+}
+
+/* KPI cards — per-type identity, glow orb, deeper hover */
+.dash-pro .dash-kpi-card {
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.25s var(--dash-ease), box-shadow 0.25s var(--dash-ease), border-color 0.25s ease;
+}
+
+.dash-pro .dash-kpi-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2.5px;
+  background: linear-gradient(90deg, var(--kpi-accent, #d42536), transparent 85%);
+  opacity: 0.9;
+}
+
+.dash-pro .dash-kpi-card::after {
+  content: '';
+  position: absolute;
+  top: -46px;
+  right: -46px;
+  width: 130px;
+  height: 130px;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--kpi-accent, #d42536) 0%, transparent 68%);
+  opacity: 0.13;
+  transition: opacity 0.3s ease, transform 0.35s var(--dash-ease);
+  pointer-events: none;
+}
+
+.dash-pro .dash-kpi-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.3);
+  border-color: color-mix(in srgb, var(--kpi-accent, #d42536) 42%, transparent);
+}
+
+html[data-theme="light"] .dash-pro .dash-kpi-card:hover {
+  box-shadow: 0 16px 36px rgba(18, 26, 36, 0.14);
+}
+
+.dash-pro .dash-kpi-card:hover::after {
+  opacity: 0.24;
+  transform: scale(1.25);
+}
+
+.dash-pro .dash-kpi-card--incidents { --kpi-accent: #ef4444; }
+.dash-pro .dash-kpi-card--completed { --kpi-accent: #34d399; }
+.dash-pro .dash-kpi-card--readiness { --kpi-accent: #f0c674; }
+
+.dash-pro .dash-kpi-value {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+/* Stat strip tiles */
+.dash-pro .dash-stat-tile {
+  position: relative;
+  transition: transform 0.22s var(--dash-ease), background 0.22s ease, border-color 0.22s ease;
+}
+
+.dash-pro .dash-stat-tile:hover {
+  transform: translateY(-2px);
+}
+
+.dash-pro .dash-stat-value {
+  font-variant-numeric: tabular-nums;
+}
+
+.dash-pro .dash-stat-tile--alert .dash-stat-value {
+  color: #fca5a5;
+}
+
+html[data-theme="light"] .dash-pro .dash-stat-tile--alert .dash-stat-value {
+  color: #b91c1c;
+}
+
+/* Panels — accent underline heads + hover ring */
+.dash-pro .dash-panel,
+.dash-pro .dash-ops-widget,
+.dash-pro .dash-health-card,
+.dash-pro .dash-load-card,
+.dash-pro .dash-briefing-card,
+.dash-pro .dash-roster-panel {
+  transition: transform 0.25s var(--dash-ease), box-shadow 0.25s var(--dash-ease), border-color 0.25s ease;
+}
+
+.dash-pro .dash-panel:hover,
+.dash-pro .dash-ops-widget:hover,
+.dash-pro .dash-health-card:hover,
+.dash-pro .dash-load-card:hover,
+.dash-pro .dash-briefing-card:hover,
+.dash-pro .dash-roster-panel:hover {
+  border-color: rgba(212, 37, 54, 0.32);
+  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.26);
+}
+
+html[data-theme="light"] .dash-pro .dash-panel:hover,
+html[data-theme="light"] .dash-pro .dash-ops-widget:hover,
+html[data-theme="light"] .dash-pro .dash-health-card:hover,
+html[data-theme="light"] .dash-pro .dash-load-card:hover,
+html[data-theme="light"] .dash-pro .dash-briefing-card:hover,
+html[data-theme="light"] .dash-pro .dash-roster-panel:hover {
+  box-shadow: 0 14px 32px rgba(18, 26, 36, 0.12);
+}
+
+/* Search field focus */
+.dash-pro .dash-search:focus {
+  border-color: rgba(212, 37, 54, 0.55) !important;
+  box-shadow: 0 0 0 3px rgba(212, 37, 54, 0.16), 0 10px 24px rgba(0, 0, 0, 0.2) !important;
+}
+
+/* Live bar activity dot ring */
+.dash-pro .dash-activity-dot {
+  position: relative;
+}
+
+/* Hero action buttons */
+.dash-pro .dash-action {
+  transition: transform 0.2s var(--dash-ease), box-shadow 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+}
+
+.dash-pro .dash-action:hover {
+  transform: translateY(-2px);
+}
+
+.dash-pro .dash-action--report {
+  box-shadow: 0 8px 20px rgba(188, 31, 45, 0.35);
+}
+
+.dash-pro .dash-action--report:hover {
+  box-shadow: 0 12px 28px rgba(188, 31, 45, 0.5);
+}
+
+/* ═══════════════════════════════════════════
+   2. LOGIN — command sign-in upgrade
+   ═══════════════════════════════════════════ */
+
+/* FIRENET hero wordmark */
+body.login-ops .ops-hero #pageTitle {
+  font-family: "Space Grotesk", "IBM Plex Sans", sans-serif;
+  letter-spacing: 0.06em;
+  background: linear-gradient(115deg, var(--ops-navy, #18324f) 0%, var(--ops-red, #bc1f2d) 70%, #c9a24d 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Sign-in card: glass + glow ring + entrance */
+body.login-ops .ops-auth-panel {
+  position: relative;
+  border: 1px solid rgba(188, 31, 45, 0.18);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.55) inset,
+    0 24px 60px rgba(15, 23, 42, 0.18),
+    0 0 0 1px rgba(255, 255, 255, 0.35) inset;
+  animation: fnAuthIn 0.65s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+html[data-theme="dark"] body.login-ops .ops-auth-panel {
+  border-color: rgba(239, 75, 75, 0.22);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.06) inset,
+    0 24px 60px rgba(0, 0, 0, 0.5);
+}
+
+@keyframes fnAuthIn {
+  from { opacity: 0; transform: translateY(18px) scale(0.985); }
+  to { opacity: 1; transform: none; }
+}
+
+/* Animated card top bar */
+body.login-ops .panel-top-bar {
+  animation: fnTopbarFlow 5s linear infinite;
+}
+
+@keyframes fnTopbarFlow {
+  0% { background-position: 0% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* Header refinement */
+body.login-ops .panel-header .overline {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+body.login-ops .panel-header .overline::before {
+  content: '';
+  width: 1.2rem;
+  height: 2px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--ops-red, #bc1f2d), #c9a24d);
+}
+
+body.login-ops .panel-header h2 {
+  font-family: "Space Grotesk", "IBM Plex Sans", sans-serif;
+  letter-spacing: -0.01em;
+}
+
+/* Inputs: lift + ring on focus */
+body.login-ops .login-form input[type="text"],
+body.login-ops .login-form input[type="password"] {
+  transition: border-color 0.2s ease, box-shadow 0.25s ease, transform 0.2s ease, background 0.2s ease;
+}
+
+body.login-ops .login-form input[type="text"]:focus,
+body.login-ops .login-form input[type="password"]:focus {
+  border-color: rgba(188, 31, 45, 0.6) !important;
+  box-shadow: 0 0 0 3.5px rgba(188, 31, 45, 0.13), 0 8px 20px rgba(15, 23, 42, 0.08) !important;
+  transform: translateY(-1px);
+}
+
+/* Login button glow pulse */
+body.login-ops .btn-login {
+  position: relative;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-weight: 800;
+}
+
+body.login-ops .btn-login:not(:disabled):not(.is-loading) {
+  animation: fnLoginGlow 3.2s ease-in-out infinite;
+}
+
+@keyframes fnLoginGlow {
+  0%, 100% { box-shadow: 0 8px 22px rgba(151, 28, 40, 0.3); }
+  50% { box-shadow: 0 10px 30px rgba(212, 37, 54, 0.5); }
+}
+
+/* Ribbon polish */
+body.login-ops .login-ribbon-pill {
+  position: relative;
+  overflow: hidden;
+  transition: color 0.2s ease, background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+
+body.login-ops .login-ribbon-pill:hover {
+  transform: translateY(-1px);
+}
+
+body.login-ops .login-ribbon-pill.is-active {
+  background: linear-gradient(135deg, var(--ops-red, #bc1f2d), #8f1620) !important;
+  color: #fff !important;
+  border-color: transparent !important;
+  box-shadow: 0 6px 16px rgba(188, 31, 45, 0.35);
+}
+
+/* Ops cards hover lift + accent reveal */
+body.login-ops .ops-card {
+  position: relative;
+  transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.25s ease, border-color 0.25s ease;
+}
+
+body.login-ops .ops-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 10%;
+  right: 10%;
+  height: 2px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, transparent, var(--ops-red, #bc1f2d), transparent);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+body.login-ops .ops-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.14);
+  border-color: rgba(188, 31, 45, 0.28);
+}
+
+html[data-theme="dark"] body.login-ops .ops-card:hover {
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.42);
+}
+
+body.login-ops .ops-card:hover::before {
+  opacity: 1;
+}
+
+/* Metric values pop */
+body.login-ops .ops-metric-value {
+  font-variant-numeric: tabular-nums;
+  transition: transform 0.2s ease;
+}
+
+body.login-ops .ops-metrics article:hover .ops-metric-value {
+  transform: scale(1.06);
+}
+
+/* Hotline chips tactile */
+body.login-ops .ops-hotline {
+  transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+body.login-ops .ops-hotline:hover {
+  transform: translateY(-2px);
+  border-color: rgba(188, 31, 45, 0.4);
+  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.12);
+}
+
+/* ═══════════════════════════════════════════
+   3. SYSTEM-WIDE — sidebar, heros, tables, modals
+   ═══════════════════════════════════════════ */
+
+/* Sidebar active link: gradient + gold rail */
+body.is-authenticated .sidebar-link.is-active {
+  background: linear-gradient(90deg, rgba(188, 31, 45, 0.28), rgba(188, 31, 45, 0.08)) !important;
+  color: #ffffff !important;
+}
+
+html[data-theme="light"] body.is-authenticated .sidebar-link.is-active {
+  background: linear-gradient(90deg, rgba(179, 25, 38, 0.14), rgba(179, 25, 38, 0.04)) !important;
+  color: #8f1722 !important;
+}
+
+/* Collapsed sidebar: icon feedback */
+.app-layout.sidebar-collapsed .sidebar-link:hover .sidebar-link-icon {
+  transform: scale(1.22);
+}
+
+/* Sidebar footer user card */
+.sidebar-foot {
+  flex: 0 0 auto;
+  padding: 0.45rem 0.35rem 0.55rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+html[data-theme="light"] body.is-authenticated .sidebar-foot {
+  border-top-color: rgba(27, 36, 48, 0.1);
+}
+
+.sidebar-user-card {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.45rem 0.5rem;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  background: linear-gradient(135deg, rgba(188, 31, 45, 0.12), rgba(255, 255, 255, 0.04));
+  color: rgba(248, 250, 252, 0.92);
+  text-decoration: none;
+  min-width: 0;
+  transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.sidebar-user-card:hover {
+  transform: translateY(-1px);
+  border-color: rgba(201, 162, 77, 0.4);
+  background: linear-gradient(135deg, rgba(188, 31, 45, 0.2), rgba(255, 255, 255, 0.07));
+}
+
+html[data-theme="light"] body.is-authenticated .sidebar-user-card {
+  border-color: rgba(27, 36, 48, 0.12);
+  background: linear-gradient(135deg, rgba(179, 25, 38, 0.07), rgba(255, 255, 255, 0.65));
+  color: #121a24;
+}
+
+.sidebar-user-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+  display: inline-grid;
+  place-items: center;
+  background: linear-gradient(135deg, #bc1f2d, #7a1019);
+  color: #fff;
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  box-shadow: 0 0 0 2px rgba(201, 162, 77, 0.35);
+}
+
+.sidebar-user-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.sidebar-user-copy {
+  display: grid;
+  gap: 0.05rem;
+  min-width: 0;
+  line-height: 1.2;
+}
+
+.sidebar-user-name {
+  font-size: 0.75rem;
+  font-weight: 800;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sidebar-user-station {
+  font-size: 0.62rem;
+  font-weight: 650;
+  color: rgba(226, 235, 248, 0.6);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+html[data-theme="light"] body.is-authenticated .sidebar-user-station {
+  color: #5a687c;
+}
+
+.sidebar-user-go {
+  margin-left: auto;
+  font-size: 0.7rem;
+  opacity: 0.55;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.sidebar-user-card:hover .sidebar-user-go {
+  transform: translateX(2px);
+  opacity: 1;
+}
+
+.app-layout.sidebar-collapsed .sidebar-user-copy,
+.app-layout.sidebar-collapsed .sidebar-user-go {
+  display: none;
+}
+
+.app-layout.sidebar-collapsed .sidebar-user-card {
+  justify-content: center;
+  padding: 0.4rem 0.25rem;
+}
+
+@media (max-width: 900px) {
+  .sidebar-foot {
+    display: none;
+  }
+}
+
+/* Every page hero gets a signature accent — subtle, consistent */
+body.is-authenticated .app-main [class*="-hero"]:not(.dash-hero) {
+  position: relative;
+}
+
+/* Section/panel titles: refined weight across pages */
+body.is-authenticated .app-main h1 {
+  letter-spacing: -0.02em;
+}
+
+/* Table headers: sticky-feel gradient + spacing */
+body.is-authenticated .app-main table thead th {
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
+/* Status pills / badges: subtle ring */
+body.is-authenticated [class*="status-pill"],
+body.is-authenticated [class*="badge"]:not(.alerts-count),
+body.is-authenticated .role-chip {
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+body.is-authenticated [class*="status-pill"]:hover,
+body.is-authenticated .role-chip:hover {
+  transform: translateY(-1px);
+}
+
+/* Modals: entrance + backdrop blur (generic hooks) */
+body.is-authenticated [class*="modal-dialog"],
+body.is-authenticated [class*="modal-card"],
+body.is-authenticated [class*="-modal"]:not([hidden]) [class*="dialog"] {
+  animation: fnModalIn 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes fnModalIn {
+  from { opacity: 0; transform: translateY(14px) scale(0.97); }
+  to { opacity: 1; transform: none; }
+}
+
+body.is-authenticated [class*="modal-backdrop"] {
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+/* Empty states: dashed cards feel intentional */
+body.is-authenticated .app-main [class*="empty"] {
+  transition: border-color 0.25s ease, background 0.25s ease;
+}
+
+/* Inputs across the app: unified focus language */
+body.is-authenticated .app-main input:not([type="checkbox"]):not([type="radio"]):focus,
+body.is-authenticated .app-main select:focus,
+body.is-authenticated .app-main textarea:focus {
+  border-color: rgba(212, 37, 54, 0.55) !important;
+  box-shadow: 0 0 0 3px rgba(212, 37, 54, 0.14) !important;
+  outline: none;
+}
+
+/* Checkbox / radio accent color */
+body.is-authenticated input[type="checkbox"],
+body.is-authenticated input[type="radio"] {
+  accent-color: #bc1f2d;
+}
+
+/* Links inside content */
+body.is-authenticated .app-main a:not([class]) {
+  color: #e35d68;
+  text-decoration: none;
+  border-bottom: 1px solid rgba(227, 93, 104, 0.3);
+  transition: border-color 0.2s ease, color 0.2s ease;
+}
+
+body.is-authenticated .app-main a:not([class]):hover {
+  border-bottom-color: currentColor;
+}
+
+html[data-theme="light"] body.is-authenticated .app-main a:not([class]) {
+  color: #b31926;
+  border-bottom-color: rgba(179, 25, 38, 0.3);
+}
+
+/* Skeleton shimmer helper for loading rows (available to pages) */
+.fn-skeleton {
+  position: relative;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.07);
+  border-radius: 8px;
+  color: transparent !important;
+}
+
+.fn-skeleton::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+  transform: translateX(-100%);
+  animation: fnSkeleton 1.4s ease infinite;
+}
+
+@keyframes fnSkeleton {
+  to { transform: translateX(100%); }
+}
+
+/* ═══════════════════════════════════════════
+   4. Reduced motion
+   ═══════════════════════════════════════════ */
+@media (prefers-reduced-motion: reduce) {
+  body.login-ops .ops-auth-panel,
+  body.login-ops .panel-top-bar,
+  body.login-ops .btn-login:not(:disabled):not(.is-loading),
+  body.is-authenticated [class*="modal-dialog"],
+  .fn-skeleton::after {
+    animation: none !important;
+  }
+
+  .dash-pro .dash-kpi-card:hover,
+  body.login-ops .ops-card:hover,
+  .dash-pro .dash-stat-tile:hover {
+    transform: none;
+  }
+}

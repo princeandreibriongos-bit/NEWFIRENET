@@ -6,18 +6,32 @@
   const ANNOUNCEMENTS_LIST =
     '/firenet/NEWFIRENET/backend/controllers/news.php?action=announcements_list&limit=12';
   const ALERTS_SUBSCRIBE = '/firenet/NEWFIRENET/backend/controllers/civilian_alerts.php?action=subscribe';
+  const PORTAL_CONFIG = '/firenet/NEWFIRENET/backend/controllers/civilian_alerts.php?action=portal_config';
   const WEATHER_URL =
     'https://api.open-meteo.com/v1/forecast?latitude=14.5547&longitude=121.0244'
-    + '&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m,wind_gusts_10m,precipitation'
+    + '&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m,'
+    + 'wind_gusts_10m,wind_direction_10m,precipitation,surface_pressure,cloud_cover'
     + '&hourly=precipitation_probability,weather_code,wind_speed_10m'
-    + '&daily=weather_code,precipitation_sum,precipitation_probability_max,wind_speed_10m_max,wind_gusts_10m_max'
-    + '&timezone=Asia%2FManila&forecast_days=3';
+    + '&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,'
+    + 'wind_speed_10m_max,wind_gusts_10m_max,uv_index_max,sunrise,sunset'
+    + '&timezone=Asia%2FManila&forecast_days=7';
+  const AIR_QUALITY_URL =
+    'https://air-quality-api.open-meteo.com/v1/air-quality?latitude=14.5547&longitude=121.0244'
+    + '&current=us_aqi,pm2_5,pm10,ozone,nitrogen_dioxide'
+    + '&timezone=Asia%2FManila';
+  const QUAKES_URL =
+    'https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson'
+    + '&latitude=14.5547&longitude=121.0244&maxradiuskm=400&minmagnitude=3.5'
+    + '&orderby=time&limit=6';
+  const MAKATI_LAT = 14.5547;
+  const MAKATI_LON = 121.0244;
 
   const ROTATE_MS = 5000;
   const ANNOUNCE_VISIBLE = 2;
 
   const VIEW_META = {
     home: { title: 'FireNet for Civilians', kicker: 'Public Safety Portal' },
+    conditions: { title: 'Weather & Hazard Center', kicker: 'Live conditions' },
     hotlines: { title: 'Emergency Hotlines', kicker: 'Tap to call' },
     news: { title: 'District News', kicker: 'Public updates' },
     announcements: { title: 'Announcements', kicker: 'Official notices' },
@@ -75,6 +89,29 @@
     96: 'Thunderstorm',
     99: 'Severe storm'
   };
+
+  const WMO_ICONS = {
+    0: 'bi-sun',
+    1: 'bi-sun',
+    2: 'bi-cloud-sun',
+    3: 'bi-clouds',
+    45: 'bi-cloud-fog2',
+    48: 'bi-cloud-fog2',
+    51: 'bi-cloud-drizzle',
+    61: 'bi-cloud-rain',
+    63: 'bi-cloud-rain',
+    65: 'bi-cloud-rain-heavy',
+    80: 'bi-cloud-rain',
+    81: 'bi-cloud-rain',
+    82: 'bi-cloud-rain-heavy',
+    95: 'bi-cloud-lightning-rain',
+    96: 'bi-cloud-lightning-rain',
+    99: 'bi-cloud-lightning-rain'
+  };
+
+  function wmoIcon(code) {
+    return WMO_ICONS[Number(code)] || 'bi-cloud-sun';
+  }
 
   const els = {
     body: document.body,
@@ -135,7 +172,40 @@
     alertBarangay: document.getElementById('alertBarangay'),
     alertFormMessage: document.getElementById('alertFormMessage'),
     alertSubmitBtn: document.getElementById('alertSubmitBtn'),
-    alertsLiveSummary: document.getElementById('alertsLiveSummary')
+    alertsLiveSummary: document.getElementById('alertsLiveSummary'),
+    feelsLikeValue: document.getElementById('feelsLikeValue'),
+    aqiHomeValue: document.getElementById('aqiHomeValue'),
+    aqiHomeMeta: document.getElementById('aqiHomeMeta'),
+    condUpdatedPill: document.getElementById('condUpdatedPill'),
+    condNowIcon: document.getElementById('condNowIcon'),
+    condNowTemp: document.getElementById('condNowTemp'),
+    condNowLabel: document.getElementById('condNowLabel'),
+    condFeels: document.getElementById('condFeels'),
+    condWind: document.getElementById('condWind'),
+    condGusts: document.getElementById('condGusts'),
+    condHumidity: document.getElementById('condHumidity'),
+    condPressure: document.getElementById('condPressure'),
+    condClouds: document.getElementById('condClouds'),
+    condUv: document.getElementById('condUv'),
+    condPrecip: document.getElementById('condPrecip'),
+    sunriseTime: document.getElementById('sunriseTime'),
+    sunsetTime: document.getElementById('sunsetTime'),
+    daylightSpan: document.getElementById('daylightSpan'),
+    sunArcDot: document.getElementById('sunArcDot'),
+    forecastStrip: document.getElementById('forecastStrip'),
+    rainBars: document.getElementById('rainBars'),
+    aqiValue: document.getElementById('aqiValue'),
+    aqiCategory: document.getElementById('aqiCategory'),
+    aqiAdvice: document.getElementById('aqiAdvice'),
+    aqiPollutants: document.getElementById('aqiPollutants'),
+    aqiCard: document.getElementById('aqiCard'),
+    quakeList: document.getElementById('quakeList'),
+    shareLocationBtn: document.getElementById('shareLocationBtn'),
+    shareLocationBtnText: document.getElementById('shareLocationBtnText'),
+    shareLocationOut: document.getElementById('shareLocationOut'),
+    shareLocationCoords: document.getElementById('shareLocationCoords'),
+    shareLocationMap: document.getElementById('shareLocationMap'),
+    shareLocationCopy: document.getElementById('shareLocationCopy')
   };
 
   let newsItems = [];
@@ -770,6 +840,7 @@
         els.rainChanceValue.textContent = Math.round(built.maxRainChance || 0) + '%';
       }
       renderWarnings(built.warnings);
+      renderConditions(data);
     } catch (error) {
       if (els.weatherTemp) els.weatherTemp.textContent = '—°';
       if (els.weatherLabel) els.weatherLabel.textContent = 'Weather offline';
@@ -780,6 +851,290 @@
       if (els.alertsLiveSummary) {
         els.alertsLiveSummary.textContent = 'Weather feed is offline. You can still subscribe for district notices.';
       }
+      if (els.condUpdatedPill) els.condUpdatedPill.textContent = 'Feed offline';
+      if (els.forecastStrip) {
+        els.forecastStrip.innerHTML = '<p class="soft-empty">Forecast unavailable right now.</p>';
+      }
+      if (els.rainBars) {
+        els.rainBars.innerHTML = '<p class="soft-empty">Rain outlook unavailable.</p>';
+      }
+    }
+  }
+
+  function windCompass(deg) {
+    if (!Number.isFinite(deg)) return '';
+    const dirs = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+    return dirs[Math.round(((deg % 360) / 45)) % 8];
+  }
+
+  function formatClockTime(isoString) {
+    const date = new Date(isoString);
+    if (Number.isNaN(date.getTime())) return '—';
+    return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  }
+
+  function renderConditions(data) {
+    const current = data.current || {};
+    const daily = data.daily || {};
+    const hourly = data.hourly || {};
+
+    const code = Number(current.weather_code || 0);
+    const feels = Number(current.apparent_temperature);
+
+    if (els.feelsLikeValue && Number.isFinite(feels)) {
+      els.feelsLikeValue.textContent = Math.round(feels) + '°';
+    }
+
+    if (els.condUpdatedPill) {
+      els.condUpdatedPill.textContent =
+        'Updated ' + new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    }
+    if (els.condNowIcon) els.condNowIcon.className = 'bi ' + wmoIcon(code) + ' cond-now-icon';
+    if (els.condNowTemp) els.condNowTemp.textContent = Math.round(Number(current.temperature_2m)) + '°C';
+    if (els.condNowLabel) els.condNowLabel.textContent = WMO_LABELS[code] || 'Current weather';
+
+    if (els.condFeels && Number.isFinite(feels)) els.condFeels.textContent = Math.round(feels) + '°C';
+    if (els.condWind) {
+      const compass = windCompass(Number(current.wind_direction_10m));
+      els.condWind.textContent = Math.round(Number(current.wind_speed_10m) || 0) + ' km/h' + (compass ? ' ' + compass : '');
+    }
+    if (els.condGusts) els.condGusts.textContent = Math.round(Number(current.wind_gusts_10m) || 0) + ' km/h';
+    if (els.condHumidity) els.condHumidity.textContent = Math.round(Number(current.relative_humidity_2m) || 0) + '%';
+    if (els.condPressure) els.condPressure.textContent = Math.round(Number(current.surface_pressure) || 0) + ' hPa';
+    if (els.condClouds) els.condClouds.textContent = Math.round(Number(current.cloud_cover) || 0) + '%';
+    if (els.condPrecip) els.condPrecip.textContent = (Number(current.precipitation) || 0).toFixed(1) + ' mm';
+    if (els.condUv && Array.isArray(daily.uv_index_max)) {
+      const uv = Number(daily.uv_index_max[0]);
+      let uvLabel = 'Low';
+      if (uv >= 11) uvLabel = 'Extreme';
+      else if (uv >= 8) uvLabel = 'Very high';
+      else if (uv >= 6) uvLabel = 'High';
+      else if (uv >= 3) uvLabel = 'Moderate';
+      els.condUv.textContent = uv.toFixed(1) + ' · ' + uvLabel;
+    }
+
+    // Daylight card
+    if (Array.isArray(daily.sunrise) && Array.isArray(daily.sunset)) {
+      const sunrise = new Date(daily.sunrise[0]);
+      const sunset = new Date(daily.sunset[0]);
+      if (els.sunriseTime) els.sunriseTime.textContent = formatClockTime(daily.sunrise[0]);
+      if (els.sunsetTime) els.sunsetTime.textContent = formatClockTime(daily.sunset[0]);
+      if (els.daylightSpan && !Number.isNaN(sunrise.getTime()) && !Number.isNaN(sunset.getTime())) {
+        const mins = Math.max(0, Math.round((sunset - sunrise) / 60000));
+        els.daylightSpan.textContent = Math.floor(mins / 60) + 'h ' + (mins % 60) + 'm';
+        if (els.sunArcDot) {
+          const now = Date.now();
+          const progress = Math.min(1, Math.max(0, (now - sunrise.getTime()) / (sunset.getTime() - sunrise.getTime())));
+          els.sunArcDot.style.left = (progress * 100) + '%';
+          els.sunArcDot.classList.toggle('is-night', progress <= 0 || progress >= 1);
+        }
+      }
+    }
+
+    // 7-day forecast strip
+    if (els.forecastStrip && Array.isArray(daily.time)) {
+      els.forecastStrip.innerHTML = daily.time.map(function (day, i) {
+        const date = new Date(day);
+        const dayName = i === 0 ? 'Today' : date.toLocaleDateString([], { weekday: 'short' });
+        const dCode = Number(daily.weather_code && daily.weather_code[i]);
+        const tMax = Math.round(Number(daily.temperature_2m_max && daily.temperature_2m_max[i]));
+        const tMin = Math.round(Number(daily.temperature_2m_min && daily.temperature_2m_min[i]));
+        const rain = Math.round(Number(daily.precipitation_probability_max && daily.precipitation_probability_max[i]) || 0);
+        return (
+          '<article class="forecast-day' + (i === 0 ? ' is-today' : '') + '">' +
+            '<p class="forecast-day-name">' + escapeHtml(dayName) + '</p>' +
+            '<i class="bi ' + wmoIcon(dCode) + '" aria-hidden="true"></i>' +
+            '<p class="forecast-temps"><strong>' + tMax + '°</strong><span>' + tMin + '°</span></p>' +
+            '<p class="forecast-rain"><i class="bi bi-droplet" aria-hidden="true"></i>' + rain + '%</p>' +
+          '</article>'
+        );
+      }).join('');
+    }
+
+    // 24h rain probability bars
+    if (els.rainBars && Array.isArray(hourly.time) && Array.isArray(hourly.precipitation_probability)) {
+      const nowMs = Date.now();
+      let startIdx = hourly.time.findIndex(function (t) { return new Date(t).getTime() >= nowMs; });
+      if (startIdx < 0) startIdx = 0;
+      const hours = hourly.time.slice(startIdx, startIdx + 24);
+      const probs = hourly.precipitation_probability.slice(startIdx, startIdx + 24);
+      els.rainBars.innerHTML = hours.map(function (t, i) {
+        const prob = Math.max(0, Math.min(100, Math.round(Number(probs[i]) || 0)));
+        const hourLabel = new Date(t).toLocaleTimeString([], { hour: 'numeric' });
+        const levelClass = prob >= 70 ? ' is-high' : (prob >= 40 ? ' is-med' : '');
+        return (
+          '<div class="rain-bar' + levelClass + '" title="' + escapeHtml(hourLabel + ' — ' + prob + '%') + '">' +
+            '<span class="rain-bar-fill" style="height:' + Math.max(4, prob) + '%"></span>' +
+            (i % 4 === 0 ? '<span class="rain-bar-label">' + escapeHtml(hourLabel) + '</span>' : '') +
+          '</div>'
+        );
+      }).join('');
+    }
+  }
+
+  const AQI_LEVELS = [
+    { max: 50, label: 'Good', cls: 'aqi-good', advice: 'Air is clean. Great day for outdoor activities.' },
+    { max: 100, label: 'Moderate', cls: 'aqi-moderate', advice: 'Acceptable air. Unusually sensitive people should pace outdoor exertion.' },
+    { max: 150, label: 'Unhealthy for sensitive groups', cls: 'aqi-usg', advice: 'Children, elders, and people with asthma should limit prolonged outdoor effort.' },
+    { max: 200, label: 'Unhealthy', cls: 'aqi-unhealthy', advice: 'Limit time outdoors. Consider a mask if you smell smoke or haze.' },
+    { max: 300, label: 'Very unhealthy', cls: 'aqi-very', advice: 'Avoid outdoor exertion. Keep windows closed and use air filtration if available.' },
+    { max: Infinity, label: 'Hazardous', cls: 'aqi-hazard', advice: 'Stay indoors. Follow local health advisories immediately.' }
+  ];
+
+  async function loadAirQuality() {
+    try {
+      const response = await fetch(AIR_QUALITY_URL, { cache: 'no-store' });
+      const data = await response.json();
+      const current = data && data.current ? data.current : null;
+      if (!current) throw new Error('No air quality data');
+
+      const aqi = Math.round(Number(current.us_aqi));
+      if (!Number.isFinite(aqi)) throw new Error('Bad AQI');
+
+      const level = AQI_LEVELS.find(function (l) { return aqi <= l.max; }) || AQI_LEVELS[AQI_LEVELS.length - 1];
+
+      if (els.aqiHomeValue) els.aqiHomeValue.textContent = String(aqi);
+      if (els.aqiHomeMeta) els.aqiHomeMeta.textContent = level.label;
+
+      if (els.aqiValue) els.aqiValue.textContent = String(aqi);
+      if (els.aqiCategory) els.aqiCategory.textContent = level.label;
+      if (els.aqiAdvice) els.aqiAdvice.textContent = level.advice;
+      if (els.aqiCard) {
+        els.aqiCard.className = els.aqiCard.className.replace(/\baqi-\w+\b/g, '').trim() + ' ' + level.cls;
+      }
+      if (els.aqiPollutants) {
+        const parts = [
+          { key: 'pm2_5', label: 'PM2.5', unit: 'µg/m³' },
+          { key: 'pm10', label: 'PM10', unit: 'µg/m³' },
+          { key: 'ozone', label: 'O₃', unit: 'µg/m³' },
+          { key: 'nitrogen_dioxide', label: 'NO₂', unit: 'µg/m³' }
+        ];
+        els.aqiPollutants.innerHTML = parts.map(function (p) {
+          const v = Number(current[p.key]);
+          if (!Number.isFinite(v)) return '';
+          return '<span class="aqi-chip"><strong>' + p.label + '</strong> ' + Math.round(v) + ' ' + p.unit + '</span>';
+        }).join('');
+      }
+    } catch (error) {
+      if (els.aqiHomeValue) els.aqiHomeValue.textContent = '—';
+      if (els.aqiHomeMeta) els.aqiHomeMeta.textContent = 'Offline';
+      if (els.aqiCategory) els.aqiCategory.textContent = 'Feed offline';
+      if (els.aqiAdvice) els.aqiAdvice.textContent = 'Air quality data is unavailable right now. Try again later.';
+    }
+  }
+
+  function haversineKm(lat1, lon1, lat2, lon2) {
+    const toRad = function (d) { return (d * Math.PI) / 180; };
+    const dLat = toRad(lat2 - lat1);
+    const dLon = toRad(lon2 - lon1);
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2)
+      + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    return Math.round(6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
+  }
+
+  function timeAgo(ms) {
+    const diff = Date.now() - ms;
+    const mins = Math.round(diff / 60000);
+    if (mins < 60) return mins + ' min ago';
+    const hours = Math.round(mins / 60);
+    if (hours < 24) return hours + 'h ago';
+    const days = Math.round(hours / 24);
+    return days + (days === 1 ? ' day ago' : ' days ago');
+  }
+
+  async function loadQuakes() {
+    if (!els.quakeList) return;
+    try {
+      const since = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString().slice(0, 10);
+      const response = await fetch(QUAKES_URL + '&starttime=' + since, { cache: 'no-store' });
+      const data = await response.json();
+      const features = data && Array.isArray(data.features) ? data.features : [];
+
+      if (!features.length) {
+        els.quakeList.innerHTML =
+          '<p class="soft-empty"><i class="bi bi-shield-check"></i> No magnitude 3.5+ earthquakes recorded near Metro Manila in the last 30 days.</p>';
+        return;
+      }
+
+      els.quakeList.innerHTML = features.map(function (f) {
+        const props = f.properties || {};
+        const coords = (f.geometry && f.geometry.coordinates) || [0, 0, 0];
+        const mag = Number(props.mag) || 0;
+        const magCls = mag >= 6 ? 'is-severe' : (mag >= 5 ? 'is-strong' : (mag >= 4 ? 'is-moderate' : ''));
+        const dist = haversineKm(MAKATI_LAT, MAKATI_LON, Number(coords[1]), Number(coords[0]));
+        const depth = Math.round(Number(coords[2]) || 0);
+        return (
+          '<article class="quake-row">' +
+            '<span class="quake-mag ' + magCls + '">' + mag.toFixed(1) + '</span>' +
+            '<div class="quake-info">' +
+              '<strong>' + escapeHtml(String(props.place || 'Unknown location')) + '</strong>' +
+              '<span>' + escapeHtml(timeAgo(Number(props.time))) + ' · ~' + dist + ' km from Makati · depth ' + depth + ' km</span>' +
+            '</div>' +
+            (props.url ? '<a class="quake-link" href="' + escapeHtml(String(props.url)) + '" target="_blank" rel="noopener noreferrer" aria-label="USGS event page"><i class="bi bi-box-arrow-up-right"></i></a>' : '') +
+          '</article>'
+        );
+      }).join('');
+    } catch (error) {
+      els.quakeList.innerHTML = '<p class="soft-empty">Seismic feed is unavailable right now.</p>';
+    }
+  }
+
+  function initShareLocation() {
+    if (!els.shareLocationBtn) return;
+
+    let mapsLink = '';
+
+    els.shareLocationBtn.addEventListener('click', function () {
+      if (!navigator.geolocation) {
+        if (els.shareLocationBtnText) els.shareLocationBtnText.textContent = 'Location not supported';
+        return;
+      }
+      if (els.shareLocationBtnText) els.shareLocationBtnText.textContent = 'Locating…';
+      els.shareLocationBtn.disabled = true;
+
+      navigator.geolocation.getCurrentPosition(
+        function (pos) {
+          const lat = pos.coords.latitude.toFixed(6);
+          const lon = pos.coords.longitude.toFixed(6);
+          const acc = Math.round(pos.coords.accuracy || 0);
+          mapsLink = 'https://maps.google.com/?q=' + lat + ',' + lon;
+
+          if (els.shareLocationCoords) {
+            els.shareLocationCoords.textContent = lat + ', ' + lon + (acc ? ' (±' + acc + ' m)' : '');
+          }
+          if (els.shareLocationMap) els.shareLocationMap.href = mapsLink;
+          if (els.shareLocationOut) els.shareLocationOut.hidden = false;
+          if (els.shareLocationBtnText) els.shareLocationBtnText.textContent = 'Refresh location';
+          els.shareLocationBtn.disabled = false;
+        },
+        function () {
+          if (els.shareLocationBtnText) els.shareLocationBtnText.textContent = 'Allow location & retry';
+          els.shareLocationBtn.disabled = false;
+        },
+        { enableHighAccuracy: true, timeout: 12000, maximumAge: 30000 }
+      );
+    });
+
+    if (els.shareLocationCopy) {
+      els.shareLocationCopy.addEventListener('click', function () {
+        if (!mapsLink) return;
+        const done = function () {
+          els.shareLocationCopy.innerHTML = '<i class="bi bi-check2"></i> Copied!';
+          window.setTimeout(function () {
+            els.shareLocationCopy.innerHTML = '<i class="bi bi-clipboard-check"></i> Copy link';
+          }, 2000);
+        };
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(mapsLink).then(done).catch(function () {});
+        } else {
+          const tmp = document.createElement('textarea');
+          tmp.value = mapsLink;
+          document.body.appendChild(tmp);
+          tmp.select();
+          try { document.execCommand('copy'); done(); } catch (e) {}
+          document.body.removeChild(tmp);
+        }
+      });
     }
   }
 
@@ -899,6 +1254,67 @@
         if (btnLoader) btnLoader.hidden = true;
       }
     });
+  }
+
+  async function loadPortalConfig() {
+    try {
+      const response = await fetch(PORTAL_CONFIG, { credentials: 'same-origin', headers: { Accept: 'application/json' } });
+      const payload = await response.json().catch(function () { return null; });
+      if (!response.ok || !payload || payload.ok !== true || !payload.data) {
+        return;
+      }
+      const data = payload.data;
+      const hotline = String(data.emergencyHotline || '168').replace(/\D+/g, '') || '168';
+      const central = String(data.centralPhone || '').replace(/\D+/g, '');
+
+      document.querySelectorAll('a[href="tel:168"], a[href^="tel:168"]').forEach(function (link) {
+        link.setAttribute('href', 'tel:' + hotline);
+      });
+      document.querySelectorAll('.hotline-chip-num, .hotline-card-number').forEach(function (node) {
+        if (String(node.textContent || '').trim() === '168') {
+          node.textContent = hotline;
+        }
+      });
+
+      if (central) {
+        const international = central.indexOf('63') === 0 ? central : ('63' + central.replace(/^0/, ''));
+        const pretty = central.length === 11
+          ? (central.slice(0, 4) + '-' + central.slice(4, 7) + '-' + central.slice(7))
+          : central;
+        document.querySelectorAll('a.top-call-btn').forEach(function (link) {
+          link.setAttribute('href', 'tel:+' + international);
+        });
+      }
+
+      if (data.tagline) {
+        const lead = document.querySelector('.hero-lead');
+        if (lead) lead.textContent = data.tagline;
+      }
+      if (data.districtName) {
+        const eyebrow = document.querySelector('.hero-eyebrow');
+        if (eyebrow) eyebrow.textContent = data.districtName + ' · Public Access';
+      }
+
+      const maint = document.getElementById('portalMaintenanceBanner');
+      const maintText = document.getElementById('portalMaintenanceText');
+      if (maint && maintText && data.maintenanceEnabled && data.maintenanceMessage) {
+        maintText.textContent = data.maintenanceMessage;
+        maint.hidden = false;
+      }
+
+      if (data.subscribeEnabled === false && els.alertForm) {
+        els.alertForm.querySelectorAll('input, button, select, textarea').forEach(function (el) {
+          el.disabled = true;
+        });
+        if (els.alertFormMessage) {
+          els.alertFormMessage.textContent = 'Alert subscriptions are temporarily disabled by the district.';
+          els.alertFormMessage.className = 'form-message is-err';
+          els.alertFormMessage.hidden = false;
+        }
+      }
+    } catch (e) {
+      // Keep static HTML defaults when config is offline.
+    }
   }
 
   function initSceneRotation() {
@@ -1099,8 +1515,12 @@
     initSafety();
     initAlertForm();
     initThemeToggle();
+    initShareLocation();
     bindEvents();
+    loadPortalConfig();
     loadWeather();
+    loadAirQuality();
+    loadQuakes();
     ensureNewsLoaded();
     ensureAnnouncementsLoaded();
 

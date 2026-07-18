@@ -6,10 +6,24 @@ $usersIsSuperadmin = ($role ?? '') === 'superadmin';
   <header class="users-hero">
     <div>
       <p class="users-kicker">Administrator tools</p>
-      <h2 id="usersHeroTitle"><?php echo $usersActiveTab === 'substations' ? 'Substations' : 'Admin Settings'; ?></h2>
+      <h2 id="usersHeroTitle"><?php
+        if ($usersActiveTab === 'substations') {
+          echo 'Substations';
+        } elseif ($usersActiveTab === 'alerts') {
+          echo 'Public Alerts';
+        } elseif ($usersActiveTab === 'system') {
+          echo 'System Settings';
+        } else {
+          echo 'Admin Settings';
+        }
+      ?></h2>
       <p class="muted-text" id="usersWelcomeText"><?php
         if ($usersActiveTab === 'substations') {
           echo 'Create, edit, and review all substations and assigned coordinates across the district.';
+        } elseif ($usersActiveTab === 'alerts') {
+          echo 'Broadcast Gmail and SMS alerts to civilians who subscribed on the public portal.';
+        } elseif ($usersActiveTab === 'system') {
+          echo 'District identity, integrations, public portal, and security defaults in one place.';
         } elseif ($usersIsSuperadmin) {
           echo 'Manage substations, assigned admins, personnel accounts, login updates, and public notices across all stations.';
         } else {
@@ -18,7 +32,7 @@ $usersIsSuperadmin = ($role ?? '') === 'superadmin';
       ?></p>
     </div>
     <div class="users-hero-actions">
-      <button type="button" class="primary-btn" id="openUserModalBtn"<?php echo $usersActiveTab === 'substations' ? ' hidden' : ''; ?>>Create User</button>
+      <button type="button" class="primary-btn" id="openUserModalBtn"<?php echo in_array($usersActiveTab, ['substations', 'alerts', 'news', 'notices', 'system'], true) ? ' hidden' : ''; ?>>Create User</button>
       <button type="button" class="primary-btn" id="openSubstationModalBtn"<?php echo ($usersActiveTab === 'substations' && $usersIsSuperadmin) ? '' : ' hidden'; ?>>Add Substation</button>
       <button type="button" class="secondary-btn" id="refreshUsersBtn">Refresh</button>
     </div>
@@ -48,6 +62,324 @@ $usersIsSuperadmin = ($role ?? '') === 'superadmin';
         <button type="button" class="primary-btn" id="openAnnouncementModalBtn">Publish Announcement</button>
       </div>
     </header>
+  </section>
+
+  <section class="users-alerts-manager" id="civilianAlertsSection" data-users-panel="alerts"<?php echo $usersActiveTab !== 'alerts' ? ' hidden' : ''; ?>>
+    <header class="users-hero users-news-hero">
+      <div>
+        <p class="users-kicker">Civilian portal</p>
+        <h2>Public Alerts Broadcast</h2>
+        <p class="muted-text">Send weather, typhoon, and district alerts to civilians who opted in by Gmail/email and SMS.</p>
+      </div>
+      <div class="users-hero-actions">
+        <button type="button" class="secondary-btn" id="refreshCivilianAlertsBtn">Refresh stats</button>
+      </div>
+    </header>
+
+    <div class="users-alerts-grid">
+      <article class="users-table-card users-alerts-stats-card">
+        <div class="users-panel-head">
+          <div>
+            <p class="users-kicker">Reach</p>
+            <h3>Active subscribers</h3>
+          </div>
+          <div class="users-panel-meta">
+            <span class="users-meta-chip" id="civilianAlertsMailReadyChip">Email —</span>
+            <span class="users-meta-chip" id="civilianAlertsSmsReadyChip">SMS —</span>
+          </div>
+        </div>
+        <div class="users-alerts-stat-strip" aria-label="Subscriber counts">
+          <div class="users-alerts-stat"><span>Total</span><strong id="civilianAlertsTotal">0</strong></div>
+          <div class="users-alerts-stat"><span>Email</span><strong id="civilianAlertsEmail">0</strong></div>
+          <div class="users-alerts-stat"><span>SMS</span><strong id="civilianAlertsSms">0</strong></div>
+          <div class="users-alerts-stat"><span>Weather</span><strong id="civilianAlertsTopicWeather">0</strong></div>
+          <div class="users-alerts-stat"><span>Notices</span><strong id="civilianAlertsTopicAnnouncements">0</strong></div>
+          <div class="users-alerts-stat"><span>Safety</span><strong id="civilianAlertsTopicSafety">0</strong></div>
+        </div>
+        <p class="muted-text users-alerts-hint">
+          Email uses Gmail SMTP from <code>config/config.php</code>.
+          SMS is enabled in <code>log</code> mode by default (stored locally). Set <code>provider=semaphore</code> + API key for live PH SMS.
+        </p>
+      </article>
+
+      <article class="users-table-card">
+        <div class="users-panel-head">
+          <div>
+            <p class="users-kicker">Compose</p>
+            <h3>Send alert</h3>
+          </div>
+          <div class="users-panel-meta">
+            <button type="button" class="secondary-btn" id="civilianAlertTestEmailBtn">Test Gmail</button>
+            <button type="button" class="secondary-btn" id="civilianAlertAutoWeatherBtn">Scan weather &amp; auto-send</button>
+          </div>
+        </div>
+
+        <div class="users-alert-templates" id="civilianAlertTemplates" aria-label="Alert templates">
+          <p class="users-kicker users-alert-templates-label">Auto templates</p>
+          <div class="users-alert-template-grid" id="civilianAlertTemplateGrid">
+            <button type="button" class="users-alert-template-btn" data-alert-template="typhoon">
+              <i class="bi bi-tropical-storm" aria-hidden="true"></i>
+              <span>Typhoon / storm</span>
+            </button>
+            <button type="button" class="users-alert-template-btn" data-alert-template="flashflood">
+              <i class="bi bi-cloud-rain-heavy" aria-hidden="true"></i>
+              <span>Flash flood</span>
+            </button>
+            <button type="button" class="users-alert-template-btn" data-alert-template="heat">
+              <i class="bi bi-thermometer-sun" aria-hidden="true"></i>
+              <span>Extreme heat</span>
+            </button>
+            <button type="button" class="users-alert-template-btn" data-alert-template="cold">
+              <i class="bi bi-snow" aria-hidden="true"></i>
+              <span>Cold / chill</span>
+            </button>
+            <button type="button" class="users-alert-template-btn" data-alert-template="tsunami">
+              <i class="bi bi-water" aria-hidden="true"></i>
+              <span>Tsunami warning</span>
+            </button>
+          </div>
+          <p class="muted-text users-alerts-hint">Click a template to fill the message, then send. Auto-scan uses live Makati weather (heat / cold / flood / typhoon).</p>
+        </div>
+
+        <form id="civilianAlertBroadcastForm" class="users-form users-alerts-form" novalidate>
+          <input type="hidden" id="civilianAlertTemplateId" value="">
+          <div class="users-form-grid">
+            <label class="users-full-width">
+              Subject
+              <input type="text" id="civilianAlertSubject" maxlength="160" placeholder="e.g. Signal No. 1 — Makati under typhoon watch" required>
+            </label>
+            <label class="users-full-width">
+              Message
+              <textarea id="civilianAlertBody" rows="6" maxlength="4000" placeholder="Write the advisory civilians will receive by email and/or SMS." required></textarea>
+            </label>
+            <label>
+              Topic audience
+              <select id="civilianAlertTopic">
+                <option value="weather" selected>Weather / typhoon</option>
+                <option value="announcements">Announcements</option>
+                <option value="safety">Safety</option>
+                <option value="all">All topics</option>
+              </select>
+            </label>
+            <label>
+              Barangay filter <span class="users-field-hint">(optional)</span>
+              <input type="text" id="civilianAlertBarangay" maxlength="120" placeholder="Leave blank for all barangays">
+            </label>
+            <div class="users-full-width users-alerts-channels" role="group" aria-label="Delivery channels">
+              <label class="users-channel-toggle">
+                <input type="checkbox" id="civilianAlertSendEmail" checked>
+                <span class="users-channel-toggle-ui">
+                  <strong>Send email (Gmail)</strong>
+                  <small>Uses opted-in email subscribers</small>
+                </span>
+              </label>
+              <label class="users-channel-toggle">
+                <input type="checkbox" id="civilianAlertSendSms" checked>
+                <span class="users-channel-toggle-ui">
+                  <strong>Send SMS</strong>
+                  <small>Uses opted-in mobile numbers</small>
+                </span>
+              </label>
+            </div>
+          </div>
+          <div class="users-form-actions">
+            <button type="submit" class="primary-btn" id="civilianAlertSendBtn">Send alert</button>
+          </div>
+          <p class="muted-text" id="civilianAlertFormMessage"></p>
+        </form>
+      </article>
+    </div>
+
+    <section class="users-table-card users-alerts-history-card">
+      <div class="users-panel-head">
+        <div>
+          <p class="users-kicker">History</p>
+          <h3>Recent broadcasts</h3>
+        </div>
+      </div>
+      <div class="users-table-wrap">
+        <table class="portal-table users-table">
+          <thead>
+            <tr>
+              <th>When</th>
+              <th>Subject</th>
+              <th>Topic</th>
+              <th>Email</th>
+              <th>SMS</th>
+              <th>Recipients</th>
+            </tr>
+          </thead>
+          <tbody id="civilianAlertsHistoryBody">
+            <tr><td colspan="6" class="muted-text users-empty-row">No broadcasts yet.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </section>
+
+  <section class="users-system-manager" id="systemSettingsSection" data-users-panel="system"<?php echo $usersActiveTab !== 'system' ? ' hidden' : ''; ?>>
+    <header class="users-hero users-news-hero">
+      <div>
+        <p class="users-kicker">District control</p>
+        <h2>System Settings</h2>
+        <p class="muted-text">Configure district identity, integrations, public portal, and security defaults — modern and minimal.</p>
+      </div>
+      <div class="users-hero-actions">
+        <button type="button" class="secondary-btn" id="refreshSystemSettingsBtn">Refresh</button>
+        <button type="button" class="primary-btn" id="saveSystemSettingsBtn">Save changes</button>
+      </div>
+    </header>
+
+    <div class="sys-status-strip" id="systemIntegrationsStrip" aria-label="Integration status">
+      <article class="sys-status-card" data-status="mail"><span class="sys-status-label">Gmail</span><strong id="sysStatusMail">—</strong></article>
+      <article class="sys-status-card" data-status="sms"><span class="sys-status-label">SMS</span><strong id="sysStatusSms">—</strong></article>
+      <article class="sys-status-card" data-status="maps"><span class="sys-status-label">Maps</span><strong id="sysStatusMaps">—</strong></article>
+      <article class="sys-status-card" data-status="auth"><span class="sys-status-label">Google Auth</span><strong id="sysStatusAuth">—</strong></article>
+    </div>
+
+    <form id="systemSettingsForm" class="sys-settings-layout" novalidate>
+      <section class="users-table-card sys-settings-card">
+        <div class="users-panel-head">
+          <div>
+            <p class="users-kicker">Identity</p>
+            <h3>District profile</h3>
+          </div>
+        </div>
+        <div class="users-form users-form-grid sys-form-pad">
+          <label>
+            App name
+            <input type="text" id="sysAppName" maxlength="80" placeholder="FireNet">
+          </label>
+          <label>
+            District name
+            <input type="text" id="sysDistrictName" maxlength="80" placeholder="Makati Fire District">
+          </label>
+          <label class="users-full-width">
+            Public tagline
+            <input type="text" id="sysPublicTagline" maxlength="400" placeholder="Shown on the civilian portal">
+          </label>
+          <label>
+            Emergency hotline
+            <input type="text" id="sysEmergencyHotline" maxlength="20" placeholder="168">
+          </label>
+          <label>
+            Central mobile
+            <input type="text" id="sysCentralPhone" maxlength="20" placeholder="09311451493">
+          </label>
+          <label class="users-full-width">
+            Email sender name
+            <input type="text" id="sysMailFromName" maxlength="80" placeholder="FireNet Alerts">
+          </label>
+        </div>
+      </section>
+
+      <section class="users-table-card sys-settings-card">
+        <div class="users-panel-head">
+          <div>
+            <p class="users-kicker">Messaging</p>
+            <h3>SMS delivery</h3>
+          </div>
+        </div>
+        <div class="users-form users-form-grid sys-form-pad">
+          <label class="users-channel-toggle users-full-width">
+            <input type="checkbox" id="sysSmsEnabled">
+            <span class="users-channel-toggle-ui">
+              <strong>Enable SMS alerts</strong>
+              <small>Allow Public Alerts to use SMS channel</small>
+            </span>
+          </label>
+          <label>
+            SMS provider
+            <select id="sysSmsProvider">
+              <option value="log">Log (test mode — free)</option>
+              <option value="semaphore">Semaphore (live PH SMS)</option>
+            </select>
+          </label>
+          <label>
+            Sender name
+            <input type="text" id="sysSmsSenderName" maxlength="40" placeholder="FireNet">
+          </label>
+          <label class="users-full-width">
+            Semaphore API key <span class="users-field-hint">(leave blank to keep current)</span>
+            <input type="password" id="sysSmsApiKey" maxlength="120" placeholder="Paste API key for live SMS" autocomplete="off">
+          </label>
+          <p class="muted-text users-alerts-hint users-full-width" id="sysSmsKeyHint">No live API key stored yet. Use Log mode for free testing.</p>
+        </div>
+      </section>
+
+      <section class="users-table-card sys-settings-card">
+        <div class="users-panel-head">
+          <div>
+            <p class="users-kicker">Public portal</p>
+            <h3>Civilian access</h3>
+          </div>
+        </div>
+        <div class="users-form users-form-grid sys-form-pad">
+          <label class="users-channel-toggle users-full-width">
+            <input type="checkbox" id="sysPortalSubscribeEnabled">
+            <span class="users-channel-toggle-ui">
+              <strong>Allow alert subscriptions</strong>
+              <small>Civilians can opt in for email / SMS alerts</small>
+            </span>
+          </label>
+          <label class="users-channel-toggle users-full-width">
+            <input type="checkbox" id="sysPortalMaintenanceEnabled">
+            <span class="users-channel-toggle-ui">
+              <strong>Maintenance banner</strong>
+              <small>Show a notice across the public portal</small>
+            </span>
+          </label>
+          <label class="users-full-width">
+            Maintenance message
+            <textarea id="sysPortalMaintenanceMessage" rows="3" maxlength="400" placeholder="Temporary maintenance notice for civilians"></textarea>
+          </label>
+        </div>
+      </section>
+
+      <section class="users-table-card sys-settings-card">
+        <div class="users-panel-head">
+          <div>
+            <p class="users-kicker">Operations</p>
+            <h3>Security &amp; alerts</h3>
+          </div>
+        </div>
+        <div class="users-form users-form-grid sys-form-pad">
+          <label>
+            Default auto-logout (minutes)
+            <input type="number" id="sysDefaultAutoLogout" min="5" max="240" step="5">
+          </label>
+          <label class="users-channel-toggle users-full-width">
+            <input type="checkbox" id="sysSecurityAlertsDefault">
+            <span class="users-channel-toggle-ui">
+              <strong>Security alerts on by default</strong>
+              <small>Applied when creating new personnel accounts</small>
+            </span>
+          </label>
+          <label class="users-channel-toggle users-full-width">
+            <input type="checkbox" id="sysAlertDefaultEmail">
+            <span class="users-channel-toggle-ui">
+              <strong>Default: send email on broadcasts</strong>
+              <small>Pre-checks Email on Public Alerts</small>
+            </span>
+          </label>
+          <label class="users-channel-toggle users-full-width">
+            <input type="checkbox" id="sysAlertDefaultSms">
+            <span class="users-channel-toggle-ui">
+              <strong>Default: send SMS on broadcasts</strong>
+              <small>Pre-checks SMS on Public Alerts</small>
+            </span>
+          </label>
+          <label class="users-channel-toggle users-full-width">
+            <input type="checkbox" id="sysWeatherAutoEnabled">
+            <span class="users-channel-toggle-ui">
+              <strong>Allow weather auto-send</strong>
+              <small>Enables Scan weather &amp; auto-send on Public Alerts</small>
+            </span>
+          </label>
+        </div>
+      </section>
+    </form>
+    <p class="muted-text" id="systemSettingsMessage"></p>
   </section>
 
   <section class="users-layout" id="barangayPanel" data-users-panel="substations"<?php echo $usersActiveTab !== 'substations' ? ' hidden' : ''; ?>>

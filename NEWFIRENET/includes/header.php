@@ -42,7 +42,7 @@ $sidebarMailOpen = in_array(
 $adminSettingsPaths = [$adminSettingsPath, $legacyUsersPath, $auditLogPath];
 $adminSettingsOpen = in_array($currentPath, $adminSettingsPaths, true);
 $adminSettingsTab = strtolower(trim((string) ($_GET['tab'] ?? 'accounts')));
-if (!in_array($adminSettingsTab, ['accounts', 'news', 'notices', 'substations'], true)) {
+if (!in_array($adminSettingsTab, ['accounts', 'news', 'notices', 'substations', 'alerts', 'system'], true)) {
   $adminSettingsTab = 'accounts';
 }
 $sessionUserId = (int) ($sessionUser['user_id'] ?? 0);
@@ -125,15 +125,18 @@ if ($sessionUserId > 0) {
   <title>FireNet Portal</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Sora:wght@600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
   <link rel="stylesheet" href="/firenet/NEWFIRENET/assets/css/style.css">
   <link rel="stylesheet" href="/firenet/NEWFIRENET/assets/css/portal-theme.css">
+  <link rel="stylesheet" href="/firenet/NEWFIRENET/assets/css/portal-chrome.css?v=<?php echo (int) @filemtime(__DIR__ . '/../assets/css/portal-chrome.css'); ?>">
+  <link rel="stylesheet" href="/firenet/NEWFIRENET/assets/css/portal-fx.css?v=<?php echo (int) @filemtime(__DIR__ . '/../assets/css/portal-fx.css'); ?>">
   <?php if (isset($pageStyles) && is_array($pageStyles)): ?>
     <?php foreach ($pageStyles as $stylePath): ?>
       <link rel="stylesheet" href="<?php echo htmlspecialchars($stylePath); ?>">
     <?php endforeach; ?>
   <?php endif; ?>
+  <link rel="stylesheet" href="/firenet/NEWFIRENET/assets/css/portal-premium.css?v=<?php echo (int) @filemtime(__DIR__ . '/../assets/css/portal-premium.css'); ?>">
   <link rel="stylesheet" href="/firenet/NEWFIRENET/assets/css/portal-theme-light.css">
   <script>
     (function () {
@@ -148,6 +151,18 @@ if ($sessionUserId > 0) {
   </script>
 </head>
 <body class="<?php echo trim(((isset($_SESSION['user']) ? 'is-authenticated' : '') . ' ' . ($bodyClass ?? ''))); ?>">
+  <div class="fn-loader" id="fnLoader" role="status" aria-live="polite" aria-label="Loading FireNet">
+    <div class="fn-loader-core">
+      <div class="fn-loader-badge">
+        <img class="fn-loader-logo" src="/firenet/NEWFIRENET/assets/img/bfpmakatilogo.jpg" alt="Makati Fire District">
+      </div>
+      <div class="fn-loader-wordmark">FIRENET</div>
+      <div class="fn-loader-sub">Makati Fire District</div>
+      <div class="fn-loader-track" aria-hidden="true"><span></span></div>
+      <p class="fn-loader-status">Establishing secure dispatch link…</p>
+    </div>
+  </div>
+  <div class="fn-navbar" id="fnNavbar" aria-hidden="true"></div>
   <header class="app-header">
     <div class="app-header-inner">
       <div class="header-brand">
@@ -168,20 +183,40 @@ if ($sessionUserId > 0) {
 
       <?php if (isset($_SESSION['user'])): ?>
         <nav class="header-ribbon" aria-label="Quick navigation">
-          <a class="ribbon-pill<?php echo $currentPath === $dashboardPath ? ' is-active' : ''; ?>" href="<?php echo htmlspecialchars($dashboardPath); ?>">Overview</a>
-          <a class="ribbon-pill<?php echo $currentPath === $reportsPath ? ' is-active' : ''; ?>" href="<?php echo htmlspecialchars($reportsPath); ?>">Reports</a>
-          <a class="ribbon-pill<?php echo $currentPath === $calendarPath ? ' is-active' : ''; ?>" href="<?php echo htmlspecialchars($calendarPath); ?>">Calendar</a>
-          <a class="ribbon-pill<?php echo $currentPath === $stationIncidentLogsPath ? ' is-active' : ''; ?>" href="<?php echo htmlspecialchars($stationIncidentLogsPath); ?>">Logs</a>
-          <a class="ribbon-pill<?php echo $currentPath === $analyticsPath ? ' is-active' : ''; ?>" href="<?php echo htmlspecialchars($analyticsPath); ?>">Analytics</a>
+          <a class="ribbon-pill<?php echo $currentPath === $dashboardPath ? ' is-active' : ''; ?>" href="<?php echo htmlspecialchars($dashboardPath); ?>"><i class="bi bi-grid-1x2-fill" aria-hidden="true"></i>Overview</a>
+          <a class="ribbon-pill<?php echo $currentPath === $reportsPath ? ' is-active' : ''; ?>" href="<?php echo htmlspecialchars($reportsPath); ?>"><i class="bi bi-file-earmark-text-fill" aria-hidden="true"></i>Reports</a>
+          <a class="ribbon-pill<?php echo $currentPath === $calendarPath ? ' is-active' : ''; ?>" href="<?php echo htmlspecialchars($calendarPath); ?>"><i class="bi bi-calendar3" aria-hidden="true"></i>Calendar</a>
+          <a class="ribbon-pill<?php echo $currentPath === $stationIncidentLogsPath ? ' is-active' : ''; ?>" href="<?php echo htmlspecialchars($stationIncidentLogsPath); ?>"><i class="bi bi-journal-text" aria-hidden="true"></i>Logs</a>
+          <a class="ribbon-pill<?php echo $currentPath === $analyticsPath ? ' is-active' : ''; ?>" href="<?php echo htmlspecialchars($analyticsPath); ?>"><i class="bi bi-graph-up-arrow" aria-hidden="true"></i>Analytics</a>
         </nav>
       <?php else: ?>
         <nav class="header-ribbon header-ribbon--guest" aria-label="Account">
-          <a class="ribbon-pill ribbon-pill--accent" href="/firenet/NEWFIRENET/pages/login.html">Sign in</a>
+          <a class="ribbon-pill ribbon-pill--accent" href="/firenet/NEWFIRENET/pages/login.html"><i class="bi bi-box-arrow-in-right" aria-hidden="true"></i>Sign in</a>
         </nav>
       <?php endif; ?>
 
       <?php if (isset($_SESSION['user'])): ?>
         <div class="header-right">
+          <div class="header-weather-host" id="headerWeatherHost">
+            <button type="button" class="header-weather is-loading" id="headerWeatherBtn" aria-expanded="false" aria-controls="headerWeatherPopover" title="Makati weather — click for details">
+              <span class="header-weather-icon" aria-hidden="true"><i class="bi bi-cloud-sun" id="headerWeatherIcon"></i></span>
+              <span class="header-weather-copy">
+                <span class="header-weather-temp" id="headerWeatherTemp">—°</span>
+                <span class="header-weather-label" id="headerWeatherLabel">Makati weather</span>
+              </span>
+            </button>
+            <div class="header-weather-popover" id="headerWeatherPopover" hidden role="dialog" aria-label="Weather details">
+              <h3 id="headerWeatherPopoverTitle">Makati Fire District</h3>
+              <p id="headerWeatherPopoverDesc">Loading live conditions…</p>
+              <div class="header-weather-meta">
+                <span><small>Humidity</small><strong id="headerWeatherHumidity">—</strong></span>
+                <span><small>Wind</small><strong id="headerWeatherWind">—</strong></span>
+                <span><small>Rain chance</small><strong id="headerWeatherRain">—</strong></span>
+                <span><small>Updated</small><strong id="headerWeatherUpdated">—</strong></span>
+              </div>
+              <button type="button" class="header-weather-refresh" id="headerWeatherRefresh"><i class="bi bi-arrow-clockwise" aria-hidden="true"></i> Refresh</button>
+            </div>
+          </div>
           <button type="button" class="theme-toggle" id="themeToggle" aria-label="Switch to light mode" title="Toggle theme">
             <span class="theme-icon-orbit" aria-hidden="true">
               <i class="bi bi-sun-fill theme-icon-sun"></i>
@@ -189,14 +224,15 @@ if ($sessionUserId > 0) {
             </span>
             <span class="theme-toggle-label" id="themeToggleLabel">Light</span>
           </button>
-          <span class="header-datetime" id="headerDateTime" aria-live="polite">Loading time…</span>
+          <div class="header-datetime" id="headerDateTime" aria-live="polite">
+            <span class="header-datetime-time" id="headerDateTimeClock">--:--</span>
+            <span class="header-datetime-date" id="headerDateTimeDate">Loading…</span>
+          </div>
           <span class="header-role-chip" id="headerRoleChip"><?php echo htmlspecialchars($sessionRole); ?></span>
           <div class="header-quick-actions" aria-label="Quick actions">
             <div class="apps-menu" id="appsMenuHost">
-              <button type="button" class="quick-action-btn" id="appsMenuToggle" aria-expanded="false" aria-controls="appsMenuPanel" title="App launcher" aria-label="App launcher">
-                <span class="quick-icon" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="M4 4h6v6H4V4zm10 0h6v6h-6V4zM4 14h6v6H4v-6zm10 0h6v6h-6v-6z" fill="currentColor"></path></svg>
-                </span>
+              <button type="button" class="quick-action-btn" id="appsMenuToggle" aria-expanded="false" aria-controls="appsMenuPanel" title="App launcher (Ctrl+K)" aria-label="App launcher">
+                <span class="quick-icon" aria-hidden="true"><i class="bi bi-grid-3x3-gap-fill"></i></span>
               </button>
               <div id="appsMenuPanel" class="apps-menu-panel" hidden>
                 <p class="apps-menu-title">Go to</p>
@@ -215,28 +251,24 @@ if ($sessionUserId > 0) {
                   <a class="apps-tile" href="<?php echo htmlspecialchars($analyticsPath); ?>"><span class="apps-tile-icon" aria-hidden="true"><i class="bi bi-graph-up"></i></span><span>Analytics</span></a>
                   <a class="apps-tile" href="<?php echo htmlspecialchars($settingsPath); ?>"><span class="apps-tile-icon" aria-hidden="true"><i class="bi bi-gear"></i></span><span>Settings</span></a>
                   <?php if (in_array($sessionRoleKey, ['admin', 'superadmin'], true)): ?>
-                    <a class="apps-tile" href="<?php echo htmlspecialchars($adminSettingsPath); ?>"><span class="apps-tile-icon" aria-hidden="true"><i class="bi bi-people"></i></span><span>Admin Settings</span></a>
+                    <a class="apps-tile" href="<?php echo htmlspecialchars($adminSettingsPath); ?>"><span class="apps-tile-icon" aria-hidden="true"><i class="bi bi-shield-lock"></i></span><span>Admin Settings</span></a>
                   <?php endif; ?>
                 </div>
               </div>
             </div>
             <a class="quick-action-btn quick-mail-btn" href="<?php echo htmlspecialchars($mailHomePath); ?>" title="Station mail" aria-label="Open station mail">
-              <span class="quick-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="M4 6h16v12H4V6zm2 2 6 4 6-4V6H6v2zm0 8V9.5l6 4 6-4V16H6z" fill="currentColor"></path></svg>
-              </span>
+              <span class="quick-icon" aria-hidden="true"><i class="bi bi-envelope-fill"></i></span>
             </a>
 
             <div class="alerts-menu">
               <button type="button" class="quick-action-btn alerts-btn" id="alertsMenuToggle" aria-expanded="false" aria-controls="alertsMenuPanel" title="Notifications" aria-label="Notifications">
-                <span class="quick-icon" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="M12 3a5 5 0 0 0-5 5v2.2c0 .8-.2 1.6-.6 2.3L5 15.2V17h14v-1.8l-1.4-1.7c-.4-.7-.6-1.5-.6-2.3V8a5 5 0 0 0-5-5zm0 18a2.2 2.2 0 0 0 2.1-1.5H9.9A2.2 2.2 0 0 0 12 21z" fill="currentColor"></path></svg>
-                </span>
+                <span class="quick-icon" aria-hidden="true"><i class="bi bi-bell-fill"></i></span>
                 <span class="alerts-count" aria-hidden="true">0</span>
               </button>
               <div id="alertsMenuPanel" class="alerts-menu-panel" hidden>
                 <p class="alerts-menu-title">Recent Alerts</p>
                 <ul class="alerts-menu-list"></ul>
-                <a href="<?php echo htmlspecialchars($calendarPath); ?>" class="alerts-menu-link">Open calendar</a>
+                <a href="<?php echo htmlspecialchars($calendarPath); ?>" class="alerts-menu-link"><i class="bi bi-calendar3" aria-hidden="true"></i>Open calendar</a>
               </div>
             </div>
 
@@ -258,9 +290,10 @@ if ($sessionUserId > 0) {
                   <p class="profile-menu-name"><?php echo htmlspecialchars($sessionUsername); ?></p>
                   <p class="profile-menu-role"><span class="role-chip"><?php echo htmlspecialchars($sessionRole); ?></span></p>
                 </div>
-                <a href="<?php echo htmlspecialchars($settingsPath); ?>" class="profile-menu-link profile-settings-link">Settings</a>
-                <a href="<?php echo htmlspecialchars($calendarPath); ?>" class="profile-menu-link">My calendar</a>
-                <a href="/firenet/NEWFIRENET/backend/controllers/logout.php" class="profile-logout-link">Log out</a>
+                <a href="<?php echo htmlspecialchars($settingsPath); ?>" class="profile-menu-link profile-settings-link"><i class="bi bi-gear" aria-hidden="true"></i>Settings</a>
+                <a href="<?php echo htmlspecialchars($calendarPath); ?>" class="profile-menu-link"><i class="bi bi-calendar-check" aria-hidden="true"></i>My calendar</a>
+                <a href="/firenet/NEWFIRENET/pages/civilian.html" class="profile-menu-link" target="_blank" rel="noopener"><i class="bi bi-broadcast" aria-hidden="true"></i>Public portal</a>
+                <a href="/firenet/NEWFIRENET/backend/controllers/logout.php" class="profile-logout-link"><i class="bi bi-box-arrow-right" aria-hidden="true"></i>Log out</a>
               </div>
             </div>
           </div>
@@ -378,6 +411,14 @@ if ($sessionUserId > 0) {
                   <span class="sidebar-link-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M6 3h12a2 2 0 0 1 2 2v14l-4-2-4 2-4-2-4 2V5a2 2 0 0 1 2-2zm2 4v2h8V7H8zm0 4v2h8v-2H8z"/></svg></span>
                   <span class="sidebar-link-text">Public Notices</span>
                 </a>
+                <a href="<?php echo htmlspecialchars($adminSettingsPath . '?tab=alerts'); ?>" class="sidebar-link sidebar-link--sub<?php echo $adminSettingsOpen && $adminSettingsTab === 'alerts' ? ' is-active' : ''; ?>">
+                  <span class="sidebar-link-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M12 22a2 2 0 0 0 2-2h-4a2 2 0 0 0 2 2zm6-6V11a6 6 0 1 0-12 0v5l-2 2v1h16v-1l-2-2z"/></svg></span>
+                  <span class="sidebar-link-text">Public Alerts</span>
+                </a>
+                <a href="<?php echo htmlspecialchars($adminSettingsPath . '?tab=system'); ?>" class="sidebar-link sidebar-link--sub<?php echo $adminSettingsOpen && $adminSettingsTab === 'system' ? ' is-active' : ''; ?>">
+                  <span class="sidebar-link-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M19.14 12.94c.04-.31.06-.63.06-.94s-.02-.63-.06-.94l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.6-.22l-2.39.96a7.1 7.1 0 0 0-1.63-.94l-.36-2.54A.5.5 0 0 0 13.9 2h-3.8a.5.5 0 0 0-.49.42l-.36 2.54c-.58.23-1.12.54-1.63.94l-2.39-.96a.5.5 0 0 0-.6.22L2.71 8.48a.5.5 0 0 0 .12.64l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94L2.83 14.52a.5.5 0 0 0-.12.64l1.92 3.32c.13.23.4.32.64.22l2.39-.96c.5.4 1.05.72 1.63.94l.36 2.54c.05.24.25.42.49.42h3.8c.24 0 .44-.18.49-.42l.36-2.54c.58-.22 1.13-.54 1.63-.94l2.39.96c.24.1.51 0 .64-.22l1.92-3.32a.5.5 0 0 0-.12-.64l-2.03-1.58zM12 15.5A3.5 3.5 0 1 1 12 8a3.5 3.5 0 0 1 0 7.5z"/></svg></span>
+                  <span class="sidebar-link-text">System</span>
+                </a>
                 <?php if ($sessionRoleKey === 'superadmin'): ?>
                 <a href="<?php echo htmlspecialchars($adminSettingsPath . '?tab=substations'); ?>" class="sidebar-link sidebar-link--sub<?php echo $adminSettingsOpen && $adminSettingsTab === 'substations' ? ' is-active' : ''; ?>">
                   <span class="sidebar-link-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M4 20h16v2H4v-2zm2-2V8l5-4 5 4v10h2V9l-7-5-7 5v9h2zm3 0h4v-5H9v5z"/></svg></span>
@@ -392,6 +433,22 @@ if ($sessionUserId > 0) {
             </details>
           <?php endif; ?>
         </nav>
+        <div class="sidebar-foot">
+          <a class="sidebar-user-card" href="<?php echo htmlspecialchars($settingsPath); ?>" title="Open your settings">
+            <span class="sidebar-user-avatar" aria-hidden="true">
+              <?php if ($headerProfilePhotoUrl !== ''): ?>
+                <img src="<?php echo htmlspecialchars($headerProfilePhotoUrl); ?>" alt="">
+              <?php else: ?>
+                <span><?php echo htmlspecialchars($headerProfileInitials); ?></span>
+              <?php endif; ?>
+            </span>
+            <span class="sidebar-user-copy">
+              <span class="sidebar-user-name"><?php echo htmlspecialchars($sessionUsername); ?></span>
+              <span class="sidebar-user-station"><?php echo htmlspecialchars($sessionStationName); ?></span>
+            </span>
+            <i class="bi bi-chevron-right sidebar-user-go" aria-hidden="true"></i>
+          </a>
+        </div>
       </aside>
       <main class="app-main">
   <?php else: ?>

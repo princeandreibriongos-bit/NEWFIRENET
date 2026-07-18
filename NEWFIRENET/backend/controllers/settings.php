@@ -150,7 +150,11 @@ function firenet_user_settings_defaults(): array {
     return [
         'compactMode' => false,
         'reduceMotion' => false,
-        'darkMode' => false,
+        'darkMode' => false, // stored meaning: compact sidebar
+        'largeText' => false,
+        'preferredLanding' => 'dashboard',
+        'soundNotifications' => false,
+        'desktopNotifications' => false,
         'securityAlerts' => true,
         'hideSensitive' => false,
         'autoLogoutMinutes' => 30
@@ -182,6 +186,10 @@ function firenet_ensure_user_settings_table(PDO $pdo): void {
         compact_mode TINYINT(1) NOT NULL DEFAULT 0,
         reduce_motion TINYINT(1) NOT NULL DEFAULT 0,
         dark_mode TINYINT(1) NOT NULL DEFAULT 0,
+        large_text TINYINT(1) NOT NULL DEFAULT 0,
+        preferred_landing VARCHAR(40) NOT NULL DEFAULT \'dashboard\',
+        sound_notifications TINYINT(1) NOT NULL DEFAULT 0,
+        desktop_notifications TINYINT(1) NOT NULL DEFAULT 0,
         security_alerts TINYINT(1) NOT NULL DEFAULT 1,
         hide_sensitive TINYINT(1) NOT NULL DEFAULT 0,
         auto_logout_minutes INT NOT NULL DEFAULT 30,
@@ -212,6 +220,25 @@ function firenet_ensure_user_settings_table(PDO $pdo): void {
     if (!firenet_user_settings_column_exists($pdo, 'auto_logout_minutes')) {
         $pdo->exec('ALTER TABLE user_settings ADD COLUMN auto_logout_minutes INT NOT NULL DEFAULT 30 AFTER hide_sensitive');
     }
+    if (!firenet_user_settings_column_exists($pdo, 'large_text')) {
+        $pdo->exec('ALTER TABLE user_settings ADD COLUMN large_text TINYINT(1) NOT NULL DEFAULT 0 AFTER dark_mode');
+    }
+    if (!firenet_user_settings_column_exists($pdo, 'preferred_landing')) {
+        $pdo->exec("ALTER TABLE user_settings ADD COLUMN preferred_landing VARCHAR(40) NOT NULL DEFAULT 'dashboard' AFTER large_text");
+    }
+    if (!firenet_user_settings_column_exists($pdo, 'sound_notifications')) {
+        $pdo->exec('ALTER TABLE user_settings ADD COLUMN sound_notifications TINYINT(1) NOT NULL DEFAULT 0 AFTER preferred_landing');
+    }
+    if (!firenet_user_settings_column_exists($pdo, 'desktop_notifications')) {
+        $pdo->exec('ALTER TABLE user_settings ADD COLUMN desktop_notifications TINYINT(1) NOT NULL DEFAULT 0 AFTER sound_notifications');
+    }
+}
+
+function firenet_normalize_preferred_landing(string $value): string
+{
+    $value = strtolower(trim($value));
+    $allowed = ['dashboard', 'calendar', 'reports', 'station_mails', 'analytics', 'settings'];
+    return in_array($value, $allowed, true) ? $value : 'dashboard';
 }
 
 function firenet_load_user_settings(PDO $pdo, int $userId): array {
@@ -223,7 +250,11 @@ function firenet_load_user_settings(PDO $pdo, int $userId): array {
         return $settings;
     }
 
-    $stmt = $pdo->prepare('SELECT compact_mode, reduce_motion, dark_mode, security_alerts, hide_sensitive, auto_logout_minutes FROM user_settings WHERE user_id = ? LIMIT 1');
+    $stmt = $pdo->prepare(
+        'SELECT compact_mode, reduce_motion, dark_mode, large_text, preferred_landing,
+                sound_notifications, desktop_notifications, security_alerts, hide_sensitive, auto_logout_minutes
+         FROM user_settings WHERE user_id = ? LIMIT 1'
+    );
     $stmt->execute([$userId]);
     $row = $stmt->fetch(PDO::FETCH_ASSOC);
     if (!$row) {
@@ -234,6 +265,10 @@ function firenet_load_user_settings(PDO $pdo, int $userId): array {
         'compactMode' => ((int) ($row['compact_mode'] ?? 0)) === 1,
         'reduceMotion' => ((int) ($row['reduce_motion'] ?? 0)) === 1,
         'darkMode' => ((int) ($row['dark_mode'] ?? 0)) === 1,
+        'largeText' => ((int) ($row['large_text'] ?? 0)) === 1,
+        'preferredLanding' => firenet_normalize_preferred_landing((string) ($row['preferred_landing'] ?? 'dashboard')),
+        'soundNotifications' => ((int) ($row['sound_notifications'] ?? 0)) === 1,
+        'desktopNotifications' => ((int) ($row['desktop_notifications'] ?? 0)) === 1,
         'securityAlerts' => ((int) ($row['security_alerts'] ?? 0)) === 1,
         'hideSensitive' => ((int) ($row['hide_sensitive'] ?? 0)) === 1,
         'autoLogoutMinutes' => max(0, (int) ($row['auto_logout_minutes'] ?? 30))
@@ -246,14 +281,23 @@ function firenet_save_user_settings(PDO $pdo, int $userId, array $patch): array 
     $current = firenet_load_user_settings($pdo, $userId);
     $merged = array_merge($current, array_intersect_key($patch, $current));
     $merged['autoLogoutMinutes'] = max(0, (int) ($patch['autoLogoutMinutes'] ?? $current['autoLogoutMinutes'] ?? 30));
+    if (isset($patch['preferredLanding'])) {
+        $merged['preferredLanding'] = firenet_normalize_preferred_landing((string) $patch['preferredLanding']);
+    }
 
     $upsert = $pdo->prepare('
-        INSERT INTO user_settings (user_id, compact_mode, reduce_motion, dark_mode, security_alerts, hide_sensitive, auto_logout_minutes)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO user_settings (
+            user_id, compact_mode, reduce_motion, dark_mode, large_text, preferred_landing,
+            sound_notifications, desktop_notifications, security_alerts, hide_sensitive, auto_logout_minutes
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON DUPLICATE KEY UPDATE
             compact_mode = VALUES(compact_mode),
             reduce_motion = VALUES(reduce_motion),
             dark_mode = VALUES(dark_mode),
+            large_text = VALUES(large_text),
+            preferred_landing = VALUES(preferred_landing),
+            sound_notifications = VALUES(sound_notifications),
+            desktop_notifications = VALUES(desktop_notifications),
             security_alerts = VALUES(security_alerts),
             hide_sensitive = VALUES(hide_sensitive),
             auto_logout_minutes = VALUES(auto_logout_minutes),
@@ -264,6 +308,10 @@ function firenet_save_user_settings(PDO $pdo, int $userId, array $patch): array 
         $merged['compactMode'] ? 1 : 0,
         $merged['reduceMotion'] ? 1 : 0,
         $merged['darkMode'] ? 1 : 0,
+        $merged['largeText'] ? 1 : 0,
+        $merged['preferredLanding'],
+        $merged['soundNotifications'] ? 1 : 0,
+        $merged['desktopNotifications'] ? 1 : 0,
         $merged['securityAlerts'] ? 1 : 0,
         $merged['hideSensitive'] ? 1 : 0,
         $merged['autoLogoutMinutes']
@@ -674,22 +722,26 @@ try {
 
     if ($action === 'save_preferences' || $action === 'save_security') {
         $patch = [];
-        if ($action === 'save_preferences' || array_key_exists('compactMode', $input) || array_key_exists('reduceMotion', $input) || array_key_exists('darkMode', $input)) {
+        if ($action === 'save_preferences') {
             $patch['compactMode'] = filter_var($input['compactMode'] ?? false, FILTER_VALIDATE_BOOLEAN);
             $patch['reduceMotion'] = filter_var($input['reduceMotion'] ?? false, FILTER_VALIDATE_BOOLEAN);
-            $patch['darkMode'] = filter_var($input['darkMode'] ?? false, FILTER_VALIDATE_BOOLEAN);
+            $patch['darkMode'] = filter_var($input['darkMode'] ?? $input['sidebarCompact'] ?? false, FILTER_VALIDATE_BOOLEAN);
+            $patch['largeText'] = filter_var($input['largeText'] ?? false, FILTER_VALIDATE_BOOLEAN);
+            $patch['preferredLanding'] = firenet_normalize_preferred_landing((string) ($input['preferredLanding'] ?? 'dashboard'));
         }
 
-        if ($action === 'save_security' || array_key_exists('securityAlerts', $input) || array_key_exists('hideSensitive', $input) || array_key_exists('autoLogoutMinutes', $input)) {
+        if ($action === 'save_security') {
             $patch['securityAlerts'] = filter_var($input['securityAlerts'] ?? true, FILTER_VALIDATE_BOOLEAN);
             $patch['hideSensitive'] = filter_var($input['hideSensitive'] ?? false, FILTER_VALIDATE_BOOLEAN);
+            $patch['soundNotifications'] = filter_var($input['soundNotifications'] ?? false, FILTER_VALIDATE_BOOLEAN);
+            $patch['desktopNotifications'] = filter_var($input['desktopNotifications'] ?? false, FILTER_VALIDATE_BOOLEAN);
             $patch['autoLogoutMinutes'] = max(0, (int) ($input['autoLogoutMinutes'] ?? 30));
         }
 
         $settings = firenet_save_user_settings($pdo, $userId, $patch);
         echo json_encode([
             'ok' => true,
-            'message' => $action === 'save_security' ? 'Security settings saved.' : 'Preferences saved.',
+            'message' => $action === 'save_security' ? 'Security settings saved.' : 'Workspace preferences saved.',
             'settings' => $settings
         ]);
         exit;

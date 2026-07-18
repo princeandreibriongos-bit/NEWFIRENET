@@ -41,7 +41,16 @@ $config = [
         'smtp_password' => 'cwukzkykitrlynvt',
         'smtp_encryption' => 'tls',
         'from_email' => 'waterworldtest.noreply@gmail.com',
-        'from_name' => 'FireNet Security'
+        'from_name' => 'FireNet Alerts'
+    ],
+    'sms' => [
+        // provider=log stores SMS locally (no paid gateway needed for testing).
+        // For live PH SMS: set provider=semaphore, enabled=true, and your Semaphore api_key.
+        'enabled' => true,
+        'provider' => 'log',
+        'api_key' => '',
+        'sender_name' => 'FireNet',
+        'api_url' => ''
     ],
 ];
 $localR2 = __DIR__ . '/r2.local.php';

@@ -9,7 +9,8 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
-    <link rel="stylesheet" href="../assets/css/civilian.css">
+    <link rel="stylesheet" href="../assets/css/civilian.css?v=20260718h">
+    <link rel="stylesheet" href="../assets/css/portal-fx.css?v=20260718g">
     <script>
       (function () {
         try {
@@ -23,6 +24,19 @@
     </script>
 </head>
 <body data-view="home">
+    <div class="fn-loader" id="fnLoader" role="status" aria-live="polite" aria-label="Loading FireNet"
+         data-messages="Connecting to public safety feed…|Checking Makati weather &amp; warnings…|Fetching air quality &amp; seismic data…|Preparing hotlines &amp; alerts…">
+      <div class="fn-loader-core">
+        <div class="fn-loader-badge">
+          <img class="fn-loader-logo" src="../assets/img/bfpmakatilogo.jpg" alt="Makati Fire District">
+        </div>
+        <div class="fn-loader-wordmark">FIRENET</div>
+        <div class="fn-loader-sub">Makati Fire District · Public</div>
+        <div class="fn-loader-track" aria-hidden="true"><span></span></div>
+        <p class="fn-loader-status">Connecting to public safety feed…</p>
+      </div>
+    </div>
+    <div class="fn-navbar" id="fnNavbar" aria-hidden="true"></div>
     <canvas id="emberCanvas" class="ember-canvas" aria-hidden="true"></canvas>
     <div class="scene-bg" id="sceneBg" aria-hidden="true">
         <div class="scene-layer is-active" data-scene="0"></div>
@@ -45,6 +59,11 @@
             <button type="button" class="side-nav-item is-active" data-view="home" aria-current="page">
                 <i class="bi bi-house-door" aria-hidden="true"></i>
                 <span>Home</span>
+            </button>
+            <button type="button" class="side-nav-item" data-view="conditions">
+                <i class="bi bi-cloud-sun" aria-hidden="true"></i>
+                <span>Conditions</span>
+                <span class="side-nav-badge side-nav-badge--live">Live</span>
             </button>
             <button type="button" class="side-nav-item" data-view="hotlines">
                 <i class="bi bi-telephone-fill" aria-hidden="true"></i>
@@ -168,6 +187,21 @@
                             <p class="stat-value" id="rainChanceValue">—</p>
                             <p class="stat-meta">Next 24h max</p>
                         </div>
+                        <div class="metric">
+                            <p class="stat-label">Feels like</p>
+                            <p class="stat-value" id="feelsLikeValue">—</p>
+                            <p class="stat-meta">Heat index</p>
+                        </div>
+                        <div class="metric metric--aqi">
+                            <p class="stat-label">Air quality</p>
+                            <p class="stat-value" id="aqiHomeValue">—</p>
+                            <p class="stat-meta" id="aqiHomeMeta">US AQI</p>
+                        </div>
+                        <button type="button" class="metrics-more" data-view="conditions">
+                            <i class="bi bi-graph-up-arrow" aria-hidden="true"></i>
+                            Full conditions, forecast &amp; hazard center
+                            <i class="bi bi-arrow-right" aria-hidden="true"></i>
+                        </button>
                     </section>
 
                     <section class="widget widget-warnings" aria-labelledby="warningsTitle">
@@ -176,7 +210,10 @@
                                 <p class="section-tag">Live weather</p>
                                 <h3 id="warningsTitle">Typhoon &amp; storm advisories</h3>
                             </div>
-                            <span class="widget-live"><span class="pulse-dot"></span> Live</span>
+                            <div class="widget-controls">
+                                <span class="widget-live"><span class="pulse-dot"></span> Live</span>
+                                <button type="button" class="text-link" data-view="conditions">Details</button>
+                            </div>
                         </div>
                         <div id="warningsList" class="warnings-list">
                             <p class="soft-loading">Checking Open-Meteo forecast…</p>
@@ -272,6 +309,115 @@
                 </div>
             </section>
 
+            <!-- CONDITIONS / HAZARD CENTER -->
+            <section id="viewConditions" class="view-panel" data-panel="conditions" hidden aria-labelledby="conditionsTitle">
+                <header class="panel-intro panel-intro--row">
+                    <div>
+                        <p class="section-tag">Live environment</p>
+                        <h2 id="conditionsTitle">Weather &amp; hazard center</h2>
+                        <p class="panel-lead">Real-time Makati conditions, 7-day outlook, air quality, and regional earthquakes — all public data, no login.</p>
+                    </div>
+                    <span class="count-pill" id="condUpdatedPill">Updating…</span>
+                </header>
+
+                <div class="cond-grid">
+                    <section class="widget cond-now" aria-label="Current conditions">
+                        <div class="cond-now-main">
+                            <i class="bi bi-cloud-sun cond-now-icon" id="condNowIcon" aria-hidden="true"></i>
+                            <div>
+                                <p class="cond-now-temp" id="condNowTemp">—°</p>
+                                <p class="cond-now-label" id="condNowLabel">Loading…</p>
+                                <p class="cond-now-sub" id="condNowSub">Makati, Metro Manila</p>
+                            </div>
+                        </div>
+                        <div class="cond-detail-grid" id="condDetailGrid">
+                            <div class="cond-detail"><i class="bi bi-thermometer-half"></i><span>Feels like</span><strong id="condFeels">—</strong></div>
+                            <div class="cond-detail"><i class="bi bi-wind"></i><span>Wind</span><strong id="condWind">—</strong></div>
+                            <div class="cond-detail"><i class="bi bi-tornado"></i><span>Gusts</span><strong id="condGusts">—</strong></div>
+                            <div class="cond-detail"><i class="bi bi-droplet-half"></i><span>Humidity</span><strong id="condHumidity">—</strong></div>
+                            <div class="cond-detail"><i class="bi bi-speedometer2"></i><span>Pressure</span><strong id="condPressure">—</strong></div>
+                            <div class="cond-detail"><i class="bi bi-clouds"></i><span>Cloud cover</span><strong id="condClouds">—</strong></div>
+                            <div class="cond-detail"><i class="bi bi-sun"></i><span>UV index max</span><strong id="condUv">—</strong></div>
+                            <div class="cond-detail"><i class="bi bi-cloud-rain"></i><span>Rain now</span><strong id="condPrecip">—</strong></div>
+                        </div>
+                    </section>
+
+                    <section class="widget cond-sun" aria-label="Sunrise and sunset">
+                        <p class="section-tag">Daylight</p>
+                        <div class="sun-arc" aria-hidden="true">
+                            <div class="sun-arc-track"><span class="sun-arc-dot" id="sunArcDot"></span></div>
+                        </div>
+                        <div class="sun-times">
+                            <div><i class="bi bi-sunrise"></i><span>Sunrise</span><strong id="sunriseTime">—</strong></div>
+                            <div><i class="bi bi-sunset"></i><span>Sunset</span><strong id="sunsetTime">—</strong></div>
+                            <div><i class="bi bi-hourglass-split"></i><span>Daylight</span><strong id="daylightSpan">—</strong></div>
+                        </div>
+                    </section>
+
+                    <section class="widget cond-forecast" aria-labelledby="forecastTitle">
+                        <div class="section-head">
+                            <div>
+                                <p class="section-tag">Outlook</p>
+                                <h3 id="forecastTitle">7-day forecast</h3>
+                            </div>
+                            <span class="widget-live"><span class="pulse-dot"></span> Open-Meteo</span>
+                        </div>
+                        <div class="forecast-strip" id="forecastStrip">
+                            <p class="soft-loading">Loading forecast…</p>
+                        </div>
+                    </section>
+
+                    <section class="widget cond-rain" aria-labelledby="rainChartTitle">
+                        <div class="section-head">
+                            <div>
+                                <p class="section-tag">Next 24 hours</p>
+                                <h3 id="rainChartTitle">Rain probability</h3>
+                            </div>
+                        </div>
+                        <div class="rain-bars" id="rainBars" role="img" aria-label="Hourly rain probability chart">
+                            <p class="soft-loading">Loading…</p>
+                        </div>
+                    </section>
+
+                    <section class="widget cond-aqi" aria-labelledby="aqiTitle" id="aqiCard">
+                        <div class="section-head">
+                            <div>
+                                <p class="section-tag">Air quality</p>
+                                <h3 id="aqiTitle">Breathing conditions</h3>
+                            </div>
+                            <span class="widget-live"><span class="pulse-dot"></span> Live</span>
+                        </div>
+                        <div class="aqi-body">
+                            <div class="aqi-dial">
+                                <span class="aqi-value" id="aqiValue">—</span>
+                                <span class="aqi-scale">US AQI</span>
+                            </div>
+                            <div class="aqi-info">
+                                <p class="aqi-category" id="aqiCategory">Checking…</p>
+                                <p class="aqi-advice" id="aqiAdvice">Fetching PM2.5 and pollutant levels for Makati.</p>
+                                <div class="aqi-pollutants" id="aqiPollutants"></div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="widget cond-quakes" aria-labelledby="quakesTitle">
+                        <div class="section-head">
+                            <div>
+                                <p class="section-tag">Seismic watch</p>
+                                <h3 id="quakesTitle">Recent earthquakes near Metro Manila</h3>
+                            </div>
+                            <span class="widget-live"><span class="pulse-dot"></span> USGS</span>
+                        </div>
+                        <div class="quake-list" id="quakeList">
+                            <p class="soft-loading">Querying USGS seismic feed…</p>
+                        </div>
+                        <p class="cond-footnote">Magnitude 3.5+ within ~400 km of Makati, last 30 days. Source: USGS. For official PH bulletins check PHIVOLCS.</p>
+                    </section>
+                </div>
+
+                <p class="cond-sources">Data: <a href="https://open-meteo.com/" target="_blank" rel="noopener noreferrer">Open-Meteo</a> (weather &amp; air quality) · <a href="https://earthquake.usgs.gov/" target="_blank" rel="noopener noreferrer">USGS</a> (earthquakes). Advisory only — follow PAGASA / PHIVOLCS / BFP official channels for directives.</p>
+            </section>
+
             <!-- HOTLINES -->
             <section id="viewHotlines" class="view-panel" data-panel="hotlines" hidden aria-labelledby="hotlinesTitle">
                 <header class="panel-intro">
@@ -279,6 +425,28 @@
                     <h2 id="hotlinesTitle">Hotlines that open your dialer</h2>
                     <p class="panel-lead">Tap any number — your phone or PC dialer starts the call when supported.</p>
                 </header>
+
+                <div class="widget share-loc" aria-labelledby="shareLocTitle">
+                    <div class="share-loc-copy">
+                        <p class="section-tag">Caller helper</p>
+                        <h3 id="shareLocTitle">Pin my exact location</h3>
+                        <p>Responders need your exact spot. Tap once — we build a map pin link you can read out or paste to the dispatcher.</p>
+                    </div>
+                    <div class="share-loc-action">
+                        <button type="button" class="btn-primary" id="shareLocationBtn">
+                            <i class="bi bi-crosshair" aria-hidden="true"></i>
+                            <span id="shareLocationBtnText">Get my location</span>
+                        </button>
+                        <div class="share-loc-out" id="shareLocationOut" hidden>
+                            <p class="share-loc-coords" id="shareLocationCoords">—</p>
+                            <div class="share-loc-links">
+                                <a id="shareLocationMap" href="#" target="_blank" rel="noopener noreferrer"><i class="bi bi-map"></i> Open map</a>
+                                <button type="button" id="shareLocationCopy"><i class="bi bi-clipboard-check"></i> Copy link</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="hotline-board">
                     <a class="hotline-card hotline-card--hero" href="tel:168">
                         <div class="hotline-card-icon"><i class="bi bi-broadcast" aria-hidden="true"></i></div>
@@ -390,14 +558,14 @@
 
                 <div class="alerts-layout">
                     <form id="alertSubscribeForm" class="widget alerts-form" novalidate>
-                        <div class="alerts-channels">
+                        <div class="alerts-channels" role="group" aria-label="Alert delivery channels">
                             <label class="channel-toggle">
                                 <input type="checkbox" id="channelEmail" checked>
-                                <span><i class="bi bi-envelope"></i> Email</span>
+                                <span><i class="bi bi-envelope" aria-hidden="true"></i> Email</span>
                             </label>
                             <label class="channel-toggle">
                                 <input type="checkbox" id="channelSms" checked>
-                                <span><i class="bi bi-phone"></i> SMS</span>
+                                <span><i class="bi bi-phone" aria-hidden="true"></i> SMS</span>
                             </label>
                         </div>
 
@@ -471,6 +639,11 @@
 
     <div class="nav-scrim" id="navScrim" hidden></div>
 
+    <div id="portalMaintenanceBanner" class="portal-maintenance-banner" hidden role="status">
+        <i class="bi bi-tools" aria-hidden="true"></i>
+        <p id="portalMaintenanceText"></p>
+    </div>
+
     <div id="articleModal" class="article-modal" hidden role="dialog" aria-modal="true" aria-labelledby="articleTitle">
         <button type="button" class="article-modal-backdrop" data-close-article aria-label="Close article"></button>
         <div class="article-modal-card">
@@ -483,6 +656,7 @@
         </div>
     </div>
 
-    <script src="../assets/js/civilian.js"></script>
+    <script src="../assets/js/portal-fx.js?v=20260718g"></script>
+    <script src="../assets/js/civilian.js?v=20260718g"></script>
 </body>
 </html>

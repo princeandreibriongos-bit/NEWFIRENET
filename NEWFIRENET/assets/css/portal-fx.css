@@ -1,0 +1,490 @@
+/* FireNet portal FX — branded loader, scroll reveal, ripple, nav progress, back-to-top */
+
+/* ─────────────────────────────────────────
+   1. Station-branded loading screen
+   ───────────────────────────────────────── */
+.fn-loader {
+  position: fixed;
+  inset: 0;
+  z-index: 100000;
+  display: grid;
+  place-items: center;
+  background:
+    radial-gradient(1200px 600px at 50% -10%, rgba(179, 25, 38, 0.22), transparent 60%),
+    radial-gradient(900px 500px at 50% 120%, rgba(201, 162, 77, 0.16), transparent 55%),
+    linear-gradient(165deg, #10161f 0%, #0b0f16 60%, #070a0f 100%);
+  opacity: 1;
+  transition: opacity 0.55s ease, visibility 0.55s ease;
+}
+
+html[data-theme="light"] .fn-loader {
+  background:
+    radial-gradient(1200px 600px at 50% -10%, rgba(179, 25, 38, 0.14), transparent 60%),
+    radial-gradient(900px 500px at 50% 120%, rgba(201, 162, 77, 0.16), transparent 55%),
+    linear-gradient(165deg, #f3f6fb 0%, #e7edf5 60%, #dde5ef 100%);
+}
+
+.fn-loader.is-hiding {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.fn-loader.is-removed {
+  display: none !important;
+}
+
+.fn-loader::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+  background-size: 46px 46px;
+  mask-image: radial-gradient(circle at 50% 45%, #000 0%, transparent 72%);
+  -webkit-mask-image: radial-gradient(circle at 50% 45%, #000 0%, transparent 72%);
+  opacity: 0.6;
+}
+
+.fn-loader-core {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 1.35rem;
+  text-align: center;
+  padding: 1.5rem;
+  animation: fnLoaderCoreIn 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes fnLoaderCoreIn {
+  from { opacity: 0; transform: translateY(16px) scale(0.96); }
+  to { opacity: 1; transform: none; }
+}
+
+.fn-loader-badge {
+  position: relative;
+  width: 132px;
+  height: 132px;
+  display: grid;
+  place-items: center;
+}
+
+/* rotating conic ring */
+.fn-loader-badge::before {
+  content: '';
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+  background: conic-gradient(
+    from 0deg,
+    rgba(212, 37, 54, 0) 0deg,
+    rgba(212, 37, 54, 0.85) 90deg,
+    rgba(201, 162, 77, 0.9) 200deg,
+    rgba(212, 37, 54, 0) 320deg
+  );
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3px));
+  animation: fnSpin 2.4s linear infinite;
+}
+
+/* pulsing siren rings */
+.fn-loader-badge::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  box-shadow: 0 0 0 0 rgba(212, 37, 54, 0.55);
+  animation: fnSiren 1.9s ease-out infinite;
+}
+
+@keyframes fnSpin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes fnSiren {
+  0% { box-shadow: 0 0 0 0 rgba(212, 37, 54, 0.5), 0 0 0 0 rgba(201, 162, 77, 0.35); }
+  70% { box-shadow: 0 0 0 26px rgba(212, 37, 54, 0), 0 0 0 42px rgba(201, 162, 77, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(212, 37, 54, 0), 0 0 0 0 rgba(201, 162, 77, 0); }
+}
+
+.fn-loader-logo {
+  width: 104px;
+  height: 104px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid rgba(255, 255, 255, 0.9);
+  box-shadow:
+    0 0 0 4px rgba(179, 25, 38, 0.4),
+    0 14px 40px rgba(0, 0, 0, 0.5);
+  background: #10161f;
+  animation: fnLogoPulse 2.4s ease-in-out infinite;
+}
+
+@keyframes fnLogoPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+.fn-loader-wordmark {
+  font-family: "Sora", "Manrope", sans-serif;
+  font-weight: 700;
+  font-size: clamp(1.6rem, 4vw, 2.25rem);
+  letter-spacing: 0.35em;
+  padding-left: 0.35em;
+  background: linear-gradient(100deg, #ffffff 0%, #f0d9a0 45%, #ff8a80 60%, #ffffff 78%);
+  background-size: 220% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: fnShimmer 2.6s linear infinite;
+}
+
+html[data-theme="light"] .fn-loader-wordmark {
+  background: linear-gradient(100deg, #121a24 0%, #b31926 48%, #c9a24d 62%, #121a24 82%);
+  background-size: 220% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+@keyframes fnShimmer {
+  to { background-position: -220% 0; }
+}
+
+.fn-loader-sub {
+  margin-top: -0.65rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: rgba(226, 235, 248, 0.62);
+}
+
+html[data-theme="light"] .fn-loader-sub {
+  color: #5a687c;
+}
+
+.fn-loader-track {
+  position: relative;
+  width: min(280px, 62vw);
+  height: 4px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+html[data-theme="light"] .fn-loader-track {
+  background: rgba(18, 26, 36, 0.12);
+}
+
+.fn-loader-track span {
+  position: absolute;
+  inset: 0;
+  width: 40%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, rgba(212, 37, 54, 0.2), #d42536 40%, #f0c674 75%, rgba(240, 198, 116, 0.2));
+  animation: fnTrack 1.25s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+}
+
+@keyframes fnTrack {
+  0% { left: -42%; }
+  100% { left: 102%; }
+}
+
+.fn-loader-status {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: rgba(226, 235, 248, 0.7);
+  min-height: 1.1em;
+  transition: opacity 0.3s ease;
+}
+
+html[data-theme="light"] .fn-loader-status {
+  color: #4a5568;
+}
+
+.fn-loader-status.is-swapping {
+  opacity: 0;
+}
+
+/* ─────────────────────────────────────────
+   2. Top navigation progress bar
+   ───────────────────────────────────────── */
+.fn-navbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 3px;
+  width: 0;
+  z-index: 99999;
+  background: linear-gradient(90deg, #b31926, #d42536 55%, #f0c674);
+  box-shadow: 0 0 12px rgba(212, 37, 54, 0.6);
+  opacity: 0;
+  transition: width 0.2s ease, opacity 0.3s ease;
+  pointer-events: none;
+}
+
+.fn-navbar.is-active {
+  opacity: 1;
+}
+
+/* ─────────────────────────────────────────
+   3. Scroll reveal (JS-driven; safe by default)
+   ───────────────────────────────────────── */
+.fx-reveal {
+  opacity: 0;
+  transform: translateY(16px);
+  will-change: opacity, transform;
+}
+
+.fx-reveal.fx-in {
+  opacity: 1;
+  transform: none;
+  transition: opacity 0.55s cubic-bezier(0.22, 1, 0.36, 1),
+              transform 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* ─────────────────────────────────────────
+   4. Ripple effect
+   ───────────────────────────────────────── */
+.fx-ripple-host {
+  position: relative;
+  overflow: hidden;
+}
+
+.fx-ripple {
+  position: absolute;
+  border-radius: 50%;
+  transform: scale(0);
+  background: rgba(255, 255, 255, 0.4);
+  pointer-events: none;
+  animation: fnRipple 0.6s ease-out forwards;
+  mix-blend-mode: overlay;
+}
+
+@keyframes fnRipple {
+  to { transform: scale(2.6); opacity: 0; }
+}
+
+/* ─────────────────────────────────────────
+   5. Back-to-top button
+   ───────────────────────────────────────── */
+.fn-to-top {
+  position: fixed;
+  right: clamp(0.9rem, 2vw, 1.6rem);
+  bottom: clamp(0.9rem, 2vw, 1.6rem);
+  z-index: 90;
+  width: 44px;
+  height: 44px;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 50%;
+  background: linear-gradient(145deg, #1c2634, #121920);
+  color: #f4f7fb;
+  cursor: pointer;
+  font-size: 1.1rem;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.35);
+  opacity: 0;
+  transform: translateY(16px) scale(0.9);
+  pointer-events: none;
+  transition: opacity 0.25s ease, transform 0.25s cubic-bezier(0.22, 1, 0.36, 1), background 0.2s ease, border-color 0.2s ease;
+}
+
+html[data-theme="light"] .fn-to-top {
+  background: linear-gradient(145deg, #ffffff, #eef2f7);
+  color: #b31926;
+  border-color: rgba(27, 36, 48, 0.14);
+  box-shadow: 0 10px 26px rgba(18, 26, 36, 0.16);
+}
+
+.fn-to-top.is-visible {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+}
+
+.fn-to-top:hover {
+  transform: translateY(-3px);
+  border-color: rgba(212, 37, 54, 0.55);
+}
+
+/* ─────────────────────────────────────────
+   6. Toast notifications (shared helper)
+   ───────────────────────────────────────── */
+.fn-toast-stack {
+  position: fixed;
+  right: clamp(0.75rem, 2vw, 1.4rem);
+  bottom: clamp(4rem, 8vw, 5.5rem);
+  z-index: 95;
+  display: grid;
+  gap: 0.6rem;
+  width: min(22rem, calc(100vw - 1.5rem));
+  pointer-events: none;
+}
+
+.fn-toast {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  padding: 0.8rem 0.9rem;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: linear-gradient(165deg, rgba(22, 30, 42, 0.98), rgba(14, 19, 28, 0.98));
+  color: #edf3ff;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.4);
+  transform: translateX(120%);
+  opacity: 0;
+  transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.4s ease;
+  pointer-events: auto;
+}
+
+html[data-theme="light"] .fn-toast {
+  background: linear-gradient(165deg, #ffffff, #f4f7fc);
+  color: #121a24;
+  border-color: rgba(27, 36, 48, 0.12);
+  box-shadow: 0 18px 40px rgba(18, 26, 36, 0.16);
+}
+
+.fn-toast.is-in {
+  transform: none;
+  opacity: 1;
+}
+
+.fn-toast i {
+  font-size: 1.15rem;
+  line-height: 1.2;
+}
+
+.fn-toast--success i { color: #4ade80; }
+.fn-toast--error i { color: #f87171; }
+.fn-toast--info i { color: #f0c674; }
+
+.fn-toast-body {
+  display: grid;
+  gap: 0.1rem;
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+
+.fn-toast-body strong {
+  font-size: 0.85rem;
+  font-weight: 800;
+}
+
+/* ─────────────────────────────────────────
+   7. Global micro-polish
+   ───────────────────────────────────────── */
+body.is-authenticated * {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(212, 37, 54, 0.4) transparent;
+}
+
+body.is-authenticated *::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+body.is-authenticated *::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(212, 37, 54, 0.55), rgba(122, 16, 25, 0.55));
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+body.is-authenticated *::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, rgba(212, 37, 54, 0.8), rgba(122, 16, 25, 0.8));
+  background-clip: content-box;
+}
+
+body.is-authenticated *::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Interactive table rows */
+body.is-authenticated .app-main table tbody tr {
+  transition: background 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease;
+}
+
+body.is-authenticated .app-main table tbody tr:hover {
+  background: rgba(212, 37, 54, 0.06);
+  box-shadow: inset 3px 0 0 rgba(212, 37, 54, 0.45);
+}
+
+html[data-theme="light"] body.is-authenticated .app-main table tbody tr:hover {
+  background: rgba(179, 25, 38, 0.06);
+}
+
+/* Buttons feel tactile */
+body.is-authenticated .primary-btn,
+body.is-authenticated .secondary-btn,
+body.is-authenticated button[class*="-btn"] {
+  transition: transform 0.14s var(--ease-out), box-shadow 0.18s var(--ease-out), background 0.18s var(--ease-out), border-color 0.18s var(--ease-out), filter 0.18s ease;
+}
+
+body.is-authenticated .primary-btn:hover,
+body.is-authenticated .secondary-btn:hover {
+  transform: translateY(-1px);
+}
+
+body.is-authenticated .primary-btn:active,
+body.is-authenticated .secondary-btn:active,
+body.is-authenticated button[class*="-btn"]:active {
+  transform: translateY(0) scale(0.98);
+}
+
+body.is-authenticated .primary-btn:hover {
+  filter: brightness(1.05);
+}
+
+/* Focusable links glow */
+body.is-authenticated a:focus-visible,
+body.is-authenticated button:focus-visible {
+  outline: 2px solid rgba(212, 37, 54, 0.55);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+/* Sidebar link icon micro-motion */
+body.is-authenticated .sidebar-link-icon {
+  transition: transform 0.2s var(--ease-out);
+}
+
+body.is-authenticated .sidebar-link:hover .sidebar-link-icon {
+  transform: scale(1.12) rotate(-3deg);
+}
+
+/* Online dot breathing */
+body.is-authenticated .online-dot {
+  animation: fnBreathe 2.4s ease-in-out infinite;
+}
+
+@keyframes fnBreathe {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.5); }
+  50% { box-shadow: 0 0 0 5px rgba(74, 222, 128, 0); }
+}
+
+/* ─────────────────────────────────────────
+   8. Reduced motion
+   ───────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .fn-loader-badge::before,
+  .fn-loader-badge::after,
+  .fn-loader-logo,
+  .fn-loader-wordmark,
+  .fn-loader-track span,
+  .online-dot {
+    animation: none !important;
+  }
+
+  .fx-reveal {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+
+  .fx-ripple {
+    display: none !important;
+  }
+}

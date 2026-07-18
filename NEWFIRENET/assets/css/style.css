@@ -1371,6 +1371,35 @@ body.is-authenticated.is-compact-ui {
   --header-h: 3.95rem;
 }
 
+body.is-authenticated.is-large-text {
+  font-size: 106%;
+}
+
+body.is-authenticated.is-large-text .app-main {
+  font-size: 1.05em;
+}
+
+body.is-authenticated.is-alerts-muted .alerts-menu {
+  display: none !important;
+}
+
+body.is-authenticated.is-sensitive-hidden [data-sensitive],
+body.is-authenticated.is-sensitive-hidden .sensitive-field,
+body.is-authenticated.is-sensitive-hidden td.sensitive,
+body.is-authenticated.is-sensitive-hidden .incident-sensitive {
+  filter: blur(5px);
+  transition: filter 0.2s ease;
+}
+
+body.is-authenticated.is-sensitive-hidden [data-sensitive]:hover,
+body.is-authenticated.is-sensitive-hidden [data-sensitive]:focus,
+body.is-authenticated.is-sensitive-hidden .sensitive-field:hover,
+body.is-authenticated.is-sensitive-hidden .sensitive-field:focus,
+body.is-authenticated.is-sensitive-hidden td.sensitive:hover,
+body.is-authenticated.is-sensitive-hidden .incident-sensitive:hover {
+  filter: none;
+}
+
 body.is-authenticated.has-dashboard-bg,
 body.is-authenticated.has-reports-bg {
   background-color: #0e1218;

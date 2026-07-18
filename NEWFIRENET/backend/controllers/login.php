@@ -76,15 +76,32 @@ $_SESSION['user'] = [
 ];
 
 $role = (string) $_SESSION['user']['role'];
+$userId = (int) ($_SESSION['user']['user_id'] ?? 0);
 
-switch ($role) {
-    case 'superadmin':
-    case 'admin':
-    case 'user':
-        header('Location: /firenet/NEWFIRENET/backend/pages/dashboard.php');
-        break;
-    default:
-        header('Location: /firenet/NEWFIRENET/pages/login.html?error=Unable+to+route+account');
-        break;
+$landingMap = [
+    'dashboard' => '/firenet/NEWFIRENET/backend/pages/dashboard.php',
+    'calendar' => '/firenet/NEWFIRENET/backend/pages/calendar.php',
+    'reports' => '/firenet/NEWFIRENET/backend/pages/reports.php',
+    'station_mails' => '/firenet/NEWFIRENET/backend/pages/station_mails.php',
+    'analytics' => '/firenet/NEWFIRENET/backend/pages/analytics.php',
+    'settings' => '/firenet/NEWFIRENET/backend/pages/settings.php',
+];
+$redirect = $landingMap['dashboard'];
+
+if ($userId > 0 && in_array($role, ['superadmin', 'admin', 'user'], true)) {
+    try {
+        $prefStmt = $pdo->prepare('SELECT preferred_landing FROM user_settings WHERE user_id = ? LIMIT 1');
+        $prefStmt->execute([$userId]);
+        $pref = strtolower(trim((string) ($prefStmt->fetchColumn() ?: 'dashboard')));
+        if (isset($landingMap[$pref])) {
+            $redirect = $landingMap[$pref];
+        }
+    } catch (Throwable $ignored) {
+        // Keep dashboard default.
+    }
+    header('Location: ' . $redirect);
+    exit;
 }
+
+header('Location: /firenet/NEWFIRENET/pages/login.html?error=Unable+to+route+account');
 exit;

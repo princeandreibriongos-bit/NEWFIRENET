@@ -3,9 +3,12 @@
  * Shared PHPMailer helpers for FireNet outbound email.
  */
 
-function firenet_load_app_config(): array
+function firenet_load_app_config(bool $reload = false): array
 {
     static $config = null;
+    if ($reload) {
+        $config = null;
+    }
     if ($config !== null) {
         return $config;
     }
@@ -18,6 +21,16 @@ function firenet_load_app_config(): array
 
     $loaded = require $configFile;
     $config = is_array($loaded) ? $loaded : [];
+
+    // Overlay district System Settings (Admin → System) when available.
+    $systemSettingsFile = __DIR__ . '/system_settings.php';
+    if (is_file($systemSettingsFile)) {
+        require_once $systemSettingsFile;
+        if (function_exists('firenet_apply_system_settings_to_config')) {
+            $config = firenet_apply_system_settings_to_config($config);
+        }
+    }
+
     return $config;
 }
 

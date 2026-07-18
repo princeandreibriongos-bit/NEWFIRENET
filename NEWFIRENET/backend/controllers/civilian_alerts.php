@@ -69,9 +69,29 @@ try {
 
 $action = trim((string) ($_GET['action'] ?? $_POST['action'] ?? 'subscribe'));
 
+if ($action === 'portal_config' && strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'GET') {
+    require_once __DIR__ . '/../../includes/system_settings.php';
+    $settings = firenet_system_settings_all();
+    civilian_alerts_ok([
+        'appName' => (string) ($settings['app_name'] ?? 'FireNet'),
+        'districtName' => (string) ($settings['district_name'] ?? 'Makati Fire District'),
+        'tagline' => (string) ($settings['public_tagline'] ?? ''),
+        'emergencyHotline' => (string) ($settings['emergency_hotline'] ?? '168'),
+        'centralPhone' => (string) ($settings['central_phone'] ?? ''),
+        'subscribeEnabled' => (($settings['portal_subscribe_enabled'] ?? '1') === '1'),
+        'maintenanceEnabled' => (($settings['portal_maintenance_enabled'] ?? '0') === '1'),
+        'maintenanceMessage' => (string) ($settings['portal_maintenance_message'] ?? ''),
+    ]);
+}
+
 if ($action === 'subscribe') {
     if (strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
         civilian_alerts_fail('Use POST to subscribe.', 405);
+    }
+
+    require_once __DIR__ . '/../../includes/system_settings.php';
+    if (!firenet_system_setting_bool('portal_subscribe_enabled', true)) {
+        civilian_alerts_fail('Alert subscriptions are temporarily disabled by the district.');
     }
 
     $raw = file_get_contents('php://input');

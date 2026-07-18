@@ -786,6 +786,20 @@
     interaction: { mode: 'nearest', intersect: false }
   };
 
+  function isLightTheme() {
+    return document.documentElement.getAttribute('data-theme') === 'light';
+  }
+
+  function chartPalette() {
+    const light = isLightTheme();
+    return {
+      tick: light ? '#4a5568' : '#94a3b8',
+      grid: light ? 'rgba(15, 23, 42, 0.09)' : 'rgba(148, 163, 184, 0.18)',
+      ringBorder: light ? '#ffffff' : '#0d1420',
+      tooltipBg: light ? '#1e293b' : '#0b1220'
+    };
+  }
+
   function initSpark(canvas, series, stroke, fill) {
     if (!canvas || typeof Chart === 'undefined') {
       return;
@@ -828,6 +842,7 @@
       charts.incidentTrend.destroy();
     }
 
+    const pal = chartPalette();
     charts.incidentTrend = new Chart(ctx, {
       type: 'line',
       data: {
@@ -855,7 +870,7 @@
           legend: { display: false },
           filler: { propagate: true },
           tooltip: {
-            backgroundColor: '#1e293b',
+            backgroundColor: pal.tooltipBg,
             titleFont: { size: 12 },
             bodyFont: { size: 13 },
             padding: 10,
@@ -865,12 +880,12 @@
         scales: {
           y: {
             beginAtZero: true,
-            grid: { color: 'rgba(148, 163, 184, 0.25)', drawBorder: false },
-            ticks: { color: '#64748b', font: { size: 11 } }
+            grid: { color: pal.grid, drawBorder: false },
+            ticks: { color: pal.tick, font: { size: 11 } }
           },
           x: {
             grid: { display: false, drawBorder: false },
-            ticks: { color: '#64748b', font: { size: 11 }, maxRotation: 0 }
+            ticks: { color: pal.tick, font: { size: 11 }, maxRotation: 0 }
           }
         }
       }
@@ -890,6 +905,7 @@
       charts.weeklyBar.destroy();
     }
 
+    const pal = chartPalette();
     charts.weeklyBar = new Chart(ctx, {
       type: 'bar',
       data: {
@@ -911,12 +927,12 @@
         scales: {
           y: {
             beginAtZero: true,
-            ticks: { stepSize: 1, color: '#64748b', font: { size: 11 } },
-            grid: { color: 'rgba(148, 163, 184, 0.2)' }
+            ticks: { stepSize: 1, color: pal.tick, font: { size: 11 } },
+            grid: { color: pal.grid }
           },
           x: {
             grid: { display: false },
-            ticks: { color: '#64748b', font: { size: 10 }, maxRotation: 45 }
+            ticks: { color: pal.tick, font: { size: 10 }, maxRotation: 45 }
           }
         }
       }
@@ -938,6 +954,7 @@
       charts.stationHealth.destroy();
     }
 
+    const pal = chartPalette();
     charts.stationHealth = new Chart(ctx, {
       type: 'doughnut',
       data: {

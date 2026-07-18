@@ -210,11 +210,13 @@
     }, 3200);
   }
 
+  const usersTabNames = ['accounts', 'news', 'notices', 'substations', 'alerts', 'system'];
+
   function readRequestedTab() {
     try {
       const params = new URLSearchParams(window.location.search || '');
       const requested = String(params.get('tab') || '').toLowerCase();
-      return ['accounts', 'news', 'notices', 'substations'].indexOf(requested) >= 0 ? requested : '';
+      return usersTabNames.indexOf(requested) >= 0 ? requested : '';
     } catch (error) {
       return '';
     }
@@ -222,7 +224,7 @@
 
   function getPreferredUsersTab() {
     const fromContext = String(context.activeTab || '').toLowerCase();
-    if (['accounts', 'news', 'notices', 'substations'].indexOf(fromContext) >= 0) {
+    if (usersTabNames.indexOf(fromContext) >= 0) {
       return fromContext;
     }
     const fromUrl = readRequestedTab();
@@ -231,7 +233,7 @@
     }
     try {
       const stored = String(localStorage.getItem(usersTabStorageKey) || '').toLowerCase();
-      if (['accounts', 'news', 'notices', 'substations'].indexOf(stored) >= 0) {
+      if (usersTabNames.indexOf(stored) >= 0) {
         return stored;
       }
     } catch (error) {
@@ -241,7 +243,7 @@
   }
 
   function setActiveTab(tabName) {
-    const nextTab = ['accounts', 'news', 'notices', 'substations'].indexOf(String(tabName || '')) >= 0 ? String(tabName) : 'accounts';
+    const nextTab = usersTabNames.indexOf(String(tabName || '')) >= 0 ? String(tabName) : 'accounts';
 
     usersTabButtons.forEach(function (button) {
       const isActive = button.getAttribute('data-users-tab') === nextTab;
@@ -268,11 +270,23 @@
     }
 
     if (usersHeroTitle) {
-      usersHeroTitle.textContent = nextTab === 'substations' ? 'Substations' : 'Admin Settings';
+      if (nextTab === 'substations') {
+        usersHeroTitle.textContent = 'Substations';
+      } else if (nextTab === 'alerts') {
+        usersHeroTitle.textContent = 'Public Alerts';
+      } else if (nextTab === 'system') {
+        usersHeroTitle.textContent = 'System Settings';
+      } else {
+        usersHeroTitle.textContent = 'Admin Settings';
+      }
     }
     if (usersWelcomeText) {
       if (nextTab === 'substations') {
         usersWelcomeText.textContent = 'Create, edit, and review all substations and assigned coordinates across the district.';
+      } else if (nextTab === 'alerts') {
+        usersWelcomeText.textContent = 'Broadcast Gmail and SMS alerts to civilians who subscribed on the public portal.';
+      } else if (nextTab === 'system') {
+        usersWelcomeText.textContent = 'District identity, integrations, public portal, and security defaults in one place.';
       } else if (isSuperadminPage) {
         usersWelcomeText.textContent = 'Manage substations, assigned admins, personnel accounts, login updates, and public notices across all stations.';
       } else {
@@ -280,10 +294,20 @@
       }
     }
     if (openUserModalBtn) {
-      openUserModalBtn.hidden = nextTab === 'substations';
+      openUserModalBtn.hidden = nextTab === 'substations' || nextTab === 'alerts' || nextTab === 'news' || nextTab === 'notices' || nextTab === 'system';
     }
     if (openSubstationModalBtn) {
       openSubstationModalBtn.hidden = nextTab !== 'substations' || !isSuperadminPage;
+    }
+    if (nextTab === 'alerts') {
+      loadCivilianAlertStats().catch(function () {
+        // surface via form message inside loader
+      });
+    }
+    if (nextTab === 'system') {
+      loadSystemSettings().catch(function () {
+        // surface via form message inside loader
+      });
     }
   }
 
@@ -2652,6 +2676,628 @@
       event.preventDefault();
       publishAnnouncement().catch(function (error) {
         setAnnouncementMessage(error.message || 'Unable to publish announcement.', true);
+      });
+    });
+  }
+
+  const civilianAlertsApiUrl = String(context.civilianAlertsApiUrl || '/firenet/NEWFIRENET/backend/controllers/admin_civilian_alerts.php');
+  const refreshCivilianAlertsBtn = document.getElementById('refreshCivilianAlertsBtn');
+  const civilianAlertBroadcastForm = document.getElementById('civilianAlertBroadcastForm');
+  const civilianAlertSubject = document.getElementById('civilianAlertSubject');
+  const civilianAlertBody = document.getElementById('civilianAlertBody');
+  const civilianAlertTopic = document.getElementById('civilianAlertTopic');
+  const civilianAlertBarangay = document.getElementById('civilianAlertBarangay');
+  const civilianAlertSendEmail = document.getElementById('civilianAlertSendEmail');
+  const civilianAlertSendSms = document.getElementById('civilianAlertSendSms');
+  const civilianAlertSendBtn = document.getElementById('civilianAlertSendBtn');
+  const civilianAlertFormMessage = document.getElementById('civilianAlertFormMessage');
+  const civilianAlertsHistoryBody = document.getElementById('civilianAlertsHistoryBody');
+  const civilianAlertTemplateId = document.getElementById('civilianAlertTemplateId');
+  const civilianAlertTestEmailBtn = document.getElementById('civilianAlertTestEmailBtn');
+  const civilianAlertAutoWeatherBtn = document.getElementById('civilianAlertAutoWeatherBtn');
+  const civilianAlertTemplateButtons = Array.prototype.slice.call(document.querySelectorAll('[data-alert-template]'));
+  let civilianAlertTemplates = {};
+
+  function setCivilianAlertMessage(text, isError) {
+    if (!civilianAlertFormMessage) {
+      return;
+    }
+    civilianAlertFormMessage.textContent = text || '';
+    civilianAlertFormMessage.style.color = isError ? '#ffb4b4' : '#9be7b5';
+  }
+
+  function formatAlertWhen(value) {
+    const raw = String(value || '');
+    if (!raw) {
+      return '—';
+    }
+    const date = new Date(raw.replace(' ', 'T'));
+    if (Number.isNaN(date.getTime())) {
+      return raw;
+    }
+    return date.toLocaleString();
+  }
+
+  function renderCivilianAlertHistory(rows) {
+    if (!civilianAlertsHistoryBody) {
+      return;
+    }
+    const list = Array.isArray(rows) ? rows : [];
+    if (list.length === 0) {
+      civilianAlertsHistoryBody.innerHTML = '<tr><td colspan="6" class="muted-text users-empty-row">No broadcasts yet.</td></tr>';
+      return;
+    }
+    civilianAlertsHistoryBody.innerHTML = list.map(function (row) {
+      const emailPart = Number(row.send_email) === 1
+        ? (Number(row.email_sent || 0) + ' ok' + (Number(row.email_failed || 0) ? (', ' + Number(row.email_failed) + ' fail') : ''))
+        : '—';
+      const smsPart = Number(row.send_sms) === 1
+        ? (Number(row.sms_sent || 0) + ' ok' + (Number(row.sms_failed || 0) ? (', ' + Number(row.sms_failed) + ' fail') : ''))
+        : '—';
+      const topicLabel = row.template_id
+        ? (String(row.topic || '') + ' · ' + String(row.template_id))
+        : String(row.topic || '');
+      return '<tr>'
+        + '<td>' + formatAlertWhen(row.created_at) + '</td>'
+        + '<td>' + escapeHtml(String(row.subject || '')) + '</td>'
+        + '<td>' + escapeHtml(topicLabel) + '</td>'
+        + '<td>' + escapeHtml(emailPart) + '</td>'
+        + '<td>' + escapeHtml(smsPart) + '</td>'
+        + '<td>' + Number(row.recipient_count || 0) + '</td>'
+        + '</tr>';
+    }).join('');
+  }
+
+  function setChipReady(el, label, ready, detail) {
+    if (!el) {
+      return;
+    }
+    el.textContent = label + (ready ? (' ready' + (detail ? ' · ' + detail : '')) : ' not ready');
+    el.classList.toggle('is-ready', !!ready);
+    el.classList.toggle('is-warn', !ready);
+  }
+
+  function applyCivilianAlertTemplate(templateId) {
+    const tpl = civilianAlertTemplates[templateId];
+    if (!tpl) {
+      return;
+    }
+    if (civilianAlertTemplateId) {
+      civilianAlertTemplateId.value = String(tpl.id || templateId);
+    }
+    if (civilianAlertSubject) {
+      civilianAlertSubject.value = String(tpl.subject || '');
+    }
+    if (civilianAlertBody) {
+      civilianAlertBody.value = String(tpl.body || '');
+    }
+    if (civilianAlertTopic) {
+      civilianAlertTopic.value = String(tpl.topic || 'weather');
+    }
+    civilianAlertTemplateButtons.forEach(function (btn) {
+      btn.classList.toggle('is-active', btn.getAttribute('data-alert-template') === templateId);
+    });
+    setCivilianAlertMessage('Loaded "' + (tpl.label || templateId) + '" template. Review and click Send alert.', false);
+  }
+
+  async function loadCivilianAlertStats() {
+    if (!document.getElementById('civilianAlertsSection')) {
+      return;
+    }
+    setCivilianAlertMessage('Loading subscriber stats…', false);
+    const response = await fetch(civilianAlertsApiUrl + '?action=stats', {
+      method: 'GET',
+      credentials: 'same-origin',
+      headers: { Accept: 'application/json' }
+    });
+    let payload = null;
+    try {
+      payload = await response.json();
+    } catch (e) {
+      payload = null;
+    }
+    if (!response.ok || !payload || payload.ok !== true) {
+      throw new Error((payload && payload.message) ? payload.message : 'Unable to load alert stats.');
+    }
+    const data = payload.data || {};
+    const subs = data.subscribers || {};
+    const setText = function (id, value) {
+      const node = document.getElementById(id);
+      if (node) {
+        node.textContent = String(Number(value || 0));
+      }
+    };
+    setText('civilianAlertsTotal', subs.total);
+    setText('civilianAlertsEmail', subs.email);
+    setText('civilianAlertsSms', subs.sms);
+    setText('civilianAlertsTopicWeather', subs.topicWeather);
+    setText('civilianAlertsTopicAnnouncements', subs.topicAnnouncements);
+    setText('civilianAlertsTopicSafety', subs.topicSafety);
+    setChipReady(document.getElementById('civilianAlertsMailReadyChip'), 'Email', !!data.mailReady, '');
+    setChipReady(
+      document.getElementById('civilianAlertsSmsReadyChip'),
+      'SMS',
+      !!data.smsReady,
+      data.smsMode === 'local-log' ? 'log mode' : String(data.smsProvider || '')
+    );
+
+    const defaults = data.defaults || {};
+    if (civilianAlertSendEmail && typeof defaults.sendEmail === 'boolean') {
+      civilianAlertSendEmail.checked = defaults.sendEmail;
+    }
+    if (civilianAlertSendSms && typeof defaults.sendSms === 'boolean') {
+      civilianAlertSendSms.checked = defaults.sendSms;
+    }
+    if (civilianAlertAutoWeatherBtn) {
+      civilianAlertAutoWeatherBtn.disabled = defaults.weatherAutoEnabled === false;
+      civilianAlertAutoWeatherBtn.title = defaults.weatherAutoEnabled === false
+        ? 'Enable weather auto-send in System Settings'
+        : 'Scan live Makati weather and auto-send matching templates';
+    }
+
+    civilianAlertTemplates = {};
+    (Array.isArray(data.templates) ? data.templates : []).forEach(function (tpl) {
+      if (tpl && tpl.id) {
+        civilianAlertTemplates[String(tpl.id)] = tpl;
+      }
+    });
+
+    renderCivilianAlertHistory(data.recentBroadcasts || []);
+    if (Number(subs.total || 0) === 0) {
+      setCivilianAlertMessage('No active subscribers yet. Civilians must opt in on the public portal before broadcasts can deliver.', true);
+    } else {
+      setCivilianAlertMessage('', false);
+    }
+  }
+
+  async function sendCivilianAlertBroadcast() {
+    const subject = civilianAlertSubject ? civilianAlertSubject.value.trim() : '';
+    const body = civilianAlertBody ? civilianAlertBody.value.trim() : '';
+    const topic = civilianAlertTopic ? civilianAlertTopic.value : 'weather';
+    const barangay = civilianAlertBarangay ? civilianAlertBarangay.value.trim() : '';
+    const sendEmail = !!(civilianAlertSendEmail && civilianAlertSendEmail.checked);
+    const sendSms = !!(civilianAlertSendSms && civilianAlertSendSms.checked);
+    const templateId = civilianAlertTemplateId ? civilianAlertTemplateId.value.trim() : '';
+
+    if (!subject || !body) {
+      throw new Error('Subject and message are required. Pick a template or write your own.');
+    }
+    if (!sendEmail && !sendSms) {
+      throw new Error('Choose Email and/or SMS.');
+    }
+
+    const channels = [];
+    if (sendEmail) {
+      channels.push('email');
+    }
+    if (sendSms) {
+      channels.push('SMS');
+    }
+    if (!window.confirm('Send this alert via ' + channels.join(' + ') + ' to matching subscribers?')) {
+      return;
+    }
+
+    if (civilianAlertSendBtn) {
+      civilianAlertSendBtn.disabled = true;
+    }
+    setCivilianAlertMessage('Sending alert…', false);
+
+    try {
+      const response = await fetch(civilianAlertsApiUrl + '?action=broadcast', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          subject: subject,
+          body: body,
+          topic: topic,
+          barangay: barangay,
+          sendEmail: sendEmail,
+          sendSms: sendSms,
+          templateId: templateId
+        })
+      });
+      let payload = null;
+      try {
+        payload = await response.json();
+      } catch (e) {
+        payload = null;
+      }
+      if (!response.ok || !payload || payload.ok !== true) {
+        throw new Error((payload && payload.message) ? payload.message : 'Unable to send alert.');
+      }
+
+      const result = payload.data || {};
+      let detail = payload.message || 'Alert sent.';
+      if (Array.isArray(result.emailErrors) && result.emailErrors.length) {
+        detail += ' Email errors: ' + result.emailErrors.join(' | ');
+      }
+      if (Array.isArray(result.smsErrors) && result.smsErrors.length) {
+        detail += ' SMS errors: ' + result.smsErrors.join(' | ');
+      }
+      setCivilianAlertMessage(detail, Number(result.emailFailed || 0) > 0 || Number(result.smsFailed || 0) > 0);
+      showToast(payload.message || 'Alert sent.', false);
+      if (civilianAlertBroadcastForm) {
+        civilianAlertBroadcastForm.reset();
+        if (civilianAlertSendEmail) {
+          civilianAlertSendEmail.checked = true;
+        }
+        if (civilianAlertSendSms) {
+          civilianAlertSendSms.checked = true;
+        }
+        if (civilianAlertTopic) {
+          civilianAlertTopic.value = 'weather';
+        }
+        if (civilianAlertTemplateId) {
+          civilianAlertTemplateId.value = '';
+        }
+        civilianAlertTemplateButtons.forEach(function (btn) {
+          btn.classList.remove('is-active');
+        });
+      }
+      await loadCivilianAlertStats();
+    } finally {
+      if (civilianAlertSendBtn) {
+        civilianAlertSendBtn.disabled = false;
+      }
+    }
+  }
+
+  async function testCivilianAlertEmail() {
+    setCivilianAlertMessage('Sending Gmail SMTP test…', false);
+    if (civilianAlertTestEmailBtn) {
+      civilianAlertTestEmailBtn.disabled = true;
+    }
+    try {
+      const response = await fetch(civilianAlertsApiUrl + '?action=test_email', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({})
+      });
+      let payload = null;
+      try {
+        payload = await response.json();
+      } catch (e) {
+        payload = null;
+      }
+      if (!response.ok || !payload || payload.ok !== true) {
+        throw new Error((payload && payload.message) ? payload.message : 'Test email failed.');
+      }
+      setCivilianAlertMessage(payload.message || 'Test email sent.', false);
+      showToast(payload.message || 'Test email sent.', false);
+    } finally {
+      if (civilianAlertTestEmailBtn) {
+        civilianAlertTestEmailBtn.disabled = false;
+      }
+    }
+  }
+
+  async function autoSendWeatherAlerts() {
+    const sendEmail = !!(civilianAlertSendEmail && civilianAlertSendEmail.checked);
+    const sendSms = !!(civilianAlertSendSms && civilianAlertSendSms.checked);
+    if (!sendEmail && !sendSms) {
+      throw new Error('Turn on Email and/or SMS before auto-scan.');
+    }
+    if (!window.confirm('Scan live Makati weather and auto-send matching templates (heat / cold / flash flood / typhoon) to subscribers?')) {
+      return;
+    }
+    setCivilianAlertMessage('Scanning weather and sending matched templates…', false);
+    if (civilianAlertAutoWeatherBtn) {
+      civilianAlertAutoWeatherBtn.disabled = true;
+    }
+    try {
+      const response = await fetch(civilianAlertsApiUrl + '?action=auto_weather', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          sendEmail: sendEmail,
+          sendSms: sendSms
+        })
+      });
+      let payload = null;
+      try {
+        payload = await response.json();
+      } catch (e) {
+        payload = null;
+      }
+      if (!response.ok || !payload || payload.ok !== true) {
+        throw new Error((payload && payload.message) ? payload.message : 'Weather auto-send failed.');
+      }
+      const data = payload.data || {};
+      const detected = Array.isArray(data.detected) ? data.detected.join(', ') : '';
+      const sentCount = Array.isArray(data.sent) ? data.sent.length : 0;
+      setCivilianAlertMessage(
+        (payload.message || 'Weather scan complete.')
+          + (detected ? (' Detected: ' + detected + '.') : '')
+          + (sentCount ? (' Sent templates: ' + sentCount + '.') : ''),
+        false
+      );
+      showToast(payload.message || 'Weather scan complete.', false);
+      await loadCivilianAlertStats();
+    } finally {
+      if (civilianAlertAutoWeatherBtn) {
+        civilianAlertAutoWeatherBtn.disabled = false;
+      }
+    }
+  }
+
+  if (refreshCivilianAlertsBtn) {
+    refreshCivilianAlertsBtn.addEventListener('click', function () {
+      loadCivilianAlertStats().catch(function (error) {
+        setCivilianAlertMessage(error.message || 'Unable to load alert stats.', true);
+      });
+    });
+  }
+
+  civilianAlertTemplateButtons.forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      const id = btn.getAttribute('data-alert-template') || '';
+      if (!civilianAlertTemplates[id]) {
+        // Fallback local copies if stats not loaded yet
+        const fallback = {
+          typhoon: {
+            id: 'typhoon',
+            label: 'Typhoon / storm',
+            subject: 'Typhoon watch — Makati Fire District advisory',
+            body: 'PAGASA-level storm conditions may affect Metro Manila.\n\nStay indoors, prepare a go-bag, and call 168 only for emergencies.',
+            topic: 'weather'
+          },
+          flashflood: {
+            id: 'flashflood',
+            label: 'Flash flood',
+            subject: 'Flash flood watch — avoid flooded roads',
+            body: 'Heavy rainfall may cause sudden flooding in low-lying Makati areas.\n\nDo not walk or drive through floodwater. Call 168 if someone is trapped.',
+            topic: 'weather'
+          },
+          heat: {
+            id: 'heat',
+            label: 'Extreme heat',
+            subject: 'Extreme heat advisory — stay hydrated',
+            body: 'Temperatures are dangerously high in Metro Manila.\n\nLimit outdoor activity from 10 AM–3 PM and drink water often.',
+            topic: 'weather'
+          },
+          cold: {
+            id: 'cold',
+            label: 'Cold / chill',
+            subject: 'Cold weather advisory — keep warm and dry',
+            body: 'Unusually cool conditions are affecting Metro Manila.\n\nDress in layers and check on children and elderly household members.',
+            topic: 'weather'
+          },
+          tsunami: {
+            id: 'tsunami',
+            label: 'Tsunami warning',
+            subject: 'Tsunami warning — move to higher ground if advised',
+            body: 'A tsunami advisory/warning has been issued for Philippine coastal areas.\n\nIf near the coast, move inland/higher ground and follow official instructions.',
+            topic: 'weather'
+          }
+        };
+        civilianAlertTemplates[id] = fallback[id];
+      }
+      applyCivilianAlertTemplate(id);
+    });
+  });
+
+  if (civilianAlertTestEmailBtn) {
+    civilianAlertTestEmailBtn.addEventListener('click', function () {
+      testCivilianAlertEmail().catch(function (error) {
+        setCivilianAlertMessage(error.message || 'Test email failed.', true);
+      });
+    });
+  }
+
+  if (civilianAlertAutoWeatherBtn) {
+    civilianAlertAutoWeatherBtn.addEventListener('click', function () {
+      autoSendWeatherAlerts().catch(function (error) {
+        setCivilianAlertMessage(error.message || 'Weather auto-send failed.', true);
+      });
+    });
+  }
+
+  if (civilianAlertBroadcastForm) {
+    civilianAlertBroadcastForm.addEventListener('submit', function (event) {
+      event.preventDefault();
+      sendCivilianAlertBroadcast().catch(function (error) {
+        setCivilianAlertMessage(error.message || 'Unable to send alert.', true);
+      });
+    });
+  }
+
+  const systemSettingsApiUrl = String(context.systemSettingsApiUrl || '/firenet/NEWFIRENET/backend/controllers/admin_system_settings.php');
+  const refreshSystemSettingsBtn = document.getElementById('refreshSystemSettingsBtn');
+  const saveSystemSettingsBtn = document.getElementById('saveSystemSettingsBtn');
+  const systemSettingsMessage = document.getElementById('systemSettingsMessage');
+  let systemSettingsState = null;
+
+  function setSystemSettingsMessage(text, isError) {
+    if (!systemSettingsMessage) {
+      return;
+    }
+    systemSettingsMessage.textContent = text || '';
+    systemSettingsMessage.style.color = isError ? '#ffb4b4' : '#9be7b5';
+  }
+
+  function setSysStatus(id, ready, readyText, warnText) {
+    const el = document.getElementById(id);
+    if (!el) {
+      return;
+    }
+    el.textContent = ready ? (readyText || 'Ready') : (warnText || 'Not ready');
+    const card = el.closest('.sys-status-card');
+    if (card) {
+      card.classList.toggle('is-ready', !!ready);
+      card.classList.toggle('is-warn', !ready);
+    }
+  }
+
+  function fillSystemSettingsForm(settings, integrations) {
+    const s = settings || {};
+    const setVal = function (id, value) {
+      const el = document.getElementById(id);
+      if (el) {
+        el.value = value == null ? '' : String(value);
+      }
+    };
+    const setCheck = function (id, value) {
+      const el = document.getElementById(id);
+      if (el) {
+        el.checked = value === true || value === 1 || value === '1';
+      }
+    };
+
+    setVal('sysAppName', s.app_name);
+    setVal('sysDistrictName', s.district_name);
+    setVal('sysPublicTagline', s.public_tagline);
+    setVal('sysEmergencyHotline', s.emergency_hotline);
+    setVal('sysCentralPhone', s.central_phone);
+    setVal('sysMailFromName', s.mail_from_name);
+    setCheck('sysSmsEnabled', s.sms_enabled);
+    setVal('sysSmsProvider', s.sms_provider || 'log');
+    setVal('sysSmsSenderName', s.sms_sender_name);
+    setVal('sysSmsApiKey', '');
+    setCheck('sysPortalSubscribeEnabled', s.portal_subscribe_enabled);
+    setCheck('sysPortalMaintenanceEnabled', s.portal_maintenance_enabled);
+    setVal('sysPortalMaintenanceMessage', s.portal_maintenance_message);
+    setVal('sysDefaultAutoLogout', s.default_auto_logout_minutes || '30');
+    setCheck('sysSecurityAlertsDefault', s.security_alerts_default);
+    setCheck('sysAlertDefaultEmail', s.alert_default_send_email);
+    setCheck('sysAlertDefaultSms', s.alert_default_send_sms);
+    setCheck('sysWeatherAutoEnabled', s.weather_auto_enabled);
+
+    const keyHint = document.getElementById('sysSmsKeyHint');
+    if (keyHint) {
+      keyHint.textContent = s.sms_api_key_set === '1'
+        ? 'A live API key is stored. Leave the field blank to keep it, or paste a new key to replace it.'
+        : 'No live API key stored yet. Use Log mode for free testing, or paste a Semaphore key for real SMS.';
+    }
+
+    const integ = integrations || {};
+    setSysStatus('sysStatusMail', !!integ.mailReady, 'Ready', 'Check SMTP');
+    setSysStatus(
+      'sysStatusSms',
+      !!integ.smsReady,
+      integ.smsMode === 'local-log' ? 'Log mode' : 'Ready',
+      'Not ready'
+    );
+    setSysStatus('sysStatusMaps', !!integ.mapsReady, 'Ready', 'No API key');
+    setSysStatus('sysStatusAuth', !!integ.googleAuthReady, 'Ready', 'Not configured');
+  }
+
+  async function loadSystemSettings() {
+    if (!document.getElementById('systemSettingsSection')) {
+      return;
+    }
+    setSystemSettingsMessage('Loading system settings…', false);
+    const response = await fetch(systemSettingsApiUrl + '?action=get', {
+      method: 'GET',
+      credentials: 'same-origin',
+      headers: { Accept: 'application/json' }
+    });
+    let payload = null;
+    try {
+      payload = await response.json();
+    } catch (e) {
+      payload = null;
+    }
+    if (!response.ok || !payload || payload.ok !== true) {
+      throw new Error((payload && payload.message) ? payload.message : 'Unable to load system settings.');
+    }
+    systemSettingsState = payload.data || {};
+    fillSystemSettingsForm(systemSettingsState.settings || {}, systemSettingsState.integrations || {});
+    setSystemSettingsMessage('', false);
+  }
+
+  function readSystemSettingsForm() {
+    const checked = function (id) {
+      const el = document.getElementById(id);
+      return !!(el && el.checked);
+    };
+    const value = function (id) {
+      const el = document.getElementById(id);
+      return el ? String(el.value || '').trim() : '';
+    };
+    const payload = {
+      app_name: value('sysAppName'),
+      district_name: value('sysDistrictName'),
+      public_tagline: value('sysPublicTagline'),
+      emergency_hotline: value('sysEmergencyHotline'),
+      central_phone: value('sysCentralPhone'),
+      mail_from_name: value('sysMailFromName'),
+      sms_enabled: checked('sysSmsEnabled') ? '1' : '0',
+      sms_provider: value('sysSmsProvider') || 'log',
+      sms_sender_name: value('sysSmsSenderName'),
+      portal_subscribe_enabled: checked('sysPortalSubscribeEnabled') ? '1' : '0',
+      portal_maintenance_enabled: checked('sysPortalMaintenanceEnabled') ? '1' : '0',
+      portal_maintenance_message: value('sysPortalMaintenanceMessage'),
+      default_auto_logout_minutes: value('sysDefaultAutoLogout') || '30',
+      security_alerts_default: checked('sysSecurityAlertsDefault') ? '1' : '0',
+      alert_default_send_email: checked('sysAlertDefaultEmail') ? '1' : '0',
+      alert_default_send_sms: checked('sysAlertDefaultSms') ? '1' : '0',
+      weather_auto_enabled: checked('sysWeatherAutoEnabled') ? '1' : '0'
+    };
+    const apiKey = value('sysSmsApiKey');
+    if (apiKey !== '') {
+      payload.sms_api_key = apiKey;
+    }
+    return payload;
+  }
+
+  async function saveSystemSettings() {
+    if (saveSystemSettingsBtn) {
+      saveSystemSettingsBtn.disabled = true;
+    }
+    setSystemSettingsMessage('Saving…', false);
+    try {
+      const response = await fetch(systemSettingsApiUrl + '?action=save', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ settings: readSystemSettingsForm() })
+      });
+      let payload = null;
+      try {
+        payload = await response.json();
+      } catch (e) {
+        payload = null;
+      }
+      if (!response.ok || !payload || payload.ok !== true) {
+        throw new Error((payload && payload.message) ? payload.message : 'Unable to save system settings.');
+      }
+      systemSettingsState = payload.data || {};
+      fillSystemSettingsForm(systemSettingsState.settings || {}, systemSettingsState.integrations || {});
+      setSystemSettingsMessage(payload.message || 'System settings saved.', false);
+      showToast(payload.message || 'System settings saved.', false);
+    } finally {
+      if (saveSystemSettingsBtn) {
+        saveSystemSettingsBtn.disabled = false;
+      }
+    }
+  }
+
+  if (refreshSystemSettingsBtn) {
+    refreshSystemSettingsBtn.addEventListener('click', function () {
+      loadSystemSettings().catch(function (error) {
+        setSystemSettingsMessage(error.message || 'Unable to load system settings.', true);
+      });
+    });
+  }
+  if (saveSystemSettingsBtn) {
+    saveSystemSettingsBtn.addEventListener('click', function () {
+      saveSystemSettings().catch(function (error) {
+        setSystemSettingsMessage(error.message || 'Unable to save system settings.', true);
       });
     });
   }

@@ -32,10 +32,12 @@ $adminSettingsContext = [
 ];
 
 $initialUsersTab = strtolower(trim((string) ($_GET['tab'] ?? 'accounts')));
-if (!in_array($initialUsersTab, ['accounts', 'news', 'notices', 'substations'], true)) {
+if (!in_array($initialUsersTab, ['accounts', 'news', 'notices', 'substations', 'alerts', 'system'], true)) {
     $initialUsersTab = 'accounts';
 }
 $adminSettingsContext['activeTab'] = $initialUsersTab;
+$adminSettingsContext['civilianAlertsApiUrl'] = '/firenet/NEWFIRENET/backend/controllers/admin_civilian_alerts.php';
+$adminSettingsContext['systemSettingsApiUrl'] = '/firenet/NEWFIRENET/backend/controllers/admin_system_settings.php';
 
 $googleMapsApiKey = '';
 try {

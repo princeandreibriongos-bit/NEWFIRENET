@@ -1,5 +1,98 @@
 console.log('FireNet portal loaded.');
 
+(function bootUserPreferences() {
+	const preferenceStorageKey = 'firenet.userSettingsState';
+	let lastUnread = 0;
+
+	function readPrefs() {
+		try {
+			const stored = JSON.parse(localStorage.getItem(preferenceStorageKey) || '{}');
+			return stored && typeof stored === 'object' ? stored : {};
+		} catch (e) {
+			return {};
+		}
+	}
+
+	function applyPrefs(values) {
+		const v = values || readPrefs();
+		document.body.classList.toggle('is-compact-ui', !!v.compactMode);
+		document.body.classList.toggle('is-reduced-motion', !!v.reduceMotion);
+		document.body.classList.toggle('is-large-text', !!v.largeText);
+		document.body.classList.toggle('is-sensitive-hidden', !!v.hideSensitive);
+		document.body.classList.toggle('is-alerts-muted', v.securityAlerts === false);
+		if (typeof v.autoLogoutMinutes !== 'undefined') {
+			window.setTimeout(function () {
+				if (window.FireNetPrefs && typeof window.FireNetPrefs.resetIdle === 'function') {
+					window.FireNetPrefs.resetIdle();
+				}
+			}, 0);
+		}
+	}
+
+	function playAlertChime() {
+		try {
+			const Ctx = window.AudioContext || window.webkitAudioContext;
+			if (!Ctx) return;
+			const ctx = new Ctx();
+			const osc = ctx.createOscillator();
+			const gain = ctx.createGain();
+			osc.type = 'sine';
+			osc.frequency.value = 880;
+			gain.gain.value = 0.0001;
+			osc.connect(gain);
+			gain.connect(ctx.destination);
+			const now = ctx.currentTime;
+			gain.gain.exponentialRampToValueAtTime(0.05, now + 0.02);
+			gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.28);
+			osc.start(now);
+			osc.stop(now + 0.3);
+		} catch (e) {}
+	}
+
+	function maybeNotify(unreadCount) {
+		const prefs = readPrefs();
+		if (prefs.securityAlerts === false) return;
+		if (unreadCount > lastUnread && lastUnread > 0) {
+			if (prefs.soundNotifications) playAlertChime();
+			if (prefs.desktopNotifications && window.Notification && Notification.permission === 'granted') {
+				try {
+					new Notification('FireNet', { body: 'You have new portal alerts.', silent: true });
+				} catch (e) {}
+			}
+		}
+		lastUnread = unreadCount;
+	}
+
+	let idleTimerId = null;
+	const logoutUrl = '/firenet/NEWFIRENET/backend/controllers/logout.php';
+
+	function resetIdleTimer() {
+		if (idleTimerId) {
+			window.clearTimeout(idleTimerId);
+			idleTimerId = null;
+		}
+		const prefs = readPrefs();
+		const minutes = Number(prefs.autoLogoutMinutes || 0);
+		if (minutes < 1) return;
+		idleTimerId = window.setTimeout(function () {
+			window.location.href = logoutUrl;
+		}, minutes * 60000);
+	}
+
+	window.FireNetPrefs = {
+		apply: applyPrefs,
+		read: readPrefs,
+		onUnreadCount: maybeNotify,
+		resetIdle: resetIdleTimer
+	};
+
+	applyPrefs(readPrefs());
+	resetIdleTimer();
+	['mousemove', 'keydown', 'touchstart', 'scroll', 'click'].forEach(function (name) {
+		document.addEventListener(name, resetIdleTimer, { passive: true });
+	});
+})();
+
 const navLinks = document.querySelectorAll('nav a');
 const sidebarLinks = document.querySelectorAll('.sidebar-link');
 const currentUrl = window.location.pathname;
@@ -54,6 +147,10 @@ function closeAllHeaderPanels() {
 	if (appsPanel) {
 		appsPanel.hidden = true;
 	}
+	const weatherBtn = document.getElementById('headerWeatherBtn');
+	const weatherPopover = document.getElementById('headerWeatherPopover');
+	if (weatherBtn) weatherBtn.setAttribute('aria-expanded', 'false');
+	if (weatherPopover) weatherPopover.hidden = true;
 }
 
 function safeJsonParse(value, fallback) {
@@ -191,6 +288,12 @@ function renderNotifications() {
 	if (alertsCount) {
 		alertsCount.textContent = String(unreadCount);
 		alertsCount.hidden = unreadCount === 0;
+		if (alertsToggle) {
+			alertsToggle.classList.toggle('has-unread', unreadCount > 0);
+		}
+		if (window.FireNetPrefs && typeof window.FireNetPrefs.onUnreadCount === 'function') {
+			window.FireNetPrefs.onUnreadCount(unreadCount);
+		}
 	}
 
 	if (alertsMenuTitle) {
@@ -352,22 +455,37 @@ function markAllNotificationsRead() {
 }
 
 function updateHeaderDateTime() {
-	if (!headerDateTime) {
+	const clockEl = document.getElementById('headerDateTimeClock');
+	const dateEl = document.getElementById('headerDateTimeDate');
+	if (!headerDateTime && !clockEl) {
 		return;
 	}
 
 	const now = new Date();
-	headerDateTime.textContent = now.toLocaleString(undefined, {
-		year: 'numeric',
-		month: 'short',
-		day: '2-digit',
+	const timeText = now.toLocaleTimeString(undefined, {
 		hour: '2-digit',
 		minute: '2-digit',
 		second: '2-digit'
 	});
+	const dateText = now.toLocaleDateString(undefined, {
+		weekday: 'short',
+		month: 'short',
+		day: 'numeric',
+		year: 'numeric'
+	});
+
+	if (clockEl && dateEl) {
+		clockEl.textContent = timeText;
+		dateEl.textContent = dateText;
+		return;
+	}
+
+	if (headerDateTime) {
+		headerDateTime.textContent = dateText + ' · ' + timeText;
+	}
 }
 
-if (headerDateTime) {
+if (headerDateTime || document.getElementById('headerDateTimeClock')) {
 	updateHeaderDateTime();
 	window.setInterval(updateHeaderDateTime, 1000);
 }
@@ -503,11 +621,33 @@ if ((profileToggle && profileMenu) || (alertsToggle && alertsMenu) || (appsToggl
 			appsToggle.setAttribute('aria-expanded', 'false');
 			appsPanel.hidden = true;
 		}
+
+		if (!target.closest('#headerWeatherHost')) {
+			const weatherBtn = document.getElementById('headerWeatherBtn');
+			const weatherPopover = document.getElementById('headerWeatherPopover');
+			if (weatherBtn) weatherBtn.setAttribute('aria-expanded', 'false');
+			if (weatherPopover) weatherPopover.hidden = true;
+		}
 	});
 
 	document.addEventListener('keydown', function (event) {
 		if (event.key === 'Escape') {
 			closeAllHeaderPanels();
+		}
+		if ((event.ctrlKey || event.metaKey) && String(event.key || '').toLowerCase() === 'k') {
+			const tag = (event.target && event.target.tagName) || '';
+			if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (event.target && event.target.isContentEditable)) {
+				return;
+			}
+			event.preventDefault();
+			if (appsToggle && appsPanel) {
+				const open = appsPanel.hidden;
+				closeAllHeaderPanels();
+				if (open) {
+					appsPanel.hidden = false;
+					appsToggle.setAttribute('aria-expanded', 'true');
+				}
+			}
 		}
 	});
 }
@@ -574,8 +714,121 @@ if (sidebarLayout && sidebarCollapseBtn) {
 			// ignore
 		}
 		syncLabel(next);
+		try {
+			window.dispatchEvent(new CustomEvent('firenet:themechange', { detail: { theme: next } }));
+		} catch (e) {
+			// ignore
+		}
 		window.setTimeout(function () {
 			btn.classList.remove('is-toggling');
 		}, 560);
 	});
+})();
+
+(function initHeaderWeather() {
+	const btn = document.getElementById('headerWeatherBtn');
+	const popover = document.getElementById('headerWeatherPopover');
+	const refreshBtn = document.getElementById('headerWeatherRefresh');
+	if (!btn || !popover) return;
+
+	const iconEl = document.getElementById('headerWeatherIcon');
+	const tempEl = document.getElementById('headerWeatherTemp');
+	const labelEl = document.getElementById('headerWeatherLabel');
+	const descEl = document.getElementById('headerWeatherPopoverDesc');
+	const humidEl = document.getElementById('headerWeatherHumidity');
+	const windEl = document.getElementById('headerWeatherWind');
+	const rainEl = document.getElementById('headerWeatherRain');
+	const updatedEl = document.getElementById('headerWeatherUpdated');
+	const weatherUrl = 'https://api.open-meteo.com/v1/forecast?latitude=14.5547&longitude=121.0244'
+		+ '&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m'
+		+ '&hourly=precipitation_probability'
+		+ '&timezone=Asia%2FManila';
+
+	const labels = {
+		0: 'Clear', 1: 'Mostly clear', 2: 'Partly cloudy', 3: 'Overcast',
+		45: 'Foggy', 48: 'Foggy', 51: 'Drizzle', 61: 'Rain', 63: 'Rain',
+		65: 'Heavy rain', 80: 'Showers', 81: 'Showers', 82: 'Heavy showers',
+		95: 'Thunderstorm', 96: 'Thunderstorm', 99: 'Severe storm'
+	};
+
+	function iconForCode(code) {
+		if (code === 0 || code === 1) return 'bi-sun-fill';
+		if (code === 2) return 'bi-cloud-sun-fill';
+		if (code === 3) return 'bi-clouds-fill';
+		if (code === 45 || code === 48) return 'bi-cloud-fog2-fill';
+		if (code >= 51 && code < 70) return 'bi-cloud-drizzle-fill';
+		if (code >= 80 && code < 90) return 'bi-cloud-rain-fill';
+		if (code >= 95) return 'bi-cloud-lightning-rain-fill';
+		return 'bi-cloud-sun';
+	}
+
+	function setText(el, value) {
+		if (el) el.textContent = value;
+	}
+
+	async function loadWeather() {
+		btn.classList.add('is-loading');
+		try {
+			const response = await fetch(weatherUrl);
+			if (!response.ok) throw new Error('Weather request failed');
+			const data = await response.json();
+			const current = data && data.current ? data.current : null;
+			if (!current) throw new Error('No weather data');
+
+			const code = Number(current.weather_code || 0);
+			const temp = Math.round(Number(current.temperature_2m || 0));
+			const humidity = Math.round(Number(current.relative_humidity_2m || 0));
+			const wind = Math.round(Number(current.wind_speed_10m || 0));
+			const rainSeries = data.hourly && Array.isArray(data.hourly.precipitation_probability)
+				? data.hourly.precipitation_probability.slice(0, 6)
+				: [];
+			const rainChance = rainSeries.length
+				? Math.round(Math.max.apply(null, rainSeries.map(function (n) { return Number(n) || 0; })))
+				: 0;
+			const label = labels[code] || 'Makati now';
+			const alertish = code >= 65 || code >= 80 || code >= 95 || temp >= 37;
+
+			if (iconEl) iconEl.className = 'bi ' + iconForCode(code);
+			setText(tempEl, temp + '°');
+			setText(labelEl, label);
+			setText(descEl, label + ' across Makati · useful for heat / flood situational awareness.');
+			setText(humidEl, humidity + '%');
+			setText(windEl, wind + ' km/h');
+			setText(rainEl, rainChance + '%');
+			setText(updatedEl, new Date().toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }));
+			btn.classList.toggle('is-alert', alertish);
+			btn.title = 'Makati weather: ' + temp + '° · ' + label;
+		} catch (error) {
+			setText(tempEl, '—°');
+			setText(labelEl, 'Offline');
+			setText(descEl, 'Weather feed is temporarily unavailable.');
+			setText(humidEl, '—');
+			setText(windEl, '—');
+			setText(rainEl, '—');
+			setText(updatedEl, '—');
+			btn.classList.remove('is-alert');
+		} finally {
+			btn.classList.remove('is-loading');
+		}
+	}
+
+	btn.addEventListener('click', function (event) {
+		event.stopPropagation();
+		const opening = popover.hidden;
+		closeAllHeaderPanels();
+		if (opening) {
+			popover.hidden = false;
+			btn.setAttribute('aria-expanded', 'true');
+		}
+	});
+
+	if (refreshBtn) {
+		refreshBtn.addEventListener('click', function (event) {
+			event.stopPropagation();
+			loadWeather();
+		});
+	}
+
+	loadWeather();
+	window.setInterval(loadWeather, 15 * 60 * 1000);
 })();
