@@ -471,8 +471,12 @@ html[data-theme="light"] body.is-authenticated .sidebar-user-station {
 }
 
 @media (max-width: 900px) {
-  .sidebar-foot {
-    display: none;
+  /* Keep profile card in the phone drawer */
+  body.is-authenticated .sidebar-foot {
+    display: block;
+    margin-top: auto;
+    padding: 0.55rem 0.35rem 0.75rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
   }
 }
 

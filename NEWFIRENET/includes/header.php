@@ -166,6 +166,11 @@ if ($sessionUserId > 0) {
   <header class="app-header">
     <div class="app-header-inner">
       <div class="header-brand">
+        <?php if (isset($_SESSION['user'])): ?>
+          <button type="button" class="mobile-menu-toggle" id="mobileMenuToggle" aria-label="Open navigation" aria-expanded="false" aria-controls="appSidebar">
+            <i class="bi bi-list" aria-hidden="true"></i>
+          </button>
+        <?php endif; ?>
         <a class="app-brand" href="<?php echo htmlspecialchars($dashboardPath); ?>" aria-label="FireNet — Home">
           <span class="brand-mark" aria-hidden="true">
             <img class="app-brand-logo" src="/firenet/NEWFIRENET/assets/img/bfpmakatilogo.jpg" alt="">
@@ -324,10 +329,13 @@ if ($sessionUserId > 0) {
       ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE); ?>;
     </script>
     <div class="app-layout" id="appLayout">
-      <aside class="app-sidebar" aria-label="Main navigation">
+      <aside class="app-sidebar" id="appSidebar" aria-label="Main navigation">
         <div class="sidebar-head">
           <button type="button" class="sidebar-collapse-btn" id="sidebarCollapseBtn" aria-expanded="true" aria-controls="sidebarNav" title="Collapse sidebar">
             <span class="sidebar-collapse-icon" aria-hidden="true">⟨</span>
+          </button>
+          <button type="button" class="mobile-sidebar-close" id="mobileSidebarClose" aria-label="Close navigation">
+            <i class="bi bi-x-lg" aria-hidden="true"></i>
           </button>
         </div>
         <nav class="sidebar-nav" id="sidebarNav">
