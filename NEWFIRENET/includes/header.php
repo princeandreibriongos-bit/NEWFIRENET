@@ -127,8 +127,8 @@ if ($sessionUserId > 0) {
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Sora:wght@600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
-  <link rel="stylesheet" href="/firenet/NEWFIRENET/assets/css/style.css">
-  <link rel="stylesheet" href="/firenet/NEWFIRENET/assets/css/portal-theme.css">
+  <link rel="stylesheet" href="/firenet/NEWFIRENET/assets/css/style.css?v=<?php echo (int) @filemtime(__DIR__ . '/../assets/css/style.css'); ?>">
+  <link rel="stylesheet" href="/firenet/NEWFIRENET/assets/css/portal-theme.css?v=<?php echo (int) @filemtime(__DIR__ . '/../assets/css/portal-theme.css'); ?>">
   <link rel="stylesheet" href="/firenet/NEWFIRENET/assets/css/portal-chrome.css?v=<?php echo (int) @filemtime(__DIR__ . '/../assets/css/portal-chrome.css'); ?>">
   <link rel="stylesheet" href="/firenet/NEWFIRENET/assets/css/portal-fx.css?v=<?php echo (int) @filemtime(__DIR__ . '/../assets/css/portal-fx.css'); ?>">
   <?php if (isset($pageStyles) && is_array($pageStyles)): ?>
@@ -137,7 +137,7 @@ if ($sessionUserId > 0) {
     <?php endforeach; ?>
   <?php endif; ?>
   <link rel="stylesheet" href="/firenet/NEWFIRENET/assets/css/portal-premium.css?v=<?php echo (int) @filemtime(__DIR__ . '/../assets/css/portal-premium.css'); ?>">
-  <link rel="stylesheet" href="/firenet/NEWFIRENET/assets/css/portal-theme-light.css">
+  <link rel="stylesheet" href="/firenet/NEWFIRENET/assets/css/portal-theme-light.css?v=<?php echo (int) @filemtime(__DIR__ . '/../assets/css/portal-theme-light.css'); ?>">
   <script>
     (function () {
       try {
