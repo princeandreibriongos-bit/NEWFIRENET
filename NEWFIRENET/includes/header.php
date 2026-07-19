@@ -138,6 +138,7 @@ if ($sessionUserId > 0) {
   <?php endif; ?>
   <link rel="stylesheet" href="/firenet/NEWFIRENET/assets/css/portal-premium.css?v=<?php echo (int) @filemtime(__DIR__ . '/../assets/css/portal-premium.css'); ?>">
   <link rel="stylesheet" href="/firenet/NEWFIRENET/assets/css/portal-theme-light.css?v=<?php echo (int) @filemtime(__DIR__ . '/../assets/css/portal-theme-light.css'); ?>">
+  <link rel="stylesheet" href="/firenet/NEWFIRENET/assets/css/staff-mobile.css?v=<?php echo (int) @filemtime(__DIR__ . '/../assets/css/staff-mobile.css'); ?>">
   <script>
     (function () {
       try {

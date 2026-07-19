@@ -1,0 +1,283 @@
+/**
+ * Staff phone layout — only applies under 900px.
+ * Desktop styles are untouched.
+ */
+
+@media (max-width: 900px) {
+  /* ── Compact single-row header ── */
+  body.is-authenticated .app-header {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+  }
+
+  body.is-authenticated .app-header-inner {
+    display: flex !important;
+    grid-template-columns: none !important;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0.55rem 0.7rem;
+    min-height: 3.4rem;
+  }
+
+  body.is-authenticated .header-brand {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    min-width: 0;
+    flex: 1;
+  }
+
+  body.is-authenticated .brand-station,
+  body.is-authenticated .header-ribbon,
+  body.is-authenticated .header-weather-host,
+  body.is-authenticated .header-datetime,
+  body.is-authenticated .header-role-chip,
+  body.is-authenticated .apps-menu,
+  body.is-authenticated .quick-mail-btn,
+  body.is-authenticated .theme-toggle-label {
+    display: none !important;
+  }
+
+  body.is-authenticated .brand-title {
+    font-size: 1.05rem !important;
+  }
+
+  body.is-authenticated .app-brand-logo {
+    width: 34px;
+    height: 34px;
+  }
+
+  body.is-authenticated .header-right {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    align-items: center;
+    gap: 0.35rem;
+    width: auto !important;
+    justify-content: flex-end;
+  }
+
+  body.is-authenticated .theme-toggle {
+    width: 40px;
+    height: 40px;
+    padding: 0 !important;
+    justify-content: center;
+  }
+
+  body.is-authenticated .quick-action-btn,
+  body.is-authenticated .profile-btn,
+  body.is-authenticated .alerts-btn {
+    width: 40px;
+    height: 40px;
+  }
+
+  /* ── Drawer sidebar ── */
+  body.is-authenticated .app-sidebar {
+    position: fixed !important;
+    inset: 0 auto 0 0;
+    width: min(300px, 88vw) !important;
+    height: 100dvh !important;
+    max-height: 100dvh !important;
+    top: 0 !important;
+    z-index: 120 !important;
+    transform: translateX(-110%);
+    transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+    border-radius: 0 18px 18px 0;
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+
+  body.is-authenticated.staff-nav-open .app-sidebar {
+    transform: translateX(0);
+  }
+
+  body.is-authenticated .sidebar-collapse-btn {
+    display: none !important;
+  }
+
+  body.is-authenticated .mobile-sidebar-close {
+    display: inline-grid !important;
+  }
+
+  body.is-authenticated .sidebar-foot {
+    display: block !important;
+  }
+
+  /* ── Scrim + bottom tabs ── */
+  .staff-nav-scrim {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 110;
+    background: rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(3px);
+  }
+
+  .staff-nav-scrim[hidden] {
+    display: none !important;
+  }
+
+  .staff-mobile-tabbar {
+    display: grid !important;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 100;
+    gap: 0.12rem;
+    padding: 0.4rem 0.4rem calc(0.4rem + env(safe-area-inset-bottom, 0px));
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(9, 12, 18, 0.96);
+    backdrop-filter: blur(18px);
+    box-shadow: 0 -12px 32px rgba(0, 0, 0, 0.35);
+  }
+
+  .staff-mobile-tab {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.15rem;
+    min-height: 3.2rem;
+    border-radius: 12px;
+    border: 1px solid transparent;
+    color: rgba(226, 232, 240, 0.52);
+    text-decoration: none;
+    background: transparent;
+    font-size: 0.6rem;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .staff-mobile-tab i {
+    font-size: 1.1rem;
+  }
+
+  .staff-mobile-tab.is-active {
+    color: #fff;
+    background: linear-gradient(145deg, rgba(188, 31, 45, 0.34), rgba(201, 162, 77, 0.12));
+    border-color: rgba(188, 31, 45, 0.45);
+  }
+
+  /* ── Main content breathing room ── */
+  body.is-authenticated .app-main {
+    padding: 0.7rem 0.7rem calc(5.4rem + env(safe-area-inset-bottom, 0px)) !important;
+  }
+
+  body.is-authenticated .app-layout {
+    display: block !important;
+  }
+
+  #fnToTop {
+    bottom: calc(5.6rem + env(safe-area-inset-bottom, 0px)) !important;
+    right: 0.85rem;
+  }
+
+  /* ── Dashboard phone polish ── */
+  .dash-pro {
+    --dash-gap: 0.65rem;
+  }
+
+  .dash-hero {
+    padding: 0.75rem 0.8rem 0.7rem !important;
+    border-radius: 14px !important;
+  }
+
+  .dash-hero-top {
+    grid-template-columns: 1fr !important;
+    gap: 0.65rem !important;
+  }
+
+  .dash-title {
+    font-size: 1.35rem !important;
+  }
+
+  .dash-subtitle {
+    font-size: 0.82rem !important;
+  }
+
+  .dash-meta-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+  }
+
+  .dash-meta-chip {
+    font-size: 0.68rem !important;
+    padding: 0.28rem 0.5rem !important;
+  }
+
+  .dash-meta-chip--subtle,
+  .dash-hero-actions .dash-action--ghost:nth-child(n + 2) {
+    display: none !important;
+  }
+
+  .dash-search-wrap {
+    width: 100%;
+  }
+
+  .dash-stat-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  .dash-stat-tile {
+    padding: 0.55rem 0.65rem !important;
+  }
+
+  .dash-live-bar {
+    flex-wrap: wrap;
+    gap: 0.55rem;
+    padding: 0.7rem 0.8rem !important;
+  }
+
+  .dash-live-indices {
+    display: none !important;
+  }
+
+  .dash-kpi-row,
+  .dash-board-grid,
+  .dash-bottom-grid {
+    grid-template-columns: 1fr !important;
+    grid-template-areas: none !important;
+  }
+
+  .dash-panel--chart,
+  .dash-ops-widget,
+  .dash-health-card,
+  .dash-load-card,
+  .dash-briefing-card {
+    grid-area: auto !important;
+  }
+
+  .dash-chart-box--tall {
+    height: 11rem !important;
+  }
+
+  .dash-fab {
+    bottom: calc(5.6rem + env(safe-area-inset-bottom, 0px)) !important;
+  }
+}
+
+@media (max-width: 900px) {
+  html[data-theme="light"] .staff-mobile-tabbar {
+    background: rgba(255, 255, 255, 0.97);
+    border-top-color: rgba(27, 36, 48, 0.1);
+  }
+
+  html[data-theme="light"] .staff-mobile-tab {
+    color: #64748b;
+  }
+
+  html[data-theme="light"] .staff-mobile-tab.is-active {
+    color: #121a24;
+    background: linear-gradient(145deg, rgba(188, 31, 45, 0.12), rgba(201, 162, 77, 0.08));
+    border-color: rgba(188, 31, 45, 0.28);
+  }
+
+  html[data-theme="light"] body.is-authenticated .app-sidebar {
+    background: #fff !important;
+  }
+}
