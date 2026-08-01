@@ -2848,15 +2848,9 @@ try {
         exit;
     }
     
-    if ($reportType === 'incident_report' && $barangay === '') {
+    if ($reportType === 'incident_report' && !$isCallIntake && !$isProgressionUpdate && $streetName === '' && $landmark === '') {
         http_response_code(422);
-        echo json_encode(['ok' => false, 'message' => 'Please select a barangay']);
-        exit;
-    }
-    
-    if ($reportType === 'incident_report' && !$isCallIntake && !$isProgressionUpdate && $streetName === '') {
-        http_response_code(422);
-        echo json_encode(['ok' => false, 'message' => 'Please provide the street']);
+        echo json_encode(['ok' => false, 'message' => 'Please provide a street, landmark, or full address']);
         exit;
     }
     

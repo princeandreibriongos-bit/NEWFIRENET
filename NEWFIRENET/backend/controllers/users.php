@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../../includes/auth.php';
 require_once __DIR__ . '/../../includes/db.php';
+require_once __DIR__ . '/../../includes/r2_storage.php';
 
 firenet_require_login();
 firenet_start_session();
@@ -631,6 +632,8 @@ try {
             firenet_create_station_admin_account($pdo, $newStationId, $input);
         }
 
+        $cloudFolders = firenet_r2_ensure_station_folders($stationCode);
+
         echo json_encode([
             'ok' => true,
             'message' => $createAdmin
@@ -646,7 +649,8 @@ try {
                 'status' => $stationStatus,
                 'aorRadiusKm' => $aorRadiusKm,
                 'aorCenterLat' => $latitude,
-                'aorCenterLng' => $longitude
+                'aorCenterLng' => $longitude,
+                'cloudFolders' => $cloudFolders,
             ]
         ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
         exit;
@@ -699,6 +703,8 @@ try {
             firenet_create_station_admin_account($pdo, $editStationId, $input);
         }
 
+        $cloudFolders = firenet_r2_ensure_station_folders($stationCode);
+
         echo json_encode([
             'ok' => true,
             'message' => $createAdmin
@@ -714,7 +720,8 @@ try {
                 'status' => $stationStatus,
                 'aorRadiusKm' => $aorRadiusKm,
                 'aorCenterLat' => $latitude,
-                'aorCenterLng' => $longitude
+                'aorCenterLng' => $longitude,
+                'cloudFolders' => $cloudFolders,
             ]
         ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
         exit;

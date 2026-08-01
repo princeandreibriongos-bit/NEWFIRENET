@@ -436,6 +436,9 @@
     rejectModalDetail: null,
     rejectModalAction: 'request-target-reject',
     composeSelectedCloudFiles: [],
+    composeAutoMatches: [],
+    composeAutoMatchMessage: '',
+    composeAutoMatchLoading: false,
     localAttachments: [],
     // File picker state
     filePickerLoading: false,
@@ -997,7 +1000,7 @@
 
     if (composeOrgmailHint) {
       if (state.composeCentralFulfillMode) {
-        composeOrgmailHint.textContent = 'Browse any station folder under ' + folderLabel + ' (LPS, MCFS, TS, …) or upload directly to ' + storageProviderLabel() + ' before sending them to the requester.';
+        composeOrgmailHint.textContent = 'Browse any station folder under ' + folderLabel + ' (ASSS, LPS, MCFS, PDPSS, PSS, …) or upload directly to ' + storageProviderLabel() + ' before sending them to the requester.';
       } else if (state.composeReplyMode) {
         composeOrgmailHint.textContent = 'Attach a file from ' + folderLabel + ' or upload to ' + storageProviderLabel() + ', then return it to the origin ComL.';
       } else if (om.uploadsEnabled) {
@@ -1286,7 +1289,7 @@
     '</section>';
   }
 
-  function renderFulfillSummary(detail) {
+  function renderFulfillSummary(detail, matchPayload) {
     if (!composeFulfillRequestSummary) {
       return;
     }
@@ -1315,6 +1318,56 @@
       bullets.push('Case / incident ID: ' + escapeHtml(rr.refCaseId) + '.');
     }
 
+    const matches = matchPayload && Array.isArray(matchPayload.matches) ? matchPayload.matches : (state.composeAutoMatches || []);
+    const matchMessage = matchPayload && matchPayload.message
+      ? String(matchPayload.message)
+      : (state.composeAutoMatchMessage || '');
+    const attachableMatches = matches.filter(function (match) {
+      return match && match.attachable && match.url;
+    });
+
+    let matchHtml = '';
+    if (state.composeAutoMatchLoading) {
+      matchHtml =
+        '<div class="mail-auto-match is-loading">' +
+          '<p class="mail-auto-match-title">Auto-matching report files…</p>' +
+          '<p class="mail-auto-match-note">Comparing request fields against completed incident reports.</p>' +
+        '</div>';
+    } else if (attachableMatches.length) {
+      matchHtml =
+        '<div class="mail-auto-match is-ready">' +
+          '<div class="mail-auto-match-head">' +
+            '<div>' +
+              '<p class="mail-auto-match-title">Auto-matched files</p>' +
+              '<p class="mail-auto-match-note">' + escapeHtml(matchMessage || (attachableMatches.length + ' file(s) matched')) + '</p>' +
+            '</div>' +
+            '<button type="button" class="secondary-btn" id="reapplyAutoMatchBtn">Re-apply matches</button>' +
+          '</div>' +
+          '<ul class="mail-auto-match-list">' +
+            attachableMatches.map(function (match) {
+              const reasons = Array.isArray(match.reasons) ? match.reasons.join(' · ') : '';
+              return '<li>' +
+                '<strong>' + escapeHtml(match.fileName || ('Report #' + String(match.reportId || ''))) + '</strong>' +
+                '<span>' +
+                  escapeHtml(match.stationName || match.stationCode || 'Station') +
+                  (match.incidentCaseId ? (' · Case #' + escapeHtml(String(match.incidentCaseId))) : '') +
+                  (match.location ? (' · ' + escapeHtml(match.location)) : '') +
+                '</span>' +
+                (reasons ? ('<small>' + escapeHtml(reasons) + '</small>') : '') +
+              '</li>';
+            }).join('') +
+          '</ul>' +
+          '<p class="mail-auto-match-hint">Matched files were selected automatically. You can still browse and change attachments before sending.</p>' +
+        '</div>';
+    } else if (matchMessage) {
+      matchHtml =
+        '<div class="mail-auto-match is-empty">' +
+          '<p class="mail-auto-match-title">No automatic file match</p>' +
+          '<p class="mail-auto-match-note">' + escapeHtml(matchMessage) + '</p>' +
+          '<p class="mail-auto-match-hint">Browse the reports folder manually, or adjust the request reference fields and try again.</p>' +
+        '</div>';
+    }
+
     const note = bullets.length
       ? '<ul class="file-picker-selected-list">' + bullets.map(function (item) { return '<li>' + item + '</li>'; }).join('') + '</ul>'
       : '<p class="mail-fulfill-summary-note">Review the thread details, then select the matching report file(s) from the reports folder.</p>';
@@ -1324,10 +1377,94 @@
       '<div class="mail-fulfill-summary-head">' +
         '<div>' +
           '<p class="mail-fulfill-summary-title">What to send</p>' +
-          '<p class="mail-fulfill-summary-note">Use these request clues to match the correct report file(s) before sending.</p>' +
+          '<p class="mail-fulfill-summary-note">FireNet auto-matches filled reference fields to completed report files.</p>' +
         '</div>' +
       '</div>' +
-      note;
+      note +
+      matchHtml;
+
+    const reapplyBtn = document.getElementById('reapplyAutoMatchBtn');
+    if (reapplyBtn) {
+      reapplyBtn.addEventListener('click', function () {
+        applyAutoMatchedFiles(attachableMatches);
+        setMessage('Auto-matched files selected again.', false);
+      });
+    }
+  }
+
+  function applyAutoMatchedFiles(matches) {
+    const attachable = (Array.isArray(matches) ? matches : []).filter(function (match) {
+      return match && match.attachable && String(match.url || '').trim() !== '';
+    });
+    if (!attachable.length) {
+      return false;
+    }
+    state.composeSelectedCloudFiles = attachable.map(function (match) {
+      return {
+        public_id: String(match.r2Key || match.reportId || match.url),
+        filename: String(match.fileName || ('Report #' + String(match.reportId || ''))),
+        url: String(match.url || '')
+      };
+    });
+    if (composeCloudinaryUrl) {
+      composeCloudinaryUrl.value = state.composeSelectedCloudFiles.map(function (file) {
+        return file.url;
+      }).join('\n');
+    }
+    renderSelectedCloudFiles();
+    updateComposeMode();
+    return true;
+  }
+
+  async function loadAutoMatchesForFulfill(detail) {
+    const requestRoute = detail && detail.requestRoute ? detail.requestRoute : {};
+    const routeId = Number(requestRoute.routeId || state.composeFulfillRouteId || 0);
+    const threadId = Number((detail.thread && detail.thread.threadId) || state.composeReplyThreadId || 0);
+    if (routeId < 1) {
+      state.composeAutoMatches = [];
+      state.composeAutoMatchMessage = 'Unable to auto-match because the request route was not found.';
+      renderFulfillSummary(detail);
+      return;
+    }
+
+    state.composeAutoMatchLoading = true;
+    state.composeAutoMatches = [];
+    state.composeAutoMatchMessage = '';
+    renderFulfillSummary(detail);
+
+    try {
+      const response = await fetch(
+        apiUrl +
+          '?action=request-auto-match' +
+          '&routeId=' + encodeURIComponent(String(routeId)) +
+          '&threadId=' + encodeURIComponent(String(threadId)),
+        { method: 'GET', credentials: 'same-origin' }
+      );
+      const payload = await response.json().catch(function () { return null; });
+      if (!response.ok || !payload || payload.ok !== true) {
+        throw new Error((payload && payload.message) || 'Unable to auto-match report files.');
+      }
+
+      const data = payload.data || {};
+      const matches = Array.isArray(data.matches) ? data.matches : [];
+      state.composeAutoMatches = matches;
+      state.composeAutoMatchMessage = String(payload.message || data.message || '');
+      state.composeAutoMatchLoading = false;
+      renderFulfillSummary(detail, {
+        matches: matches,
+        message: state.composeAutoMatchMessage
+      });
+      applyAutoMatchedFiles(matches);
+      if (matches.some(function (match) { return match && match.attachable && match.url; })) {
+        setMessage(state.composeAutoMatchMessage || 'Matched report files were selected automatically.', false);
+      }
+    } catch (error) {
+      state.composeAutoMatchLoading = false;
+      state.composeAutoMatches = [];
+      state.composeAutoMatchMessage = error.message || 'Unable to auto-match report files.';
+      renderFulfillSummary(detail);
+      setMessage(state.composeAutoMatchMessage, true);
+    }
   }
 
   function renderThreadSummary(detail) {
@@ -1896,6 +2033,9 @@
     state.composeFulfillRouteId = Number(requestRoute.routeId || 0);
     state.composeReplyOriginStationId = 0;
     state.reopenThreadAfterCompose = true;
+    state.composeAutoMatches = [];
+    state.composeAutoMatchMessage = '';
+    state.composeAutoMatchLoading = false;
 
     composeForm.reset();
     const baseSubject = String(thread.subject || requestRoute.editedSubject || 'Operational request');
@@ -1913,6 +2053,7 @@
     renderFulfillSummary(detail);
     hideThreadModalForCompose();
     openCompose();
+    loadAutoMatchesForFulfill(detail);
   }
 
   function openAssignedReply(detail) {
@@ -2237,6 +2378,9 @@
     state.composeReplyThreadId = 0;
     state.composeFulfillRouteId = 0;
     state.composeReplyOriginStationId = 0;
+    state.composeAutoMatches = [];
+    state.composeAutoMatchMessage = '';
+    state.composeAutoMatchLoading = false;
     clearSelectedCloudFiles();
     renderFulfillSummary(null);
     const shouldReopenThread = state.reopenThreadAfterCompose && state.threadDetail && state.threadDetail.thread;

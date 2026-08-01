@@ -1033,6 +1033,11 @@ body.report-modal-open {
   color: #d8e4f8;
 }
 
+.rm-optional {
+  font-weight: 600;
+  color: rgba(148, 163, 184, 0.95);
+}
+
 .rm-field-hint {
   font-size: 0.72rem;
   line-height: 1.35;

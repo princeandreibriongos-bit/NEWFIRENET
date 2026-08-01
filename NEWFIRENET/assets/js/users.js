@@ -2049,7 +2049,14 @@
 
     resetBarangayForm();
     closeBarangayModal();
-    showToast(payload.message || (stationId ? 'Substation updated successfully.' : 'Substation created successfully.'), false);
+    let toastMessage = payload.message || (stationId ? 'Substation updated successfully.' : 'Substation created successfully.');
+    const cloudFolders = payload.data && payload.data.cloudFolders ? payload.data.cloudFolders : null;
+    if (cloudFolders && cloudFolders.ok && cloudFolders.reportsPrefix) {
+      toastMessage += ' Cloud folder: ' + String(cloudFolders.reportsPrefix) + '/';
+    } else if (cloudFolders && cloudFolders.message && !cloudFolders.ok) {
+      toastMessage += ' (' + String(cloudFolders.message) + ')';
+    }
+    showToast(toastMessage, false);
     await loadBootstrap();
   }
 

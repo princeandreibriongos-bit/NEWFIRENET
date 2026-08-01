@@ -3992,8 +3992,8 @@
       return;
     }
 
-    if (isIncident && !isProgression && !isCallIntake && payloadStreet === '' && altAddressValue === '') {
-      formMessage.textContent = 'Please provide a street or paste a full address before submitting.';
+    if (isIncident && !isProgression && !isCallIntake && payloadStreet === '' && payloadLandmark === '' && altAddressValue === '') {
+      formMessage.textContent = 'Please provide a street, landmark/building, or paste a full address before submitting.';
       return;
     }
 
