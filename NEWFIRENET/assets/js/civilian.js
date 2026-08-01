@@ -241,12 +241,26 @@
 
   function closeNav() {
     els.body.classList.remove('nav-open');
-    if (els.navScrim) els.navScrim.hidden = true;
+    if (els.navScrim) {
+      els.navScrim.hidden = true;
+      els.navScrim.setAttribute('aria-hidden', 'true');
+    }
+    if (els.menuToggle) {
+      els.menuToggle.setAttribute('aria-expanded', 'false');
+      els.menuToggle.setAttribute('aria-label', 'Open navigation');
+    }
   }
 
   function openNav() {
     els.body.classList.add('nav-open');
-    if (els.navScrim) els.navScrim.hidden = false;
+    if (els.navScrim) {
+      els.navScrim.hidden = false;
+      els.navScrim.setAttribute('aria-hidden', 'false');
+    }
+    if (els.menuToggle) {
+      els.menuToggle.setAttribute('aria-expanded', 'true');
+      els.menuToggle.setAttribute('aria-label', 'Close navigation');
+    }
   }
 
   function setView(viewName, options) {
@@ -266,7 +280,14 @@
       else btn.removeAttribute('aria-current');
     });
 
-    els.body.setAttribute('data-view', next);
+    els.body.setAttribute('data-current-view', next);
+
+    document.querySelectorAll('.mobile-tab[data-view]').forEach(function (btn) {
+      const active = btn.getAttribute('data-view') === next;
+      btn.classList.toggle('is-active', active);
+      if (active) btn.setAttribute('aria-current', 'page');
+      else btn.removeAttribute('aria-current');
+    });
     if (els.viewTitle) els.viewTitle.textContent = VIEW_META[next].title;
     if (els.viewKicker) els.viewKicker.textContent = VIEW_META[next].kicker;
 
@@ -1411,7 +1432,10 @@
 
   function bindEvents() {
     document.addEventListener('click', function (event) {
-      const viewBtn = event.target.closest('[data-view]');
+      // Ignore body[data-view] / non-controls — otherwise menu toggle opens then setView() closes it.
+      const viewBtn = event.target.closest(
+        'button[data-view], .side-nav-item[data-view], .mobile-tab[data-view], .metrics-more[data-view], .text-link[data-view], .btn-ghost[data-view]'
+      );
       if (viewBtn && viewBtn.tagName !== 'A') {
         const tip = viewBtn.getAttribute('data-open-tip');
         setView(viewBtn.getAttribute('data-view'), tip != null ? { openTip: tip } : {});
@@ -1440,7 +1464,17 @@
     }
 
     if (els.menuToggle) {
-      els.menuToggle.addEventListener('click', function () {
+      els.menuToggle.addEventListener('click', function (event) {
+        event.stopPropagation();
+        if (els.body.classList.contains('nav-open')) closeNav();
+        else openNav();
+      });
+    }
+
+    var mobileMoreBtn = document.getElementById('mobileMoreBtn');
+    if (mobileMoreBtn) {
+      mobileMoreBtn.addEventListener('click', function (event) {
+        event.stopPropagation();
         if (els.body.classList.contains('nav-open')) closeNav();
         else openNav();
       });

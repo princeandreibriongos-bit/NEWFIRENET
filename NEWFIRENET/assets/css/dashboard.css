@@ -568,15 +568,27 @@ body.has-dashboard-bg .app-main {
 /* Live bar */
 .dash-live-bar {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.65rem;
-  padding: 0.45rem 0.75rem;
+  flex-direction: column;
+  gap: 0.55rem;
+  padding: 0.55rem 0.75rem 0.65rem;
   border-radius: 12px;
   border: 1px solid var(--dash-border);
   background: rgba(255, 255, 255, 0.05);
   backdrop-filter: blur(10px);
-  transition: border-color 0.25s ease, background 0.25s ease;
+  transition: border-color 0.25s ease, background 0.25s ease, box-shadow 0.25s ease;
+}
+
+.dash-live-bar.is-alert {
+  border-color: rgba(220, 38, 38, 0.45);
+  background: linear-gradient(135deg, rgba(127, 29, 29, 0.28), rgba(27, 38, 59, 0.55));
+  box-shadow: 0 0 0 1px rgba(248, 113, 113, 0.12), 0 12px 28px rgba(127, 29, 29, 0.18);
+}
+
+.dash-live-main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
 }
 
 .dash-live-indices {
@@ -585,6 +597,223 @@ body.has-dashboard-bg .app-main {
   height: 1px;
   overflow: hidden;
   clip: rect(0, 0, 0, 0);
+}
+
+.dash-live-kicker {
+  margin: 0 0 0.12rem;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(254, 202, 202, 0.92);
+}
+
+.dash-live-bar:not(.is-alert) .dash-live-kicker {
+  color: rgba(148, 163, 184, 0.95);
+}
+
+.dash-responders-ticker {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-width: 0;
+  padding: 0.35rem 0.45rem;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(15, 23, 42, 0.45);
+  overflow: hidden;
+}
+
+.dash-responders-ticker.is-active {
+  animation: dash-ticker-in 0.45s var(--dash-ease) both;
+}
+
+@keyframes dash-ticker-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.dash-responders-label {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.45rem;
+  border-radius: 999px;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #fecaca;
+  background: rgba(185, 28, 28, 0.35);
+  border: 1px solid rgba(248, 113, 113, 0.35);
+}
+
+.dash-responders-pulse {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #f87171;
+  box-shadow: 0 0 0 0 rgba(248, 113, 113, 0.55);
+  animation: dash-pulse-alert 1.6s ease-out infinite;
+}
+
+.dash-responders-viewport {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+}
+
+.dash-responders-marquee {
+  display: flex;
+  width: max-content;
+  gap: 1.25rem;
+  animation: dash-ticker-ltr 22s linear infinite;
+  will-change: transform;
+}
+
+.dash-responders-ticker:hover .dash-responders-marquee {
+  animation-play-state: paused;
+}
+
+.dash-responders-sequence {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  white-space: nowrap;
+}
+
+.dash-responder-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.22rem 0.55rem 0.22rem 0.28rem;
+  border-radius: 999px;
+  border: 1px solid rgba(201, 162, 77, 0.35);
+  background: linear-gradient(135deg, rgba(201, 162, 77, 0.18), rgba(255, 255, 255, 0.06));
+  color: #f8fafc;
+  font-size: 0.72rem;
+  font-weight: 700;
+  transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+}
+
+.dash-responder-chip:hover {
+  transform: translateY(-1px) scale(1.03);
+  border-color: rgba(201, 162, 77, 0.7);
+  background: linear-gradient(135deg, rgba(201, 162, 77, 0.28), rgba(255, 255, 255, 0.1));
+}
+
+.dash-responder-chip-order {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.15rem;
+  height: 1.15rem;
+  border-radius: 50%;
+  background: rgba(185, 25, 38, 0.9);
+  color: #fff;
+  font-size: 0.62rem;
+  font-weight: 800;
+}
+
+.dash-responder-sep {
+  color: rgba(148, 163, 184, 0.7);
+  font-size: 0.7rem;
+}
+
+@keyframes dash-ticker-ltr {
+  from { transform: translateX(-50%); }
+  to { transform: translateX(0); }
+}
+
+.dash-ongoing-strip {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+.dash-ongoing-strip-label {
+  margin: 0;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: rgba(191, 219, 254, 0.85);
+}
+
+.dash-ongoing-strip-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.45rem;
+}
+
+.dash-ongoing-card {
+  padding: 0.45rem 0.55rem;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(15, 23, 42, 0.38);
+  transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+}
+
+.dash-ongoing-card.is-latest {
+  border-color: rgba(220, 38, 38, 0.45);
+  background: rgba(127, 29, 29, 0.28);
+}
+
+.dash-ongoing-card:hover {
+  transform: translateY(-1px);
+  border-color: rgba(201, 162, 77, 0.45);
+}
+
+.dash-ongoing-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem;
+  margin-bottom: 0.2rem;
+}
+
+.dash-ongoing-alarm {
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #fecaca;
+}
+
+.dash-ongoing-status {
+  font-size: 0.62rem;
+  font-weight: 700;
+  color: rgba(226, 232, 240, 0.88);
+}
+
+.dash-ongoing-card-title {
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 750;
+  color: #f8fbff;
+  line-height: 1.25;
+}
+
+.dash-ongoing-card-responders {
+  margin: 0.28rem 0 0;
+  font-size: 0.68rem;
+  color: rgba(203, 213, 225, 0.9);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dash-ongoing-card-responders-label {
+  color: #c9a24d;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-size: 0.58rem;
 }
 
 .dash-alarm-raise-banner {
@@ -1273,6 +1502,19 @@ body.has-dashboard-bg .app-main {
     grid-template-columns: 1fr;
   }
 
+  .dash-live-main {
+    flex-wrap: wrap;
+  }
+
+  .dash-responders-ticker {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .dash-ongoing-strip-list {
+    grid-template-columns: 1fr;
+  }
+
   .dash-board-grid {
     grid-template-columns: 1fr;
     grid-template-areas:
@@ -1308,8 +1550,14 @@ body.has-dashboard-bg .app-main {
   .dash-action,
   .dash-fab,
   .dash-feed-item,
-  .dash-row {
+  .dash-row,
+  .dash-responders-marquee,
+  .dash-responders-pulse {
     animation: none !important;
     transition: none !important;
+  }
+
+  .dash-responders-marquee {
+    transform: none !important;
   }
 }

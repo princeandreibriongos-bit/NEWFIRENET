@@ -494,3 +494,19 @@
     </footer>
   </div>
 </div>
+
+<div id="incidentDetailModal" class="report-modal report-modal--detail" hidden>
+  <div class="report-modal-backdrop" data-close-incident-detail="true"></div>
+  <div class="report-modal-dialog report-detail-dialog" role="dialog" aria-modal="true" aria-labelledby="incidentDetailTitle">
+    <header class="rm-header">
+      <div class="rm-header-copy">
+        <p class="rm-kicker" id="incidentDetailKicker">Incident details</p>
+        <h3 class="rm-title" id="incidentDetailTitle">Incident report</h3>
+        <p class="rm-lead" id="incidentDetailLead">Quick operational snapshot for this case.</p>
+      </div>
+      <button type="button" class="rm-close modal-close-btn" id="closeIncidentDetailModal" aria-label="Close">×</button>
+    </header>
+    <div class="report-detail-body" id="incidentDetailBody"></div>
+    <footer class="report-detail-actions" id="incidentDetailActions"></footer>
+  </div>
+</div>

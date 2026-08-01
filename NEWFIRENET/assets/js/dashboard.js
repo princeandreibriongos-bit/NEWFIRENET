@@ -46,6 +46,11 @@
     stationStatusList: document.getElementById('stationStatusList'),
     ongoingIncidentTitle: document.getElementById('ongoingIncidentTitle'),
     ongoingIncidentMeta: document.getElementById('ongoingIncidentMeta'),
+    ongoingIncidentKicker: document.getElementById('ongoingIncidentKicker'),
+    ongoingRespondersTicker: document.getElementById('ongoingRespondersTicker'),
+    ongoingRespondersMarquee: document.getElementById('ongoingRespondersMarquee'),
+    recentOngoingStrip: document.getElementById('recentOngoingStrip'),
+    recentOngoingList: document.getElementById('recentOngoingList'),
     kpiDeltaActive: document.getElementById('kpiDeltaActive'),
     kpiDeltaCompleted: document.getElementById('kpiDeltaCompleted'),
     kpiDeltaReadiness: document.getElementById('kpiDeltaReadiness'),
@@ -759,17 +764,138 @@
     }
   }
 
+  function compactStationLabel(name) {
+    return String(name || '')
+      .replace(/\bFire\s+Station\b/gi, 'FS')
+      .replace(/\bStation\b/gi, 'Sta.')
+      .trim();
+  }
+
+  function buildResponderTickerHtml(stations) {
+    const names = (Array.isArray(stations) ? stations : [])
+      .map(function (station) {
+        if (typeof station === 'string') {
+          return compactStationLabel(station);
+        }
+        return compactStationLabel(station && (station.stationName || station.name));
+      })
+      .filter(Boolean);
+
+    if (!names.length) {
+      return '';
+    }
+
+    const chips = names.map(function (name, index) {
+      return (
+        '<span class="dash-responder-chip">' +
+          '<span class="dash-responder-chip-order">' + escapeHtml(String(index + 1)) + '</span>' +
+          '<span class="dash-responder-chip-name">' + escapeHtml(name) + '</span>' +
+        '</span>'
+      );
+    }).join('<span class="dash-responder-sep" aria-hidden="true">•</span>');
+
+    // Duplicate sequence for seamless left-to-right loop.
+    return (
+      '<div class="dash-responders-sequence">' + chips + '</div>' +
+      '<div class="dash-responders-sequence" aria-hidden="true">' + chips + '</div>'
+    );
+  }
+
+  function renderRespondingTicker() {
+    const ticker = elements.ongoingRespondersTicker;
+    const marquee = elements.ongoingRespondersMarquee;
+    if (!ticker || !marquee) {
+      return;
+    }
+
+    const stations = Array.isArray(context.ongoingRespondingStations) ? context.ongoingRespondingStations : [];
+    const html = buildResponderTickerHtml(stations);
+    if (!html) {
+      marquee.innerHTML = '';
+      ticker.hidden = true;
+      ticker.classList.remove('is-active');
+      return;
+    }
+
+    marquee.innerHTML = html;
+    ticker.hidden = false;
+    ticker.classList.add('is-active');
+  }
+
+  function renderRecentOngoingStrip() {
+    const strip = elements.recentOngoingStrip;
+    const list = elements.recentOngoingList;
+    if (!strip || !list) {
+      return;
+    }
+
+    const incidents = Array.isArray(context.recentOngoingIncidents) ? context.recentOngoingIncidents : [];
+    if (!incidents.length) {
+      list.innerHTML = '';
+      strip.hidden = true;
+      return;
+    }
+
+    list.innerHTML = incidents.map(function (item, index) {
+      const caseId = Number(item.incidentCaseId || 0);
+      const alarm = Number(item.alarmLevel || 1);
+      const title = String(item.title || 'Unspecified location');
+      const statusLabel = String(item.statusLabel || item.status || 'Ongoing');
+      const responders = Array.isArray(item.respondingStations) ? item.respondingStations : [];
+      const responderText = responders.length
+        ? responders.map(compactStationLabel).join(' · ')
+        : 'Awaiting assignment';
+
+      return (
+        '<article class="dash-ongoing-card' + (index === 0 ? ' is-latest' : '') + '">' +
+          '<div class="dash-ongoing-card-top">' +
+            '<span class="dash-ongoing-alarm">Alarm ' + escapeHtml(String(alarm)) + '</span>' +
+            '<span class="dash-ongoing-status">' + escapeHtml(statusLabel) + '</span>' +
+          '</div>' +
+          '<p class="dash-ongoing-card-title">' +
+            (caseId > 0 ? ('#' + escapeHtml(String(caseId)) + ' · ') : '') +
+            escapeHtml(title) +
+          '</p>' +
+          '<p class="dash-ongoing-card-responders" title="' + escapeHtml(responderText) + '">' +
+            '<span class="dash-ongoing-card-responders-label">Responding</span> ' +
+            escapeHtml(responderText) +
+          '</p>' +
+        '</article>'
+      );
+    }).join('');
+    strip.hidden = false;
+  }
+
   function renderOngoingIncident() {
+    const open = Number(context.openIncidentCount || 0) > 0;
+    if (elements.ongoingIncidentKicker) {
+      if (open && Number(context.ongoingIncidentCaseId || 0) > 0) {
+        elements.ongoingIncidentKicker.textContent = 'Case #' + String(context.ongoingIncidentCaseId) + ' · Live now';
+      } else if (open) {
+        elements.ongoingIncidentKicker.textContent = 'Live incident';
+      } else {
+        elements.ongoingIncidentKicker.textContent = 'Command ready';
+      }
+    }
     if (elements.ongoingIncidentTitle && context.ongoingIncidentTitle) {
       elements.ongoingIncidentTitle.textContent = String(context.ongoingIncidentTitle);
     }
     if (elements.ongoingIncidentMeta && context.ongoingIncidentMeta) {
-      elements.ongoingIncidentMeta.textContent = String(context.ongoingIncidentMeta);
+      let meta = String(context.ongoingIncidentMeta);
+      if (open && context.ongoingIncidentLocation) {
+        meta += ' | ' + String(context.ongoingIncidentLocation);
+      }
+      elements.ongoingIncidentMeta.textContent = meta;
+    }
+    const liveBar = document.querySelector('.dash-live-bar');
+    if (liveBar) {
+      liveBar.classList.toggle('is-alert', open);
     }
     const dot = document.querySelector('.dash-activity-dot');
     renderAlarmRaiseBanner();
+    renderRespondingTicker();
+    renderRecentOngoingStrip();
     if (dot) {
-      const open = Number(context.openIncidentCount || 0) > 0;
       dot.classList.toggle('dash-activity-dot--alert', open);
     }
   }

@@ -2,7 +2,7 @@
   'use strict';
 
   const VALID_VIEWS = ['login', 'news', 'announcements'];
-  const pills = Array.from(document.querySelectorAll('.login-ribbon-pill[data-portal-view]'));
+  const pills = Array.from(document.querySelectorAll('.login-ribbon-pill[data-portal-view], .login-mobile-tab[data-portal-view]'));
   const viewTriggers = Array.from(document.querySelectorAll('[data-portal-view]'));
   const views = {
     login: document.getElementById('portalLoginView'),
@@ -70,9 +70,17 @@
       el.classList.toggle('is-active-portal-view', active);
     });
 
+    const opsActive = Boolean(opts.opsActive) && next === 'login';
+
     pills.forEach(function (pill) {
       const value = String(pill.getAttribute('data-portal-view') || '');
-      const active = value === next;
+      const isOpsShortcut = pill.hasAttribute('data-scroll-ops');
+      let active = value === next;
+      if (isOpsShortcut) {
+        active = opsActive;
+      } else if (value === 'login' && opsActive) {
+        active = false;
+      }
       pill.classList.toggle('is-active', active);
       if (active) {
         pill.setAttribute('aria-current', 'page');
@@ -82,6 +90,12 @@
     });
 
     document.body.setAttribute('data-portal-view', next);
+    document.body.classList.toggle('login-ops-focus', opsActive);
+
+    document.body.classList.remove('login-m-enter');
+    requestAnimationFrame(function () {
+      document.body.classList.add('login-m-enter');
+    });
 
     if (!opts.skipHistory) {
       const url = new URL(window.location.href);
@@ -114,7 +128,13 @@
       });
     }
 
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    if (opsActive) {
+      requestAnimationFrame(function () {
+        window.scrollTo({ top: 0, behavior: 'auto' });
+      });
+    } else if (!opts.skipScroll) {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
   }
 
   function openArticleModal(item, kind) {
@@ -359,7 +379,12 @@
   viewTriggers.forEach(function (trigger) {
     trigger.addEventListener('click', function (event) {
       event.preventDefault();
-      setView(trigger.getAttribute('data-portal-view') || 'login');
+      const view = trigger.getAttribute('data-portal-view') || 'login';
+      const isOpsShortcut = trigger.hasAttribute('data-scroll-ops');
+      setView(view, {
+        skipScroll: isOpsShortcut,
+        opsActive: isOpsShortcut
+      });
     });
   });
 

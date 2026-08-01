@@ -25,6 +25,12 @@ $openIncidentCount = 0;
 $openIncidentSummary = 'No active incidents right now.';
 $ongoingIncidentTitle = 'No active incidents.';
 $ongoingIncidentMeta = 'Updates will appear here when incidents are active.';
+$ongoingIncidentCaseId = 0;
+$ongoingIncidentAlarmLevel = 0;
+$ongoingIncidentStatus = '';
+$ongoingIncidentLocation = '';
+$ongoingRespondingStations = [];
+$recentOngoingIncidents = [];
 $completedIncidentCount = 0;
 $totalIncidentCount = 0;
 $isCentralStation = false;
@@ -100,7 +106,10 @@ try {
 
     $latestStmt = $pdo->prepare("
         SELECT
+            i.incident_report_id,
+            COALESCE(NULLIF(i.incident_case_id, 0), r.report_id) AS incident_case_id,
             COALESCE(NULLIF(r.title, ''), NULLIF(i.incident_location, ''), 'Unspecified location') AS incident_title,
+            COALESCE(i.incident_location, '') AS incident_location,
             COALESCE(i.incident_status, 'newly_reported') AS incident_status,
             COALESCE(i.alarm_level, 1) AS alarm_level,
             COALESCE(i.updated_at, i.created_at, r.updated_at, r.created_at) AS incident_time
@@ -115,6 +124,7 @@ try {
         )
           AND (s.stage_code IS NULL OR s.stage_code <> 'after_incident')
           AND (i.incident_status IS NULL OR i.incident_status <> 'fire_out')
+        GROUP BY i.incident_report_id
         ORDER BY COALESCE(i.updated_at, i.created_at, r.updated_at, r.created_at) DESC
         LIMIT 1
     ");
@@ -122,8 +132,12 @@ try {
     $latest = $latestStmt->fetch(PDO::FETCH_ASSOC);
 
     if ($latest) {
-        $ongoingIncidentTitle = 'Alarm ' . (int) ($latest['alarm_level'] ?? 1) . ' - ' . (string) ($latest['incident_title'] ?? 'Unspecified location');
-        $status = (string) ($latest['incident_status'] ?? 'newly_reported');
+        $ongoingIncidentCaseId = (int) ($latest['incident_case_id'] ?? 0);
+        $ongoingIncidentAlarmLevel = (int) ($latest['alarm_level'] ?? 1);
+        $ongoingIncidentStatus = (string) ($latest['incident_status'] ?? 'newly_reported');
+        $ongoingIncidentLocation = (string) ($latest['incident_location'] ?? '');
+        $ongoingIncidentTitle = 'Alarm ' . $ongoingIncidentAlarmLevel . ' - ' . (string) ($latest['incident_title'] ?? 'Unspecified location');
+        $status = $ongoingIncidentStatus;
         $statusLabel = $status === 'ongoing'
             ? 'Ongoing'
             : ($status === 'under_control'
@@ -132,13 +146,129 @@ try {
         $ongoingIncidentMeta = 'Status: ' . $statusLabel . ' | Last update: ' . (string) ($latest['incident_time'] ?? '-');
     }
 
-    $dispatchTableExistsStmt = $pdo->query("\n        SELECT COUNT(*)\n        FROM information_schema.TABLES\n        WHERE TABLE_SCHEMA = DATABASE()\n          AND TABLE_NAME = 'incident_report_dispatch_stations'\n    ");
+    $recentOngoingStmt = $pdo->prepare("
+        SELECT
+            i.incident_report_id,
+            COALESCE(NULLIF(i.incident_case_id, 0), r.report_id) AS incident_case_id,
+            COALESCE(NULLIF(r.title, ''), NULLIF(i.incident_location, ''), 'Unspecified location') AS incident_title,
+            COALESCE(i.incident_location, '') AS incident_location,
+            COALESCE(i.incident_status, 'newly_reported') AS incident_status,
+            COALESCE(i.alarm_level, 1) AS alarm_level,
+            COALESCE(i.updated_at, i.created_at, r.updated_at, r.created_at) AS incident_time
+        FROM incident_reports i
+        JOIN reports r ON r.report_id = i.report_id
+        LEFT JOIN incident_report_stage s ON s.incident_report_stage_id = i.incident_report_stage_id
+        LEFT JOIN incident_report_dispatch_stations d ON d.incident_report_id = i.incident_report_id
+        WHERE (
+            r.station_id = ?
+            OR i.dispatched_station_id = ?
+            OR d.station_id = ?
+        )
+          AND (s.stage_code IS NULL OR s.stage_code <> 'after_incident')
+          AND (i.incident_status IS NULL OR i.incident_status <> 'fire_out')
+        GROUP BY i.incident_report_id
+        ORDER BY COALESCE(i.updated_at, i.created_at, r.updated_at, r.created_at) DESC
+        LIMIT 5
+    ");
+    $recentOngoingStmt->execute([$stationId, $stationId, $stationId]);
+    $recentOngoingRows = $recentOngoingStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+    $dispatchTableExistsStmt = $pdo->query("
+        SELECT COUNT(*)
+        FROM information_schema.TABLES
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'incident_report_dispatch_stations'
+    ");
     $dispatchTableExists = (int) ($dispatchTableExistsStmt->fetchColumn() ?: 0) > 0;
 
+    if ($latest && $dispatchTableExists) {
+        $latestIncidentReportId = (int) ($latest['incident_report_id'] ?? 0);
+        if ($latestIncidentReportId > 0) {
+            $respondersStmt = $pdo->prepare("
+                SELECT s.station_id, s.station_name, s.station_code, d.dispatch_order, d.assignment_method
+                FROM incident_report_dispatch_stations d
+                JOIN stations s ON s.station_id = d.station_id
+                WHERE d.incident_report_id = ?
+                ORDER BY d.dispatch_order ASC, d.incident_report_dispatch_station_id ASC
+            ");
+            $respondersStmt->execute([$latestIncidentReportId]);
+            $ongoingRespondingStations = array_map(static function (array $row): array {
+                return [
+                    'stationId' => (int) ($row['station_id'] ?? 0),
+                    'stationName' => (string) ($row['station_name'] ?? ''),
+                    'stationCode' => (string) ($row['station_code'] ?? ''),
+                    'order' => (int) ($row['dispatch_order'] ?? 0),
+                    'method' => (string) ($row['assignment_method'] ?? '')
+                ];
+            }, $respondersStmt->fetchAll(PDO::FETCH_ASSOC) ?: []);
+        }
+    }
+
+    foreach ($recentOngoingRows as $ongoingRow) {
+        $rowIncidentId = (int) ($ongoingRow['incident_report_id'] ?? 0);
+        $rowStatus = (string) ($ongoingRow['incident_status'] ?? 'newly_reported');
+        $rowStatusLabel = $rowStatus === 'ongoing'
+            ? 'Ongoing'
+            : ($rowStatus === 'under_control'
+                ? 'Under Control'
+                : ($rowStatus === 'fire_out' ? 'Fire Out' : 'Newly Reported'));
+        $rowResponders = [];
+        if ($dispatchTableExists && $rowIncidentId > 0) {
+            $rowRespondersStmt = $pdo->prepare("
+                SELECT s.station_name
+                FROM incident_report_dispatch_stations d
+                JOIN stations s ON s.station_id = d.station_id
+                WHERE d.incident_report_id = ?
+                ORDER BY d.dispatch_order ASC, d.incident_report_dispatch_station_id ASC
+            ");
+            $rowRespondersStmt->execute([$rowIncidentId]);
+            $rowResponders = array_values(array_filter(array_map(static function ($name) {
+                return trim((string) $name);
+            }, $rowRespondersStmt->fetchAll(PDO::FETCH_COLUMN) ?: [])));
+        }
+        $recentOngoingIncidents[] = [
+            'incidentReportId' => $rowIncidentId,
+            'incidentCaseId' => (int) ($ongoingRow['incident_case_id'] ?? 0),
+            'title' => (string) ($ongoingRow['incident_title'] ?? 'Unspecified location'),
+            'location' => (string) ($ongoingRow['incident_location'] ?? ''),
+            'alarmLevel' => (int) ($ongoingRow['alarm_level'] ?? 1),
+            'status' => $rowStatus,
+            'statusLabel' => $rowStatusLabel,
+            'updatedAt' => (string) ($ongoingRow['incident_time'] ?? ''),
+            'respondingStations' => $rowResponders
+        ];
+    }
+
     if ($dispatchTableExists) {
-        $stationStatusStmt = $pdo->query("\n            SELECT\n                s.station_id,\n                s.station_name,\n                s.status AS station_record_status,\n                COALESCE(active_assignments.active_count, 0) AS active_assignment_count\n            FROM stations s\n            LEFT JOIN (\n                SELECT d.station_id, COUNT(*) AS active_count\n                FROM incident_report_dispatch_stations d\n                JOIN incident_reports i ON i.incident_report_id = d.incident_report_id\n                LEFT JOIN incident_report_stage st ON st.incident_report_stage_id = i.incident_report_stage_id\n                WHERE (st.stage_code IS NULL OR st.stage_code <> 'after_incident')\n                  AND (i.incident_status IS NULL OR i.incident_status <> 'fire_out')\n                  AND i.incident_finished_at IS NULL\n                GROUP BY d.station_id\n            ) active_assignments ON active_assignments.station_id = s.station_id\n            ORDER BY s.station_id ASC\n        ");
+        $stationStatusStmt = $pdo->query("
+            SELECT
+                s.station_id,
+                s.station_name,
+                s.status AS station_record_status,
+                COALESCE(active_assignments.active_count, 0) AS active_assignment_count
+            FROM stations s
+            LEFT JOIN (
+                SELECT d.station_id, COUNT(*) AS active_count
+                FROM incident_report_dispatch_stations d
+                JOIN incident_reports i ON i.incident_report_id = d.incident_report_id
+                LEFT JOIN incident_report_stage st ON st.incident_report_stage_id = i.incident_report_stage_id
+                WHERE (st.stage_code IS NULL OR st.stage_code <> 'after_incident')
+                  AND (i.incident_status IS NULL OR i.incident_status <> 'fire_out')
+                  AND i.incident_finished_at IS NULL
+                GROUP BY d.station_id
+            ) active_assignments ON active_assignments.station_id = s.station_id
+            ORDER BY s.station_id ASC
+        ");
     } else {
-        $stationStatusStmt = $pdo->query("\n            SELECT\n                s.station_id,\n                s.station_name,\n                s.status AS station_record_status,\n                0 AS active_assignment_count\n            FROM stations s\n            ORDER BY s.station_id ASC\n        ");
+        $stationStatusStmt = $pdo->query("
+            SELECT
+                s.station_id,
+                s.station_name,
+                s.status AS station_record_status,
+                0 AS active_assignment_count
+            FROM stations s
+            ORDER BY s.station_id ASC
+        ");
     }
 
     $stationStatusRows = $stationStatusStmt->fetchAll(PDO::FETCH_ASSOC);
@@ -304,6 +434,8 @@ try {
     // Keep dashboard usable even if incident query fails.
     $dailyIncidentCounts = [];
     $recentNews = [];
+    $ongoingRespondingStations = [];
+    $recentOngoingIncidents = [];
 }
 
 $dashboardContext = [
@@ -322,6 +454,12 @@ $dashboardContext = [
     'openIncidentSummary' => $openIncidentSummary,
     'ongoingIncidentTitle' => $ongoingIncidentTitle,
     'ongoingIncidentMeta' => $ongoingIncidentMeta,
+    'ongoingIncidentCaseId' => $ongoingIncidentCaseId,
+    'ongoingIncidentAlarmLevel' => $ongoingIncidentAlarmLevel,
+    'ongoingIncidentStatus' => $ongoingIncidentStatus,
+    'ongoingIncidentLocation' => $ongoingIncidentLocation,
+    'ongoingRespondingStations' => $ongoingRespondingStations,
+    'recentOngoingIncidents' => $recentOngoingIncidents,
     'activeIncidentCount' => $openIncidentCount,
     'completedIncidentCount' => $completedIncidentCount,
     'totalIncidentCount' => $totalIncidentCount,

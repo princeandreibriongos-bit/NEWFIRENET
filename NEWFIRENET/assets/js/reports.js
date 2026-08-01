@@ -30,6 +30,13 @@
   const alarmRaiseConfirmLead = document.getElementById('alarmRaiseConfirmLead');
   const alarmRaiseConfirmSummary = document.getElementById('alarmRaiseConfirmSummary');
   const alarmRaiseConfirmNote = document.getElementById('alarmRaiseConfirmNote');
+  const incidentDetailModal = document.getElementById('incidentDetailModal');
+  const closeIncidentDetailModal = document.getElementById('closeIncidentDetailModal');
+  const incidentDetailKicker = document.getElementById('incidentDetailKicker');
+  const incidentDetailTitle = document.getElementById('incidentDetailTitle');
+  const incidentDetailLead = document.getElementById('incidentDetailLead');
+  const incidentDetailBody = document.getElementById('incidentDetailBody');
+  const incidentDetailActions = document.getElementById('incidentDetailActions');
   const form = document.getElementById('reportForm');
   const reportId = document.getElementById('reportId');
   const reportSubmitBtn = document.getElementById('reportSubmitBtn');
@@ -204,7 +211,7 @@
   }
 
   function mountReportModalsToBody() {
-    [reportTypeModal, reportModal, releaseConfirmModal, fireOutConfirmModal, alarmRaiseConfirmModal].forEach(function (modal) {
+    [reportTypeModal, reportModal, releaseConfirmModal, fireOutConfirmModal, alarmRaiseConfirmModal, incidentDetailModal].forEach(function (modal) {
       if (modal && modal.parentElement !== document.body) {
         document.body.appendChild(modal);
       }
@@ -216,7 +223,8 @@
       || !reportTypeModal.hidden
       || (releaseConfirmModal && !releaseConfirmModal.hidden)
       || (fireOutConfirmModal && !fireOutConfirmModal.hidden)
-      || (alarmRaiseConfirmModal && !alarmRaiseConfirmModal.hidden);
+      || (alarmRaiseConfirmModal && !alarmRaiseConfirmModal.hidden)
+      || (incidentDetailModal && !incidentDetailModal.hidden);
     document.body.classList.toggle('report-modal-open', isOpen);
   }
 
@@ -2669,6 +2677,133 @@
     return title;
   }
 
+  function formatDetailWhen(value) {
+    if (!value) {
+      return '—';
+    }
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return String(value);
+    }
+    return date.toLocaleString();
+  }
+
+  function buildDetailField(label, value, wide) {
+    return (
+      '<div class="report-detail-field' + (wide ? ' report-detail-field--wide' : '') + '">' +
+        '<span class="report-detail-label">' + escapeHtml(label) + '</span>' +
+        '<p class="report-detail-value">' + value + '</p>' +
+      '</div>'
+    );
+  }
+
+  function closeIncidentDetailModalDialog() {
+    if (!incidentDetailModal) {
+      return;
+    }
+    incidentDetailModal.hidden = true;
+    syncReportModalScrollLock();
+  }
+
+  function openIncidentDetailModal(item) {
+    if (!incidentDetailModal || !item) {
+      return;
+    }
+
+    const isIncident = (item.type || '') === 'incident_report';
+    const caseLabel = item.displayId || (item.incidentCaseId ? ('#' + item.incidentCaseId) : ('#' + String(item.id || '')));
+    const alarmLevel = Number(item.caseAlarmLevel || item.alarmLevel || 0) || 1;
+    const statusCode = String(item.incidentStatus || '').toLowerCase();
+    const statusLabel = formatIncidentStatus(item.incidentStatus || (isIncidentCompleted(item) ? 'fire_out' : 'ongoing'));
+    const stations = Array.isArray(item.assignedStations) ? item.assignedStations : [];
+    const respondersHtml = stations.length
+      ? ('<div class="report-detail-responders">' + stations.map(function (station, index) {
+          const name = String(station.name || station.stationName || 'Station');
+          return (
+            '<span class="report-detail-responder-chip">' +
+              '<span>' + escapeHtml(String(index + 1)) + '</span>' +
+              escapeHtml(name) +
+            '</span>'
+          );
+        }).join('') + '</div>')
+      : escapeHtml(item.assignedStationName || 'Not yet assigned');
+
+    if (incidentDetailKicker) {
+      incidentDetailKicker.textContent = isIncident
+        ? ('Case ' + caseLabel + ' · Snapshot')
+        : 'Equipment report';
+    }
+    if (incidentDetailTitle) {
+      incidentDetailTitle.textContent = formatReportTitle(item);
+    }
+    if (incidentDetailLead) {
+      incidentDetailLead.textContent = isIncident
+        ? (item.stationName ? (item.stationName + ' station copy') : 'Operational snapshot')
+        : 'Equipment issue details';
+    }
+
+    if (incidentDetailBody) {
+      if (isIncident) {
+        const statusClass = 'report-detail-pill report-detail-pill--status' + (statusCode === 'fire_out' ? ' is-fire-out' : '');
+        const claimText = item.isClaimedByMe
+          ? 'Claimed by you'
+          : (item.handlingUsername
+            ? ('Claimed by ' + item.handlingUsername)
+            : (isIncidentActive(item) ? 'Unclaimed in queue' : 'No active claim'));
+        const locationText = item.location || [item.streetName, item.barangay, item.landmark].filter(Boolean).join(', ') || '—';
+        const remarks = String(item.remarks || '').trim();
+
+        incidentDetailBody.innerHTML =
+          '<div class="report-detail-status-row">' +
+            '<span class="report-detail-pill report-detail-pill--alarm">Alarm ' + escapeHtml(String(alarmLevel)) + '</span>' +
+            '<span class="' + statusClass + '">' + escapeHtml(statusLabel) + '</span>' +
+            '<span class="report-detail-pill">' + escapeHtml(normalizeStage(item.stage || '', 'incident_report')) + '</span>' +
+          '</div>' +
+          '<div class="report-detail-grid">' +
+            buildDetailField('Location', escapeHtml(locationText), true) +
+            buildDetailField('Caller', escapeHtml(item.callerName || '—')) +
+            buildDetailField('Claim', escapeHtml(claimText)) +
+            buildDetailField('Started', escapeHtml(formatDetailWhen(item.incidentStartedAt || item.submittedAt))) +
+            buildDetailField('Updated', escapeHtml(formatDetailWhen(item.updatedAt || item.submittedAt))) +
+            buildDetailField('Responding stations', respondersHtml, true) +
+            (remarks ? buildDetailField('Remarks', escapeHtml(remarks), true) : '') +
+            (item.updatedBy ? buildDetailField('Last updated by', escapeHtml(item.updatedBy)) : '') +
+            (item.submittedBy ? buildDetailField('Filed by', escapeHtml(item.submittedBy)) : '') +
+          '</div>';
+      } else {
+        incidentDetailBody.innerHTML =
+          '<div class="report-detail-grid">' +
+            buildDetailField('Title', escapeHtml(item.title || '—'), true) +
+            buildDetailField('Station', escapeHtml(item.stationName || '—')) +
+            buildDetailField('Submitted', escapeHtml(formatDetailWhen(item.submittedAt))) +
+            buildDetailField('Updated', escapeHtml(formatDetailWhen(item.updatedAt || item.submittedAt))) +
+            buildDetailField('Filed by', escapeHtml(item.submittedBy || '—')) +
+            buildDetailField('Issue summary', escapeHtml(item.remarks || '—'), true) +
+          '</div>';
+      }
+    }
+
+    if (incidentDetailActions) {
+      const itemId = String(item.id || '');
+      let actions = '<button type="button" class="rm-btn rm-btn--ghost" data-detail-close="true">Close</button>';
+      actions += '<button type="button" class="rm-btn rm-btn--ghost table-action-btn download" data-action="download" data-id="' + escapeHtml(itemId) + '">Download PDF</button>';
+      if (isIncident && canClaimIncidentReport(item)) {
+        actions += '<button type="button" class="rm-btn rm-btn--primary primary-btn" data-action="claim" data-id="' + escapeHtml(itemId) + '">Claim</button>';
+      } else if (isIncident && canProgressIncidentReport(item)) {
+        actions += '<button type="button" class="rm-btn rm-btn--primary primary-btn" data-action="progress" data-id="' + escapeHtml(itemId) + '">Update Incident</button>';
+      } else if (canEditReport(item)) {
+        actions += '<button type="button" class="rm-btn rm-btn--primary primary-btn" data-action="edit" data-id="' + escapeHtml(itemId) + '">Edit</button>';
+      }
+      incidentDetailActions.innerHTML = actions;
+    }
+
+    incidentDetailModal.hidden = false;
+    syncReportModalScrollLock();
+    if (closeIncidentDetailModal) {
+      closeIncidentDetailModal.focus();
+    }
+  }
+
   function normalizeTypeBadge(type) {
     const value = String(type || '').toLowerCase();
     if (value === 'incident_report') {
@@ -2826,26 +2961,32 @@
         }
 
         actionsHtml +=
+          '<button type="button" class="table-action-btn details" data-action="details" data-id="' + escapeHtml(itemId) + '">Details</button>' +
           '<button type="button" class="table-action-btn download" data-action="download" data-id="' + escapeHtml(itemId) + '"><span aria-hidden="true">\u2B07</span> Download PDF</button>';
 
         const typeBadge = normalizeTypeBadge(item.type || '');
         const dispatchedLabel = formatDispatchedStationsLabel(item);
         const titleHtml =
-          '<div class="reports-row-title">' + escapeHtml(formatReportTitle(item)) + '</div>' +
-          ((item.type || '') === 'incident_report' && item.stationName
-            ? '<div class="reports-row-sub">' + escapeHtml(item.stationName) + ' report' +
-              (item.handlingUsername
-                ? (item.isClaimedByMe
-                  ? ' · <span class="reports-claimed-you-label">Claimed by you</span>'
-                  : ' · Claimed by ' + escapeHtml(item.handlingUsername))
-                : (item.isAssignedResponder === false
-                  ? ' · <span class="reports-dispatched-label" title="' + escapeHtml(dispatchedLabel) + '">' + escapeHtml(dispatchedLabel) + '</span>'
-                  : (item.updatedBy ? ' · Updated by ' + escapeHtml(item.updatedBy) : ''))) +
-              '</div>'
-            : '');
+          '<button type="button" class="reports-row-toggle" data-action="details" data-id="' + escapeHtml(itemId) + '" title="Show report details">' +
+            '<span class="reports-row-toggle-copy">' +
+              '<span class="reports-row-title">' + escapeHtml(formatReportTitle(item)) + '</span>' +
+              ((item.type || '') === 'incident_report' && item.stationName
+                ? '<span class="reports-row-sub">' + escapeHtml(item.stationName) + ' report' +
+                  (item.handlingUsername
+                    ? (item.isClaimedByMe
+                      ? ' · <span class="reports-claimed-you-label">Claimed by you</span>'
+                      : ' · Claimed by ' + escapeHtml(item.handlingUsername))
+                    : (item.isAssignedResponder === false
+                      ? ' · <span class="reports-dispatched-label" title="' + escapeHtml(dispatchedLabel) + '">' + escapeHtml(dispatchedLabel) + '</span>'
+                      : (item.updatedBy ? ' · Updated by ' + escapeHtml(item.updatedBy) : ''))) +
+                  '</span>'
+                : '') +
+              '<span class="reports-row-toggle-hint">Tap for details</span>' +
+            '</span>' +
+          '</button>';
 
         return (
-          '<tr>' +
+          '<tr class="reports-data-row" data-report-id="' + escapeHtml(itemId) + '">' +
           '<td><span class="' + escapeHtml(typeBadge.className) + '">' + escapeHtml(typeBadge.label) + '</span></td>' +
           '<td>' + titleHtml + '</td>' +
           '<td><span class="reports-time">' + escapeHtml(timestampLabel) + '</span></td>' +
@@ -3681,6 +3822,84 @@
     });
   }
 
+  if (incidentDetailModal) {
+    incidentDetailModal.addEventListener('click', function (event) {
+      const target = event.target;
+      if (!(target instanceof Element)) {
+        return;
+      }
+      if (target.getAttribute('data-close-incident-detail') === 'true' || target.getAttribute('data-detail-close') === 'true') {
+        closeIncidentDetailModalDialog();
+        return;
+      }
+
+      const actionEl = target.closest('[data-action]');
+      if (!actionEl || !incidentDetailModal.contains(actionEl)) {
+        return;
+      }
+
+      const action = actionEl.getAttribute('data-action');
+      const id = actionEl.getAttribute('data-id') || '';
+      const item = reportsById.get(String(id));
+      if (!item) {
+        return;
+      }
+
+      closeIncidentDetailModalDialog();
+
+      if (action === 'download') {
+        if ((item.type || '') === 'incident_report') {
+          const reportIdValue = String(item.id || '').trim();
+          if (!reportIdValue) {
+            window.alert('Report ID not found.');
+            return;
+          }
+          window.open(reportsApiUrl + '?action=download-pdf&reportId=' + encodeURIComponent(reportIdValue), '_blank', 'noopener,noreferrer');
+          return;
+        }
+        generateReportPdf(item);
+        return;
+      }
+
+      if (action === 'claim') {
+        if (!canUpdateIncidentReports || !canClaimIncidentReport(item)) {
+          window.alert('This incident cannot be claimed right now.');
+          return;
+        }
+        claimOrReleaseIncident(item.id, 'claim').catch(function (error) {
+          window.alert(error.message || 'Unable to update claim status.');
+        });
+        return;
+      }
+
+      if (action === 'progress') {
+        if (!canProgressIncidentReport(item)) {
+          window.alert('This incident cannot be updated right now.');
+          return;
+        }
+        populateFormForEdit(item);
+        openModal('progress');
+        return;
+      }
+
+      if (action === 'edit') {
+        if (!canEditReport(item)) {
+          window.alert('You can only edit this report before the first progress update.');
+          return;
+        }
+        populateFormForEdit(item);
+        openModal('edit');
+      }
+    });
+  }
+
+  if (closeIncidentDetailModal) {
+    closeIncidentDetailModal.addEventListener('click', function (event) {
+      event.preventDefault();
+      closeIncidentDetailModalDialog();
+    });
+  }
+
   if (closeFireOutConfirmModal) {
     closeFireOutConfirmModal.addEventListener('click', function (event) {
       event.preventDefault();
@@ -3863,17 +4082,19 @@
   });
 
   tableBody.addEventListener('click', async function (event) {
-    console.log('Table body clicked, target:', event.target);
     const target = event.target;
     if (!(target instanceof Element)) {
       return;
     }
 
-    const action = target.getAttribute('data-action');
-    const id = target.getAttribute('data-id') || '';
-    console.log('Click detected - action:', action, 'id:', id);
-    if (action !== 'edit' && action !== 'progress' && action !== 'download' && action !== 'claim' && action !== 'release' && action !== 'approve-alarm-raise' && action !== 'deny-alarm-raise') {
-      console.log('Action not recognized, ignoring');
+    const actionEl = target.closest('[data-action]');
+    if (!actionEl) {
+      return;
+    }
+
+    const action = actionEl.getAttribute('data-action');
+    const id = actionEl.getAttribute('data-id') || '';
+    if (action !== 'edit' && action !== 'progress' && action !== 'download' && action !== 'claim' && action !== 'release' && action !== 'approve-alarm-raise' && action !== 'deny-alarm-raise' && action !== 'details') {
       return;
     }
 
@@ -3887,6 +4108,11 @@
 
     const item = reportsById.get(String(id));
     if (!item) {
+      return;
+    }
+
+    if (action === 'details') {
+      openIncidentDetailModal(item);
       return;
     }
 
