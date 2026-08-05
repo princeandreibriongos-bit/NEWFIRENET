@@ -258,6 +258,11 @@ final class FirenetR2Client
             throw new RuntimeException('Unable to read upload file.');
         }
 
+        return $this->putObjectContents($key, $body, $contentType);
+    }
+
+    public function putObjectContents(string $key, string $body, string $contentType = 'application/octet-stream'): array
+    {
         $response = $this->request(
             'PUT',
             '/' . $this->bucket . '/' . ltrim(str_replace('\\', '/', $key), '/'),
@@ -275,6 +280,16 @@ final class FirenetR2Client
             'bytes' => strlen($body),
             'url' => firenet_r2_download_proxy_url($key),
         ];
+    }
+
+    /**
+     * Create a visible "folder" marker in R2/S3 (zero-byte object ending with /).
+     */
+    public function ensureFolder(string $prefix): string
+    {
+        $folderKey = rtrim(str_replace('\\', '/', $prefix), '/') . '/';
+        $this->putObjectContents($folderKey, '', 'application/x-directory');
+        return $folderKey;
     }
 
     public function getObject(string $key): array
@@ -463,4 +478,65 @@ function firenet_r2_map_list_for_browser(array $objects): array
         ];
     }
     return $files;
+}
+
+/**
+ * Ensure R2 "folders" exist for a station under:
+ *   firenet/reports/{STATION_CODE}/
+ *   firenet/orgmail/{STATION_CODE}/
+ *
+ * @return array{ok:bool,enabled:bool,reportsPrefix:string,orgmailPrefix:string,message:string}
+ */
+function firenet_r2_ensure_station_folders(string $stationCode): array
+{
+    $code = strtoupper(preg_replace('/[^A-Z0-9_-]+/i', '', trim($stationCode)) ?: '');
+    $reportsPrefix = firenet_r2_reports_prefix($code !== '' ? $code : 'STATION');
+    $orgmailPrefix = firenet_r2_orgmail_prefix($code !== '' ? $code : 'STATION');
+
+    if ($code === '') {
+        return [
+            'ok' => false,
+            'enabled' => firenet_r2_enabled(),
+            'reportsPrefix' => $reportsPrefix,
+            'orgmailPrefix' => $orgmailPrefix,
+            'message' => 'Station code is required to create cloud folders.',
+        ];
+    }
+
+    if (!firenet_r2_enabled()) {
+        return [
+            'ok' => false,
+            'enabled' => false,
+            'reportsPrefix' => $reportsPrefix,
+            'orgmailPrefix' => $orgmailPrefix,
+            'message' => 'Cloud storage is not enabled, so station folders were not created.',
+        ];
+    }
+
+    try {
+        $client = FirenetR2Client::fromConfig();
+        $client->ensureFolder($reportsPrefix);
+        $client->ensureFolder($orgmailPrefix);
+
+        // Central archive path used by completed report backups.
+        if (strtoupper($code) === 'MCFS') {
+            $client->ensureFolder($reportsPrefix . '/archive');
+        }
+
+        return [
+            'ok' => true,
+            'enabled' => true,
+            'reportsPrefix' => $reportsPrefix,
+            'orgmailPrefix' => $orgmailPrefix,
+            'message' => 'Cloud folders ready: ' . $reportsPrefix . ' and ' . $orgmailPrefix,
+        ];
+    } catch (Throwable $e) {
+        return [
+            'ok' => false,
+            'enabled' => true,
+            'reportsPrefix' => $reportsPrefix,
+            'orgmailPrefix' => $orgmailPrefix,
+            'message' => 'Unable to create cloud folders: ' . $e->getMessage(),
+        ];
+    }
 }

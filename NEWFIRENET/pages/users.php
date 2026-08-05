@@ -901,3 +901,30 @@ $usersIsSuperadmin = ($role ?? '') === 'superadmin';
     </div>
   </div>
 </div>
+
+<div id="deleteStationModal" class="users-modal" hidden>
+  <div class="users-modal-backdrop" data-close-delete-station-modal="true"></div>
+  <div class="users-modal-dialog users-modal-dialog--compact" role="dialog" aria-modal="true" aria-labelledby="deleteStationModalTitle">
+    <header class="users-modal-header">
+      <div>
+        <p class="users-kicker">Delete substation</p>
+        <h3 id="deleteStationModalTitle">Delete Station</h3>
+      </div>
+      <button type="button" class="modal-close-btn" id="closeDeleteStationModalBtn" aria-label="Close">x</button>
+    </header>
+    <div class="users-form">
+      <div class="users-delete-confirm">
+        <p class="users-delete-copy">This permanently removes the station and cascaded records (users, reports, mail, AOR). Prefer setting status to Inactive if you only need to take it offline.</p>
+        <div class="users-delete-card">
+          <strong id="deleteStationName">-</strong>
+          <span id="deleteStationMeta">This action cannot be undone.</span>
+        </div>
+      </div>
+      <div class="users-form-actions">
+        <button type="button" class="secondary-btn" id="cancelDeleteStationBtn">Cancel</button>
+        <button type="button" class="primary-btn users-delete-confirm-btn" id="confirmDeleteStationBtn">Delete Station</button>
+      </div>
+      <p class="muted-text" id="deleteStationMessage"></p>
+    </div>
+  </div>
+</div>

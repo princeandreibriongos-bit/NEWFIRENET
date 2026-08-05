@@ -50,6 +50,13 @@
   const deleteUserName = document.getElementById('deleteUserName');
   const deleteUserMeta = document.getElementById('deleteUserMeta');
   const deleteUserMessage = document.getElementById('deleteUserMessage');
+  const deleteStationModal = document.getElementById('deleteStationModal');
+  const closeDeleteStationModalBtn = document.getElementById('closeDeleteStationModalBtn');
+  const cancelDeleteStationBtn = document.getElementById('cancelDeleteStationBtn');
+  const confirmDeleteStationBtn = document.getElementById('confirmDeleteStationBtn');
+  const deleteStationName = document.getElementById('deleteStationName');
+  const deleteStationMeta = document.getElementById('deleteStationMeta');
+  const deleteStationMessage = document.getElementById('deleteStationMessage');
   const userFormMessage = document.getElementById('userFormMessage');
   const userTotalCount = document.getElementById('userTotalCount');
   const userAdminCount = document.getElementById('userAdminCount');
@@ -165,6 +172,7 @@
   let barangayMapMarker = null;
   let barangayAorCircle = null;
   let pendingBarangayStation = null;
+  let pendingDeleteStation = null;
   let barangayAutosaveTimer = null;
   let barangayGeocoder = null;
   let barangayGeocodeTimer = null;
@@ -1420,6 +1428,16 @@
       const status = String(station.status || 'active').toLowerCase() === 'inactive' ? 'inactive' : 'active';
       const latitude = station.latitude == null ? '-' : Number(station.latitude).toFixed(5);
       const longitude = station.longitude == null ? '-' : Number(station.longitude).toFixed(5);
+      const stationId = String(station.stationId || '');
+      const stationCode = String(station.stationCode || '').toLowerCase();
+      const isProtected = stationCode === 'mcfs' || String(stationId) === String(context.stationId || '');
+      const actions =
+        '<div class="users-actions">' +
+          '<button type="button" class="secondary-btn users-inline-btn" data-edit-station="' + escapeHtml(stationId) + '">Edit</button>' +
+          (isSuperadminPage && !isProtected
+            ? ' <button type="button" class="secondary-btn users-inline-btn users-delete-btn" data-delete-station="' + escapeHtml(stationId) + '">Delete</button>'
+            : '') +
+        '</div>';
       return (
         '<tr>' +
           '<td><strong>' + escapeHtml(String(station.stationName || '-')) + '</strong></td>' +
@@ -1427,7 +1445,7 @@
           '<td>' + escapeHtml(String(station.location || '-')) + '</td>' +
           '<td><span class="users-mono">' + escapeHtml(latitude + ', ' + longitude) + '</span></td>' +
           '<td><span class="users-pill ' + (status === 'active' ? 'is-active' : 'is-inactive') + '">' + escapeHtml(humanizeWord(status)) + '</span></td>' +
-          '<td><button type="button" class="secondary-btn users-inline-btn" data-edit-station="' + escapeHtml(String(station.stationId || '')) + '">Edit</button></td>' +
+          '<td>' + actions + '</td>' +
         '</tr>'
       );
     }).join('');
@@ -1549,6 +1567,89 @@
     }
     deleteUserMessage.textContent = text;
     deleteUserMessage.style.color = isError ? '#ffb4bd' : '#9ee6ba';
+  }
+
+  function setDeleteStationMessage(text, isError) {
+    if (!deleteStationMessage) {
+      return;
+    }
+    deleteStationMessage.textContent = text;
+    deleteStationMessage.style.color = isError ? '#ffb4bd' : '#9ee6ba';
+  }
+
+  function openDeleteStationModal(station) {
+    if (!deleteStationModal || !station) {
+      return;
+    }
+    pendingDeleteStation = station;
+    if (deleteStationName) {
+      deleteStationName.textContent = String(station.stationName || 'Unknown station');
+    }
+    if (deleteStationMeta) {
+      deleteStationMeta.textContent = 'Code ' + String(station.stationCode || '-') +
+        ' • ID #' + String(station.stationId || '-') +
+        (station.location ? (' • ' + String(station.location)) : '');
+    }
+    setDeleteStationMessage('', false);
+    if (confirmDeleteStationBtn) {
+      confirmDeleteStationBtn.disabled = false;
+      confirmDeleteStationBtn.textContent = 'Delete Station';
+    }
+    deleteStationModal.hidden = false;
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeDeleteStationModal() {
+    if (!deleteStationModal) {
+      return;
+    }
+    deleteStationModal.hidden = true;
+    pendingDeleteStation = null;
+    setDeleteStationMessage('', false);
+    document.body.style.overflow = '';
+  }
+
+  async function deleteStation(station) {
+    if (!station) {
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('action', 'delete_station');
+    formData.append('stationId', String(station.stationId || ''));
+
+    if (confirmDeleteStationBtn) {
+      confirmDeleteStationBtn.disabled = true;
+      confirmDeleteStationBtn.textContent = 'Deleting…';
+    }
+
+    try {
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        body: formData,
+        credentials: 'same-origin'
+      });
+      const payload = await response.json();
+      if (!response.ok || !payload || payload.ok !== true) {
+        setDeleteStationMessage((payload && payload.message) ? payload.message : 'Unable to delete station.', true);
+        if (confirmDeleteStationBtn) {
+          confirmDeleteStationBtn.disabled = false;
+          confirmDeleteStationBtn.textContent = 'Delete Station';
+        }
+        return;
+      }
+
+      await loadBootstrap();
+      closeDeleteStationModal();
+      setMessage(payload.message || 'Station deleted successfully.', false);
+      showToast(payload.message || 'Station deleted successfully.', false);
+    } catch (error) {
+      setDeleteStationMessage('Unable to delete station.', true);
+      if (confirmDeleteStationBtn) {
+        confirmDeleteStationBtn.disabled = false;
+        confirmDeleteStationBtn.textContent = 'Delete Station';
+      }
+    }
   }
 
   function openDeleteUserModal(user) {
@@ -1948,7 +2049,14 @@
 
     resetBarangayForm();
     closeBarangayModal();
-    showToast(payload.message || (stationId ? 'Substation updated successfully.' : 'Substation created successfully.'), false);
+    let toastMessage = payload.message || (stationId ? 'Substation updated successfully.' : 'Substation created successfully.');
+    const cloudFolders = payload.data && payload.data.cloudFolders ? payload.data.cloudFolders : null;
+    if (cloudFolders && cloudFolders.ok && cloudFolders.reportsPrefix) {
+      toastMessage += ' Cloud folder: ' + String(cloudFolders.reportsPrefix) + '/';
+    } else if (cloudFolders && cloudFolders.message && !cloudFolders.ok) {
+      toastMessage += ' (' + String(cloudFolders.message) + ')';
+    }
+    showToast(toastMessage, false);
     await loadBootstrap();
   }
 
@@ -2370,6 +2478,21 @@
 
   if (substationsTableBody) {
     substationsTableBody.addEventListener('click', function (event) {
+      const deleteButton = event.target.closest('[data-delete-station]');
+      if (deleteButton) {
+        if (!isSuperadminPage) {
+          return;
+        }
+        const station = state.stations.find(function (entry) {
+          return String(entry.stationId) === String(deleteButton.getAttribute('data-delete-station'));
+        });
+        if (!station) {
+          return;
+        }
+        openDeleteStationModal(station);
+        return;
+      }
+
       const editButton = event.target.closest('[data-edit-station]');
       if (!editButton) {
         return;
@@ -2381,6 +2504,29 @@
         return;
       }
       openBarangayEditor(station);
+    });
+  }
+
+  if (confirmDeleteStationBtn) {
+    confirmDeleteStationBtn.addEventListener('click', function () {
+      if (!pendingDeleteStation) {
+        return;
+      }
+      deleteStation(pendingDeleteStation);
+    });
+  }
+
+  if (closeDeleteStationModalBtn) {
+    closeDeleteStationModalBtn.addEventListener('click', closeDeleteStationModal);
+  }
+  if (cancelDeleteStationBtn) {
+    cancelDeleteStationBtn.addEventListener('click', closeDeleteStationModal);
+  }
+  if (deleteStationModal) {
+    deleteStationModal.addEventListener('click', function (event) {
+      if (event.target && event.target.getAttribute('data-close-delete-station-modal') === 'true') {
+        closeDeleteStationModal();
+      }
     });
   }
 

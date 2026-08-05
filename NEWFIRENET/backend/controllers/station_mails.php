@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../../includes/auth.php';
 require_once __DIR__ . '/../../includes/db.php';
 require_once __DIR__ . '/../../includes/r2_storage.php';
+require_once __DIR__ . '/../../includes/report_r2_backup.php';
 
 firenet_require_login();
 firenet_start_session();
@@ -918,6 +919,292 @@ function firenet_mail_station_active_user(PDO $pdo, int $stationId, int $userId)
     $stmt = $pdo->prepare('SELECT 1 FROM users WHERE user_id = ? AND station_id = ? AND LOWER(status) = "active" LIMIT 1');
     $stmt->execute([$userId, $stationId]);
     return (bool) $stmt->fetchColumn();
+}
+
+function firenet_mail_normalize_case_ref(string $raw): string
+{
+    $value = trim($raw);
+    if ($value === '') {
+        return '';
+    }
+    if (preg_match('/(\d{1,12})/', $value, $matches)) {
+        return ltrim($matches[1], '0') !== '' ? (string) (int) $matches[1] : '0';
+    }
+    return $value;
+}
+
+/**
+ * Auto-match completed incident report PDFs in cloud storage using request reference fields.
+ *
+ * @return array{matches: array<int, array>, criteria: array, message: string}
+ */
+function firenet_mail_auto_match_reports_for_route(PDO $pdo, array $route): array
+{
+    firenet_ensure_report_cloud_backups_table($pdo);
+
+    $caseRef = firenet_mail_normalize_case_ref((string) ($route['ref_case_id'] ?? $route['refCaseId'] ?? ''));
+    $dateFrom = trim((string) ($route['ref_incident_date'] ?? $route['refIncidentDate'] ?? ''));
+    $dateTo = trim((string) ($route['ref_incident_date_to'] ?? $route['refIncidentDateTo'] ?? ''));
+    $location = trim((string) ($route['ref_location'] ?? $route['refLocation'] ?? ''));
+    $allResponding = ((int) ($route['ref_all_responding_stations'] ?? $route['refAllRespondingStations'] ?? 0)) === 1
+        || !empty($route['refAllRespondingStations']);
+
+    $stationIds = firenet_mail_normalize_station_ids((string) ($route['ref_responding_station_ids'] ?? ''));
+    if ($stationIds === [] && !empty($route['refRespondingStations']) && is_array($route['refRespondingStations'])) {
+        foreach ($route['refRespondingStations'] as $station) {
+            $stationId = (int) ($station['stationId'] ?? $station['id'] ?? 0);
+            if ($stationId > 0) {
+                $stationIds[] = $stationId;
+            }
+        }
+        $stationIds = array_values(array_unique($stationIds));
+    }
+    if ($stationIds === [] && (int) ($route['ref_responding_station_id'] ?? $route['refRespondingStationId'] ?? 0) > 0) {
+        $stationIds = [(int) ($route['ref_responding_station_id'] ?? $route['refRespondingStationId'])];
+    }
+
+    $criteria = [
+        'caseId' => $caseRef,
+        'dateFrom' => $dateFrom,
+        'dateTo' => $dateTo,
+        'location' => $location,
+        'stationIds' => $stationIds,
+        'allRespondingStations' => $allResponding,
+    ];
+
+    if ($caseRef === '' && $dateFrom === '' && $location === '' && $stationIds === [] && !$allResponding) {
+        return [
+            'matches' => [],
+            'criteria' => $criteria,
+            'message' => 'No reference fields were provided to auto-match.',
+        ];
+    }
+
+    $where = ['rt.type_name = \'incident_report\''];
+    $params = [];
+
+    if ($caseRef !== '' && ctype_digit($caseRef)) {
+        $where[] = '(COALESCE(NULLIF(i.incident_case_id, 0), r.report_id) = ?)';
+        $params[] = (int) $caseRef;
+    }
+
+    if ($dateFrom !== '') {
+        $where[] = 'DATE(COALESCE(i.incident_started_at, i.created_at, r.created_at)) >= ?';
+        $params[] = $dateFrom;
+    }
+    if ($dateTo !== '') {
+        $where[] = 'DATE(COALESCE(i.incident_started_at, i.created_at, r.created_at)) <= ?';
+        $params[] = $dateTo;
+    } elseif ($dateFrom !== '') {
+        $where[] = 'DATE(COALESCE(i.incident_started_at, i.created_at, r.created_at)) <= ?';
+        $params[] = $dateFrom;
+    }
+
+    if ($location !== '') {
+        $where[] = '(i.incident_location LIKE ? OR r.title LIKE ? OR r.description LIKE ?)';
+        $like = '%' . $location . '%';
+        $params[] = $like;
+        $params[] = $like;
+        $params[] = $like;
+    }
+
+    if (!$allResponding && $stationIds !== []) {
+        $placeholders = implode(',', array_fill(0, count($stationIds), '?'));
+        $where[] = '(COALESCE(i.station_id, r.station_id) IN (' . $placeholders . ')
+            OR EXISTS (
+                SELECT 1
+                FROM incident_report_dispatch_stations d
+                WHERE d.incident_report_id = i.incident_report_id
+                  AND d.station_id IN (' . $placeholders . ')
+            ))';
+        foreach ($stationIds as $stationId) {
+            $params[] = $stationId;
+        }
+        foreach ($stationIds as $stationId) {
+            $params[] = $stationId;
+        }
+    }
+
+    $sql = '
+        SELECT
+            r.report_id,
+            r.title,
+            r.created_at AS report_created_at,
+            COALESCE(NULLIF(i.incident_case_id, 0), r.report_id) AS incident_case_id,
+            COALESCE(i.station_id, r.station_id) AS report_station_id,
+            i.incident_location,
+            i.incident_status,
+            i.alarm_level,
+            i.incident_started_at,
+            i.incident_finished_at,
+            s.station_name,
+            s.station_code,
+            b.r2_key,
+            b.central_r2_key,
+            b.file_name,
+            b.file_size
+        FROM reports r
+        INNER JOIN report_type rt ON rt.report_type_id = r.report_type_id
+        INNER JOIN incident_reports i ON i.report_id = r.report_id
+        LEFT JOIN stations s ON s.station_id = COALESCE(i.station_id, r.station_id)
+        LEFT JOIN report_cloud_backups b ON b.report_id = r.report_id
+        WHERE ' . implode(' AND ', $where) . '
+        ORDER BY
+            CASE WHEN LOWER(COALESCE(i.incident_status, \'\')) = \'fire_out\' THEN 0 ELSE 1 END,
+            COALESCE(i.incident_finished_at, i.updated_at, i.created_at, r.updated_at, r.created_at) DESC,
+            r.report_id DESC
+        LIMIT 80
+    ';
+
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+    $matches = [];
+    $seenKeys = [];
+    $seenCaseStation = [];
+
+    foreach ($rows as $row) {
+        $reportId = (int) ($row['report_id'] ?? 0);
+        $caseId = (int) ($row['incident_case_id'] ?? 0);
+        $stationId = (int) ($row['report_station_id'] ?? 0);
+        $r2Key = trim((string) ($row['central_r2_key'] ?? ''));
+        if ($r2Key === '') {
+            $r2Key = trim((string) ($row['r2_key'] ?? ''));
+        }
+
+        $score = 0;
+        $reasons = [];
+
+        if ($caseRef !== '' && ctype_digit($caseRef) && $caseId === (int) $caseRef) {
+            $score += 100;
+            $reasons[] = 'Case ID match';
+        }
+
+        $incidentDay = '';
+        if (!empty($row['incident_started_at'])) {
+            $incidentDay = substr((string) $row['incident_started_at'], 0, 10);
+        } elseif (!empty($row['report_created_at'])) {
+            $incidentDay = substr((string) $row['report_created_at'], 0, 10);
+        }
+        if ($dateFrom !== '' && $incidentDay !== '') {
+            $endDay = $dateTo !== '' ? $dateTo : $dateFrom;
+            if ($incidentDay >= $dateFrom && $incidentDay <= $endDay) {
+                $score += 40;
+                $reasons[] = 'Incident date in range';
+            }
+        }
+
+        if ($stationIds !== [] && in_array($stationId, $stationIds, true)) {
+            $score += 30;
+            $reasons[] = 'Responding station match';
+        } elseif ($allResponding) {
+            $score += 15;
+            $reasons[] = 'Responding-station report';
+        }
+
+        if ($location !== '') {
+            $haystack = strtolower(
+                (string) ($row['incident_location'] ?? '') . ' ' .
+                (string) ($row['title'] ?? '')
+            );
+            if (strpos($haystack, strtolower($location)) !== false) {
+                $score += 25;
+                $reasons[] = 'Location match';
+            }
+        }
+
+        if ($r2Key !== '') {
+            $score += 20;
+            $reasons[] = 'Cloud report file ready';
+        }
+
+        if (strtolower((string) ($row['incident_status'] ?? '')) === 'fire_out') {
+            $score += 10;
+            $reasons[] = 'Completed (fire out)';
+        }
+
+        if ($score < 20) {
+            continue;
+        }
+
+        $dedupeKey = $caseId > 0
+            ? ('case:' . $caseId . ':station:' . $stationId)
+            : ('report:' . $reportId);
+        if (isset($seenCaseStation[$dedupeKey])) {
+            continue;
+        }
+        $seenCaseStation[$dedupeKey] = true;
+
+        if ($r2Key !== '') {
+            if (isset($seenKeys[$r2Key])) {
+                continue;
+            }
+            $seenKeys[$r2Key] = true;
+        }
+
+        $fileName = trim((string) ($row['file_name'] ?? ''));
+        if ($fileName === '') {
+            $stationCode = strtoupper(trim((string) ($row['station_code'] ?? 'STN')));
+            $fileName = $stationCode . '_case_' . ($caseId > 0 ? $caseId : $reportId) . '_report_' . $reportId . '.pdf';
+        }
+
+        $matches[] = [
+            'reportId' => $reportId,
+            'incidentCaseId' => $caseId,
+            'stationId' => $stationId,
+            'stationName' => (string) ($row['station_name'] ?? ''),
+            'stationCode' => (string) ($row['station_code'] ?? ''),
+            'title' => (string) ($row['title'] ?? ''),
+            'location' => (string) ($row['incident_location'] ?? ''),
+            'alarmLevel' => (int) ($row['alarm_level'] ?? 0),
+            'incidentStatus' => (string) ($row['incident_status'] ?? ''),
+            'incidentStartedAt' => (string) ($row['incident_started_at'] ?? ''),
+            'fileName' => $fileName,
+            'fileSize' => (int) ($row['file_size'] ?? 0),
+            'r2Key' => $r2Key,
+            'url' => $r2Key !== '' ? firenet_r2_download_proxy_url($r2Key) : '',
+            'attachable' => $r2Key !== '',
+            'score' => $score,
+            'reasons' => $reasons,
+        ];
+    }
+
+    usort($matches, static function (array $a, array $b): int {
+        $scoreCmp = ((int) ($b['score'] ?? 0)) <=> ((int) ($a['score'] ?? 0));
+        if ($scoreCmp !== 0) {
+            return $scoreCmp;
+        }
+        return ((int) ($a['reportId'] ?? 0)) <=> ((int) ($b['reportId'] ?? 0));
+    });
+
+    $attachable = array_values(array_filter($matches, static function (array $match): bool {
+        return !empty($match['attachable']) && trim((string) ($match['url'] ?? '')) !== '';
+    }));
+
+    if ($attachable === [] && $matches !== []) {
+        return [
+            'matches' => array_slice($matches, 0, 12),
+            'criteria' => $criteria,
+            'message' => 'Matching incidents were found, but none have a cloud report file ready to attach yet.',
+        ];
+    }
+
+    if ($attachable === []) {
+        return [
+            'matches' => [],
+            'criteria' => $criteria,
+            'message' => 'No report files matched the filled reference fields.',
+        ];
+    }
+
+    return [
+        'matches' => array_slice($attachable, 0, 12),
+        'criteria' => $criteria,
+        'message' => count($attachable) === 1
+            ? '1 report file matched the request references.'
+            : (count($attachable) . ' report files matched the request references.'),
+    ];
 }
 
 function firenet_mail_request_route_by_thread(PDO $pdo, int $threadId): array
@@ -2682,6 +2969,39 @@ try {
             'ok' => true,
             'message' => $action === 'save-draft' ? 'Draft saved.' : 'Mail sent.',
             'data' => $result
+        ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
+    if ($action === 'request-auto-match') {
+        $currentUserProfile = firenet_mail_current_user_profile($pdo, $currentUserId);
+        if (!firenet_mail_is_coml_position($currentUserProfile)) {
+            firenet_mail_fail('Only ComL users can auto-match operational requests.', 403);
+        }
+        if (!firenet_r2_is_central_station($pdo, $currentStationId)) {
+            firenet_mail_fail('Only Makati Central Fire Station can auto-match report files.', 403);
+        }
+
+        $input = array_merge($_GET, $_POST, firenet_mail_parse_json_input());
+        $routeId = (int) ($input['routeId'] ?? 0);
+        $threadId = (int) ($input['threadId'] ?? 0);
+        $route = firenet_mail_load_request_route($pdo, $routeId, $threadId);
+        if (!$route) {
+            firenet_mail_fail('Request route not found.', 404);
+        }
+
+        $result = firenet_mail_auto_match_reports_for_route($pdo, $route);
+        echo json_encode([
+            'ok' => true,
+            'message' => $result['message'],
+            'data' => [
+                'routeId' => (int) ($route['route_id'] ?? 0),
+                'matches' => $result['matches'],
+                'criteria' => $result['criteria'],
+                'attachableCount' => count(array_filter($result['matches'], static function (array $match): bool {
+                    return !empty($match['attachable']);
+                })),
+            ],
         ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
         exit;
     }

@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../../includes/auth.php';
 require_once __DIR__ . '/../../includes/db.php';
+require_once __DIR__ . '/../../includes/r2_storage.php';
 
 firenet_require_login();
 firenet_start_session();
@@ -631,6 +632,8 @@ try {
             firenet_create_station_admin_account($pdo, $newStationId, $input);
         }
 
+        $cloudFolders = firenet_r2_ensure_station_folders($stationCode);
+
         echo json_encode([
             'ok' => true,
             'message' => $createAdmin
@@ -646,7 +649,8 @@ try {
                 'status' => $stationStatus,
                 'aorRadiusKm' => $aorRadiusKm,
                 'aorCenterLat' => $latitude,
-                'aorCenterLng' => $longitude
+                'aorCenterLng' => $longitude,
+                'cloudFolders' => $cloudFolders,
             ]
         ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
         exit;
@@ -699,6 +703,8 @@ try {
             firenet_create_station_admin_account($pdo, $editStationId, $input);
         }
 
+        $cloudFolders = firenet_r2_ensure_station_folders($stationCode);
+
         echo json_encode([
             'ok' => true,
             'message' => $createAdmin
@@ -714,7 +720,73 @@ try {
                 'status' => $stationStatus,
                 'aorRadiusKm' => $aorRadiusKm,
                 'aorCenterLat' => $latitude,
-                'aorCenterLng' => $longitude
+                'aorCenterLng' => $longitude,
+                'cloudFolders' => $cloudFolders,
+            ]
+        ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
+    if ($action === 'delete_station') {
+        if ($currentRole !== 'superadmin') {
+            firenet_users_fail('Only superadmins can delete substations.', 403);
+        }
+
+        $deleteStationId = (int) ($input['stationId'] ?? 0);
+        if ($deleteStationId < 1) {
+            firenet_users_fail('Substation not found.', 404);
+        }
+
+        $stationLookup = $pdo->prepare('SELECT station_id, station_name, station_code FROM stations WHERE station_id = ? LIMIT 1');
+        $stationLookup->execute([$deleteStationId]);
+        $stationRow = $stationLookup->fetch(PDO::FETCH_ASSOC);
+        if (!$stationRow) {
+            firenet_users_fail('Substation not found.', 404);
+        }
+
+        $stationCode = strtolower(trim((string) ($stationRow['station_code'] ?? '')));
+        $stationLabel = (string) ($stationRow['station_name'] ?? ('Station ' . $deleteStationId));
+
+        if ($stationCode === 'mcfs') {
+            firenet_users_fail('The central MCFS station cannot be deleted.', 403);
+        }
+
+        if ($deleteStationId === $currentStationId) {
+            firenet_users_fail('You cannot delete the station you are currently signed into.', 403);
+        }
+
+        $userCountStmt = $pdo->prepare('SELECT COUNT(*) FROM users WHERE station_id = ?');
+        $userCountStmt->execute([$deleteStationId]);
+        $linkedUserCount = (int) ($userCountStmt->fetchColumn() ?: 0);
+
+        $reportCountStmt = $pdo->prepare('SELECT COUNT(*) FROM reports WHERE station_id = ?');
+        $reportCountStmt->execute([$deleteStationId]);
+        $linkedReportCount = (int) ($reportCountStmt->fetchColumn() ?: 0);
+
+        try {
+            $pdo->beginTransaction();
+            $deleteStmt = $pdo->prepare('DELETE FROM stations WHERE station_id = ? LIMIT 1');
+            $deleteStmt->execute([$deleteStationId]);
+            if ($deleteStmt->rowCount() < 1) {
+                $pdo->rollBack();
+                firenet_users_fail('Unable to delete substation.', 500);
+            }
+            $pdo->commit();
+        } catch (Throwable $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            firenet_users_fail('Unable to delete substation because related records could not be cleared.', 500);
+        }
+
+        echo json_encode([
+            'ok' => true,
+            'message' => 'Substation "' . $stationLabel . '" deleted successfully.',
+            'data' => [
+                'stationId' => $deleteStationId,
+                'stationName' => $stationLabel,
+                'removedUsers' => $linkedUserCount,
+                'removedReports' => $linkedReportCount
             ]
         ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
         exit;

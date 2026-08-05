@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FireNet — Main system hosting</title>
+  <meta name="description" content="FireNet staff system requires PHP + MySQL. This page explains how to run it.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;700;800&family=Figtree:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0c1017;
+      --panel: #151b26;
+      --ink: #f4f7fb;
+      --muted: #9aa8bc;
+      --line: rgba(255, 255, 255, 0.1);
+      --brand: #d42433;
+      --ok: #3dba7a;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Figtree, system-ui, sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(ellipse 80% 50% at 10% -10%, rgba(212, 36, 51, 0.28), transparent 50%),
+        radial-gradient(ellipse 60% 40% at 90% 0%, rgba(36, 63, 97, 0.35), transparent 45%),
+        var(--bg);
+      display: grid;
+      place-items: center;
+      padding: 2rem 1.25rem;
+    }
+    main {
+      width: min(640px, 100%);
+      background: linear-gradient(180deg, rgba(255,255,255,0.04), transparent), var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 1.75rem 1.5rem 1.5rem;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+    }
+    .kicker {
+      margin: 0 0 0.4rem;
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--brand);
+      font-family: Outfit, sans-serif;
+    }
+    h1 {
+      margin: 0 0 0.65rem;
+      font-family: Outfit, sans-serif;
+      font-size: clamp(1.6rem, 4vw, 2rem);
+      letter-spacing: -0.03em;
+      line-height: 1.15;
+    }
+    p { margin: 0 0 0.9rem; color: var(--muted); line-height: 1.55; }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      margin: 0 0 1rem;
+      padding: 0.35rem 0.7rem;
+      border-radius: 999px;
+      border: 1px solid rgba(212, 36, 51, 0.35);
+      background: rgba(212, 36, 51, 0.12);
+      color: #ffb4bb;
+      font-size: 0.8rem;
+      font-weight: 700;
+    }
+    .card {
+      margin: 1rem 0;
+      padding: 0.9rem 1rem;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      background: rgba(0, 0, 0, 0.22);
+    }
+    .card h2 {
+      margin: 0 0 0.45rem;
+      font-size: 0.95rem;
+      font-family: Outfit, sans-serif;
+    }
+    .card p, .card li { font-size: 0.9rem; }
+    ul { margin: 0.35rem 0 0; padding-left: 1.15rem; color: var(--muted); }
+    li { margin: 0.25rem 0; }
+    code {
+      font-size: 0.84em;
+      color: #d7e6ff;
+      background: rgba(255,255,255,0.06);
+      padding: 0.1rem 0.35rem;
+      border-radius: 6px;
+    }
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.6rem;
+      margin-top: 1.15rem;
+    }
+    a.btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 2.5rem;
+      padding: 0 1rem;
+      border-radius: 999px;
+      text-decoration: none;
+      font-weight: 700;
+      font-size: 0.9rem;
+    }
+    a.btn-primary {
+      background: linear-gradient(145deg, #e83342, #9a1822);
+      color: #fff;
+      border: 1px solid rgba(255,255,255,0.12);
+    }
+    a.btn-ghost {
+      background: rgba(255,255,255,0.05);
+      color: var(--ink);
+      border: 1px solid var(--line);
+    }
+    .ok { color: var(--ok); font-weight: 700; }
+  </style>
+</head>
+<body>
+  <main>
+    <p class="kicker">FireNet · Makati</p>
+    <h1>Main staff system is not a Vercel app</h1>
+    <div class="badge">This page replaces the old 404: NOT_FOUND</div>
+    <p>
+      You reached the GitHub repo for the <strong>employee FireNet</strong> system
+      (<code>NEWFIRENET</code>). It needs <strong>PHP + MySQL</strong> (XAMPP, cPanel, VPS).
+      Vercel only hosts static / Node apps — so the full staff portal cannot run here.
+    </p>
+
+    <div class="card">
+      <h2>What to use where</h2>
+      <ul>
+        <li><span class="ok">Civilian portal</span> → Vercel repo <code>firenet-civilian</code></li>
+        <li><span class="ok">Staff login / dashboard / reports</span> → PHP host or XAMPP (+ ngrok for demos)</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h2>Run the main system locally</h2>
+      <ul>
+        <li>Start XAMPP <strong>Apache</strong> + <strong>MySQL</strong></li>
+        <li>Open <code>/firenet/NEWFIRENET/pages/login.html</code> on localhost</li>
+        <li>For a public demo URL, run <code>ngrok http 80</code> and use that HTTPS base</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h2>If you only wanted the public site</h2>
+      <p>
+        Deploy <code>firenet-civilian</code> on Vercel and set
+        <code>FIRENET_API_BASE</code> to your public PHP root
+        (for example your ngrok URL + <code>/firenet/NEWFIRENET</code>).
+      </p>
+    </div>
+
+    <div class="actions">
+      <a class="btn btn-primary" href="https://firenet-civilian-git-main-mam-it-solutions.vercel.app">
+        Open civilian portal
+      </a>
+      <a class="btn btn-ghost" href="https://github.com/princeandreibriongos-bit/firenet-civilian">
+        Civilian GitHub repo
+      </a>
+    </div>
+  </main>
+</body>
+</html>

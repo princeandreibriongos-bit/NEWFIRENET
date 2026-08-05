@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
-    <link rel="stylesheet" href="../assets/css/civilian.css?v=20260718h">
+    <link rel="stylesheet" href="../assets/css/civilian.css?v=20260719m1">
     <link rel="stylesheet" href="../assets/css/portal-fx.css?v=20260718g">
     <script>
       (function () {
@@ -23,7 +23,7 @@
       })();
     </script>
 </head>
-<body data-view="home">
+<body data-current-view="home">
     <div class="fn-loader" id="fnLoader" role="status" aria-live="polite" aria-label="Loading FireNet"
          data-messages="Connecting to public safety feed…|Checking Makati weather &amp; warnings…|Fetching air quality &amp; seismic data…|Preparing hotlines &amp; alerts…">
       <div class="fn-loader-core">
@@ -45,7 +45,7 @@
         <div class="scene-veil"></div>
     </div>
 
-    <aside class="side-ribbon" aria-label="Public portal navigation">
+    <aside class="side-ribbon" id="sideRibbon" aria-label="Public portal navigation">
         <div class="side-ribbon-brand">
             <img src="../assets/img/bfpmakatilogo.jpg" alt="BFP Makati Logo" class="side-ribbon-logo">
             <div class="side-ribbon-brand-text">
@@ -100,7 +100,7 @@
     <div class="app-shell">
         <header class="top-bar" role="banner">
             <div class="top-bar-left">
-                <button type="button" class="menu-toggle" id="menuToggle" aria-label="Open navigation">
+                <button type="button" class="menu-toggle" id="menuToggle" aria-label="Open navigation" aria-expanded="false" aria-controls="sideRibbon">
                     <i class="bi bi-list" aria-hidden="true"></i>
                 </button>
                 <div>
@@ -637,7 +637,30 @@
         </footer>
     </div>
 
-    <div class="nav-scrim" id="navScrim" hidden></div>
+    <nav class="mobile-tabbar" aria-label="Primary mobile sections">
+        <button type="button" class="mobile-tab is-active" data-view="home" aria-current="page">
+            <i class="bi bi-house-door-fill" aria-hidden="true"></i>
+            <span>Home</span>
+        </button>
+        <button type="button" class="mobile-tab" data-view="conditions">
+            <i class="bi bi-cloud-sun-fill" aria-hidden="true"></i>
+            <span>Live</span>
+        </button>
+        <button type="button" class="mobile-tab mobile-tab--call" data-view="hotlines">
+            <i class="bi bi-telephone-fill" aria-hidden="true"></i>
+            <span>Call</span>
+        </button>
+        <button type="button" class="mobile-tab" data-view="news">
+            <i class="bi bi-newspaper" aria-hidden="true"></i>
+            <span>News</span>
+        </button>
+        <button type="button" class="mobile-tab" id="mobileMoreBtn" aria-label="Open more sections">
+            <i class="bi bi-grid-fill" aria-hidden="true"></i>
+            <span>More</span>
+        </button>
+    </nav>
+
+    <div class="nav-scrim" id="navScrim" hidden aria-hidden="true"></div>
 
     <div id="portalMaintenanceBanner" class="portal-maintenance-banner" hidden role="status">
         <i class="bi bi-tools" aria-hidden="true"></i>
@@ -657,6 +680,6 @@
     </div>
 
     <script src="../assets/js/portal-fx.js?v=20260718g"></script>
-    <script src="../assets/js/civilian.js?v=20260718g"></script>
+    <script src="../assets/js/civilian.js?v=20260719m1"></script>
 </body>
 </html>

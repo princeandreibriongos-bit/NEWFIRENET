@@ -66,22 +66,35 @@
     </header>
 
     <section class="dash-live-bar dash-reveal" aria-label="Live incident status">
-      <div class="dash-live-indicator">
-        <span class="dash-activity-dot" aria-hidden="true"></span>
-        <div class="dash-live-text">
-          <p class="dash-live-title" id="ongoingIncidentTitle">No active incidents</p>
-          <p class="dash-live-meta" id="ongoingIncidentMeta">System ready</p>
+      <div class="dash-live-main">
+        <div class="dash-live-indicator">
+          <span class="dash-activity-dot" aria-hidden="true"></span>
+          <div class="dash-live-text">
+            <p class="dash-live-kicker" id="ongoingIncidentKicker">Live incident</p>
+            <p class="dash-live-title" id="ongoingIncidentTitle">No active incidents</p>
+            <p class="dash-live-meta" id="ongoingIncidentMeta">System ready</p>
+          </div>
+        </div>
+        <div class="dash-live-indices" aria-hidden="true">
+          <span id="darkReadiness">100%</span>
+          <span id="darkOpen">0</span>
+          <span id="darkResolution">0%</span>
+        </div>
+        <a id="dashLiveReportBtn" class="dash-live-report" href="/firenet/NEWFIRENET/backend/pages/reports.php?quick=intake" hidden>
+          <span class="dash-live-report-icon" aria-hidden="true">+</span>
+          Report incident
+        </a>
+      </div>
+      <div class="dash-responders-ticker" id="ongoingRespondersTicker" hidden>
+        <span class="dash-responders-label"><span class="dash-responders-pulse" aria-hidden="true"></span> Responding</span>
+        <div class="dash-responders-viewport" aria-live="polite">
+          <div class="dash-responders-marquee" id="ongoingRespondersMarquee"></div>
         </div>
       </div>
-      <div class="dash-live-indices" aria-hidden="true">
-        <span id="darkReadiness">100%</span>
-        <span id="darkOpen">0</span>
-        <span id="darkResolution">0%</span>
+      <div class="dash-ongoing-strip" id="recentOngoingStrip" hidden>
+        <p class="dash-ongoing-strip-label">Recent ongoing</p>
+        <div class="dash-ongoing-strip-list" id="recentOngoingList"></div>
       </div>
-      <a id="dashLiveReportBtn" class="dash-live-report" href="/firenet/NEWFIRENET/backend/pages/reports.php?quick=intake" hidden>
-        <span class="dash-live-report-icon" aria-hidden="true">+</span>
-        Report incident
-      </a>
     </section>
 
     <section id="dashAlarmRaiseBanner" class="dash-alarm-raise-banner dash-reveal" hidden aria-label="Urgent fire alarm raise requests">

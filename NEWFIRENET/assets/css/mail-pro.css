@@ -3204,6 +3204,88 @@ body.mail-modal-open {
   line-height: 1.45;
 }
 
+.mail-auto-match {
+  margin-top: 0.15rem;
+  padding: 0.7rem 0.75rem;
+  border-radius: 10px;
+  border: 1px solid rgba(201, 162, 77, 0.35);
+  background: rgba(201, 162, 77, 0.1);
+  display: grid;
+  gap: 0.45rem;
+}
+
+.mail-auto-match.is-loading {
+  border-color: rgba(125, 211, 252, 0.35);
+  background: rgba(14, 165, 233, 0.1);
+}
+
+.mail-auto-match.is-empty {
+  border-color: rgba(148, 163, 184, 0.35);
+  background: rgba(148, 163, 184, 0.08);
+}
+
+.mail-auto-match.is-ready {
+  border-color: rgba(74, 222, 128, 0.35);
+  background: rgba(22, 163, 74, 0.12);
+}
+
+.mail-auto-match-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.65rem;
+}
+
+.mail-auto-match-title {
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #fde68a;
+}
+
+.mail-auto-match.is-ready .mail-auto-match-title {
+  color: #bbf7d0;
+}
+
+.mail-auto-match.is-loading .mail-auto-match-title {
+  color: #bae6fd;
+}
+
+.mail-auto-match-note,
+.mail-auto-match-hint {
+  margin: 0.15rem 0 0;
+  color: var(--mail-modal-muted);
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+.mail-auto-match-list {
+  margin: 0;
+  padding-left: 1.05rem;
+  display: grid;
+  gap: 0.4rem;
+  color: #e2e8f0;
+}
+
+.mail-auto-match-list li {
+  display: grid;
+  gap: 0.1rem;
+}
+
+.mail-auto-match-list strong {
+  color: #f8fafc;
+  font-size: 0.84rem;
+}
+
+.mail-auto-match-list span,
+.mail-auto-match-list small {
+  color: rgba(203, 213, 225, 0.9);
+  font-size: 0.74rem;
+  line-height: 1.35;
+}
+
 .mail-selected-cloud-files {
   margin-top: 0.6rem;
   display: grid;

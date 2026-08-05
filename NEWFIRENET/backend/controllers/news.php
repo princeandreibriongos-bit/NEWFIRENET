@@ -7,6 +7,12 @@ firenet_start_session();
 
 header('Content-Type: application/json; charset=utf-8');
 
+require_once __DIR__ . '/../../includes/cors_public.php';
+if (is_file(__DIR__ . '/../../includes/system_settings.php')) {
+    require_once __DIR__ . '/../../includes/system_settings.php';
+}
+firenet_cors_public_apply();
+
 $action = strtolower(trim((string) ($_GET['action'] ?? $_POST['action'] ?? 'list')));
 
 function firenet_news_fail(string $message, int $status = 400): void

@@ -127,8 +127,8 @@ if ($sessionUserId > 0) {
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Sora:wght@600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
-  <link rel="stylesheet" href="/firenet/NEWFIRENET/assets/css/style.css">
-  <link rel="stylesheet" href="/firenet/NEWFIRENET/assets/css/portal-theme.css">
+  <link rel="stylesheet" href="/firenet/NEWFIRENET/assets/css/style.css?v=<?php echo (int) @filemtime(__DIR__ . '/../assets/css/style.css'); ?>">
+  <link rel="stylesheet" href="/firenet/NEWFIRENET/assets/css/portal-theme.css?v=<?php echo (int) @filemtime(__DIR__ . '/../assets/css/portal-theme.css'); ?>">
   <link rel="stylesheet" href="/firenet/NEWFIRENET/assets/css/portal-chrome.css?v=<?php echo (int) @filemtime(__DIR__ . '/../assets/css/portal-chrome.css'); ?>">
   <link rel="stylesheet" href="/firenet/NEWFIRENET/assets/css/portal-fx.css?v=<?php echo (int) @filemtime(__DIR__ . '/../assets/css/portal-fx.css'); ?>">
   <?php if (isset($pageStyles) && is_array($pageStyles)): ?>
@@ -137,7 +137,8 @@ if ($sessionUserId > 0) {
     <?php endforeach; ?>
   <?php endif; ?>
   <link rel="stylesheet" href="/firenet/NEWFIRENET/assets/css/portal-premium.css?v=<?php echo (int) @filemtime(__DIR__ . '/../assets/css/portal-premium.css'); ?>">
-  <link rel="stylesheet" href="/firenet/NEWFIRENET/assets/css/portal-theme-light.css">
+  <link rel="stylesheet" href="/firenet/NEWFIRENET/assets/css/portal-theme-light.css?v=<?php echo (int) @filemtime(__DIR__ . '/../assets/css/portal-theme-light.css'); ?>">
+  <link rel="stylesheet" href="/firenet/NEWFIRENET/assets/css/staff-mobile.css?v=<?php echo (int) @filemtime(__DIR__ . '/../assets/css/staff-mobile.css'); ?>">
   <script>
     (function () {
       try {
@@ -166,6 +167,11 @@ if ($sessionUserId > 0) {
   <header class="app-header">
     <div class="app-header-inner">
       <div class="header-brand">
+        <?php if (isset($_SESSION['user'])): ?>
+          <button type="button" class="mobile-menu-toggle" id="mobileMenuToggle" aria-label="Open navigation" aria-expanded="false" aria-controls="appSidebar">
+            <i class="bi bi-list" aria-hidden="true"></i>
+          </button>
+        <?php endif; ?>
         <a class="app-brand" href="<?php echo htmlspecialchars($dashboardPath); ?>" aria-label="FireNet — Home">
           <span class="brand-mark" aria-hidden="true">
             <img class="app-brand-logo" src="/firenet/NEWFIRENET/assets/img/bfpmakatilogo.jpg" alt="">
@@ -324,10 +330,13 @@ if ($sessionUserId > 0) {
       ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE); ?>;
     </script>
     <div class="app-layout" id="appLayout">
-      <aside class="app-sidebar" aria-label="Main navigation">
+      <aside class="app-sidebar" id="appSidebar" aria-label="Main navigation">
         <div class="sidebar-head">
           <button type="button" class="sidebar-collapse-btn" id="sidebarCollapseBtn" aria-expanded="true" aria-controls="sidebarNav" title="Collapse sidebar">
             <span class="sidebar-collapse-icon" aria-hidden="true">⟨</span>
+          </button>
+          <button type="button" class="mobile-sidebar-close" id="mobileSidebarClose" aria-label="Close navigation">
+            <i class="bi bi-x-lg" aria-hidden="true"></i>
           </button>
         </div>
         <nav class="sidebar-nav" id="sidebarNav">

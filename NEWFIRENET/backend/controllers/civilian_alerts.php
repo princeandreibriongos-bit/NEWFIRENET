@@ -9,6 +9,9 @@ header('Cache-Control: no-store');
 
 require_once __DIR__ . '/../../includes/db.php';
 require_once __DIR__ . '/../../includes/mailer.php';
+require_once __DIR__ . '/../../includes/system_settings.php';
+require_once __DIR__ . '/../../includes/cors_public.php';
+firenet_cors_public_apply();
 
 function civilian_alerts_fail(string $message, int $status = 400): void
 {
