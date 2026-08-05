@@ -31,6 +31,15 @@ function firenet_load_app_config(bool $reload = false): array
         }
     }
 
+    // Env vars win last (Vercel secrets for R2 + SMTP/OTP).
+    $envOverrides = __DIR__ . '/../config/env_overrides.php';
+    if (is_file($envOverrides)) {
+        require_once $envOverrides;
+        if (function_exists('firenet_apply_env_config')) {
+            $config = firenet_apply_env_config($config);
+        }
+    }
+
     return $config;
 }
 

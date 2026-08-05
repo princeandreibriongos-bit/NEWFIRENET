@@ -60,5 +60,9 @@ if (is_file($localR2)) {
         $config = array_replace_recursive($config, $override);
     }
 }
+
+require_once __DIR__ . '/env_overrides.php';
+$config = firenet_apply_env_config($config);
+
 return $config;
 

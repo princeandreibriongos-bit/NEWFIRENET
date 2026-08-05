@@ -13,18 +13,9 @@ function firenet_app_config(): array
         return $config;
     }
 
-    $config = require $configFile;
-    if (!is_array($config)) {
-        $config = [];
-    }
-
-    $localR2 = __DIR__ . '/../config/r2.local.php';
-    if (is_file($localR2)) {
-        $override = require $localR2;
-        if (is_array($override)) {
-            $config = array_replace_recursive($config, $override);
-        }
-    }
+    // config.php already merges r2.local.php + environment overrides.
+    $loaded = require $configFile;
+    $config = is_array($loaded) ? $loaded : [];
 
     return $config;
 }

@@ -89,6 +89,36 @@ if (firenet_r2_enabled() && $action === 'list') {
     }
 }
 
+// Prefer R2 for cloud browse. If R2 is not configured, do not fall back to fake demo files
+// (that made orgmail look populated while Logs correctly said cloud was off).
+if ($action === 'list') {
+    $r2 = firenet_r2_config();
+    $missing = [];
+    if (empty($r2['enabled'])) {
+        $missing[] = 'FIRENET_R2_ENABLED';
+    }
+    foreach (['account_id' => 'FIRENET_R2_ACCOUNT_ID', 'access_key_id' => 'FIRENET_R2_ACCESS_KEY_ID', 'secret_access_key' => 'FIRENET_R2_SECRET_ACCESS_KEY', 'bucket' => 'FIRENET_R2_BUCKET'] as $field => $envName) {
+        if (trim((string) ($r2[$field] ?? '')) === '') {
+            $missing[] = $envName;
+        }
+    }
+
+    http_response_code(503);
+    echo json_encode([
+        'ok' => false,
+        'message' => 'Cloud storage (R2) is not configured on this server.'
+            . ($missing !== [] ? (' Missing: ' . implode(', ', $missing) . '.') : ''),
+        'folder' => '',
+        'files' => [],
+        'storage' => 'none',
+        'data' => [
+            'missing' => $missing,
+            'hint' => 'Set Vercel Environment Variables, ensure env_overrides.php is deployed, then redeploy. Fire-out PDFs sync under firenet/reports/, not firenet/orgmail/.',
+        ],
+    ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
 try {
     $pdo = firenet_get_pdo();
 

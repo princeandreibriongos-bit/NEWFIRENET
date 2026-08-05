@@ -2,6 +2,9 @@
 /**
  * Copy this file to r2.local.php and fill in your Cloudflare R2 credentials.
  * Do not commit r2.local.php to git.
+ *
+ * On Vercel / hosted deploys, prefer Environment Variables instead
+ * (see config/vercel.env.example). Env vars override this file when set.
  */
 return [
     'r2' => [
