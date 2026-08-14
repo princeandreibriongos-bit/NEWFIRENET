@@ -2,31 +2,6 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "cleanUrls": true,
   "trailingSlash": false,
-  "env": [
-    "FIRENET_R2_ENABLED",
-    "FIRENET_R2_ACCOUNT_ID",
-    "FIRENET_R2_ACCESS_KEY_ID",
-    "FIRENET_R2_SECRET_ACCESS_KEY",
-    "FIRENET_R2_BUCKET",
-    "FIRENET_MAIL_SMTP_HOST",
-    "FIRENET_MAIL_SMTP_PORT",
-    "FIRENET_MAIL_SMTP_USERNAME",
-    "FIRENET_MAIL_SMTP_PASSWORD",
-    "FIRENET_MAIL_SMTP_ENCRYPTION",
-    "FIRENET_MAIL_FROM_EMAIL",
-    "FIRENET_MAIL_FROM_NAME"
-  ],
-  "functions": {
-    "NEWFIRENET/backend/**/*.php": {
-      "runtime": "php-8.2"
-    },
-    "NEWFIRENET/api/**/*.php": {
-      "runtime": "php-8.2"
-    },
-    "NEWFIRENET/pages/*.php": {
-      "runtime": "php-8.2"
-    }
-  },
   "rewrites": [
     { "source": "/", "destination": "/index.html" }
   ],

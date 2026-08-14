@@ -1,10 +1,42 @@
 <?php
-/**
- * Apply FireNet secrets from environment variables (Vercel / hosting).
- *
- * Precedence: env vars override config.php and r2.local.php when set.
- * Empty / unset env vars are ignored so local XAMPP keeps using files.
- */
+function firenet_load_dotenv_file(string $filePath): void
+{
+    if (!is_file($filePath)) {
+        return;
+    }
+    
+    $lines = file($filePath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    if (!is_array($lines)) {
+        return;
+    }
+    
+    foreach ($lines as $line) {
+        $line = trim($line);
+        // Skip comments
+        if ($line === '' || $line[0] === '#') {
+            continue;
+        }
+        // Parse KEY=VALUE
+        if (strpos($line, '=') === false) {
+            continue;
+        }
+        [$key, $value] = explode('=', $line, 2);
+        $key = trim($key);
+        $value = trim($value);
+        
+        // Only set if not already in environment
+        if (!empty($key) && getenv($key) === false && !isset($_ENV[$key]) && !isset($_SERVER[$key])) {
+            putenv("$key=$value");
+            $_ENV[$key] = $value;
+        }
+    }
+}
+
+// Load .env.production if it exists (Vercel deployment fallback)
+firenet_load_dotenv_file(__DIR__ . '/../.env.production');
+
+// Load .env.local for local development (if it exists)
+firenet_load_dotenv_file(__DIR__ . '/../.env.local');
 
 function firenet_env_get(string $key): ?string
 {
