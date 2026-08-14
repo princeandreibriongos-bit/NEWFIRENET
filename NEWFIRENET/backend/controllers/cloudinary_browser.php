@@ -103,6 +103,15 @@ if ($action === 'list') {
         }
     }
 
+    // Debug: Log what PHP sees from environment
+    $debugEnv = [];
+    foreach (['FIRENET_R2_ENABLED', 'FIRENET_R2_ACCOUNT_ID', 'FIRENET_R2_ACCESS_KEY_ID', 'FIRENET_R2_SECRET_ACCESS_KEY', 'FIRENET_R2_BUCKET'] as $key) {
+        $val = getenv($key);
+        $debugEnv[$key] = $val !== false ? 'SET (' . strlen($val) . ' chars)' : 'NOT_FOUND';
+    }
+    error_log('R2 DEBUG: ' . json_encode($debugEnv));
+    error_log('R2 CONFIG: ' . json_encode($r2));
+
     http_response_code(503);
     echo json_encode([
         'ok' => false,
@@ -114,6 +123,7 @@ if ($action === 'list') {
         'data' => [
             'missing' => $missing,
             'hint' => 'Set Vercel Environment Variables, ensure env_overrides.php is deployed, then redeploy. Fire-out PDFs sync under firenet/reports/, not firenet/orgmail/.',
+            'debug_env' => $debugEnv,  // Remove this after testing
         ],
     ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
     exit;
