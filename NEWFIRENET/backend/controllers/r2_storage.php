@@ -21,11 +21,33 @@ if ($currentUserId < 1 || $currentStationId < 1) {
 }
 
 if (!firenet_r2_enabled()) {
+    $r2 = firenet_r2_config();
+    $missing = [];
+    if (empty($r2['enabled'])) {
+        $missing[] = 'FIRENET_R2_ENABLED';
+    }
+    foreach ([
+        'account_id' => 'FIRENET_R2_ACCOUNT_ID',
+        'access_key_id' => 'FIRENET_R2_ACCESS_KEY_ID',
+        'secret_access_key' => 'FIRENET_R2_SECRET_ACCESS_KEY',
+        'bucket' => 'FIRENET_R2_BUCKET',
+    ] as $field => $envName) {
+        if (trim((string) ($r2[$field] ?? '')) === '') {
+            $missing[] = $envName;
+        }
+    }
+
     http_response_code(400);
     echo json_encode([
         'ok' => false,
-        'message' => 'R2 is not configured. Copy config/r2.local.php.example to config/r2.local.php and add your credentials.',
-    ]);
+        'message' => 'R2 is not configured on this server.'
+            . ($missing !== [] ? (' Missing: ' . implode(', ', $missing) . '.') : ''),
+        'data' => [
+            'missing' => $missing,
+            'envOverridesLoaded' => function_exists('firenet_apply_env_config'),
+            'hint' => 'Add the FIRENET_R2_* variables in Vercel → Settings → Environment Variables for Production, then Redeploy. Fire-out reports sync to firenet/reports/, not firenet/orgmail/.',
+        ],
+    ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
     exit;
 }
 

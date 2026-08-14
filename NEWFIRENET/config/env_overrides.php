@@ -8,19 +8,48 @@
 
 function firenet_env_get(string $key): ?string
 {
-    $value = getenv($key);
-    if ($value === false && isset($_ENV[$key])) {
-        $value = $_ENV[$key];
+    $candidates = [];
+
+    $fromGetenv = getenv($key);
+    if ($fromGetenv !== false) {
+        $candidates[] = $fromGetenv;
     }
-    if ($value === false && isset($_SERVER[$key])) {
-        $value = $_SERVER[$key];
+    if (array_key_exists($key, $_ENV)) {
+        $candidates[] = $_ENV[$key];
     }
-    if ($value === false || $value === null) {
-        return null;
+    if (array_key_exists($key, $_SERVER)) {
+        $candidates[] = $_SERVER[$key];
     }
 
-    $value = trim((string) $value);
-    return $value === '' ? null : $value;
+    // Some PHP hosts only expose env through the full environment map.
+    if ($candidates === [] && function_exists('getenv')) {
+        $all = getenv();
+        if (is_array($all) && array_key_exists($key, $all)) {
+            $candidates[] = $all[$key];
+        }
+    }
+
+    foreach ($candidates as $raw) {
+        if ($raw === null || $raw === false) {
+            continue;
+        }
+        $value = trim((string) $raw);
+        // Strip accidental wrapping quotes from pasted dashboard values.
+        if (
+            strlen($value) >= 2
+            && (
+                ($value[0] === '"' && substr($value, -1) === '"')
+                || ($value[0] === "'" && substr($value, -1) === "'")
+            )
+        ) {
+            $value = trim(substr($value, 1, -1));
+        }
+        if ($value !== '') {
+            return $value;
+        }
+    }
+
+    return null;
 }
 
 function firenet_env_bool(?string $value): ?bool
