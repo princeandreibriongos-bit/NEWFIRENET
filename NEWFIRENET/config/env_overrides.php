@@ -10,22 +10,44 @@ function firenet_env_get(string $key): ?string
 {
     $candidates = [];
 
+    // Try getenv() - standard PHP
     $fromGetenv = getenv($key);
     if ($fromGetenv !== false) {
         $candidates[] = $fromGetenv;
     }
+
+    // Try $_ENV - environment variables superglobal
     if (array_key_exists($key, $_ENV)) {
         $candidates[] = $_ENV[$key];
     }
+
+    // Try $_SERVER - server/CGI variables
     if (array_key_exists($key, $_SERVER)) {
         $candidates[] = $_SERVER[$key];
     }
 
-    // Some PHP hosts only expose env through the full environment map.
+    // Try getenv() with full environment map (some PHP hosts)
     if ($candidates === [] && function_exists('getenv')) {
         $all = getenv();
         if (is_array($all) && array_key_exists($key, $all)) {
             $candidates[] = $all[$key];
+        }
+    }
+
+    // Vercel-specific: Try reading from Vercel API via environment
+    // In Vercel Functions, env vars may be injected differently
+    if ($candidates === [] && function_exists('getenv')) {
+        // Some Vercel deployments require specific prefixes or alternative detection
+        $allEnv = getenv();
+        if (is_array($allEnv)) {
+            // Log all available vars starting with FIRENET for debugging
+            if (strpos($key, 'FIRENET_') === 0) {
+                $firenetVars = array_keys(array_filter($allEnv, fn($k) => strpos($k, 'FIRENET_') === 0, ARRAY_FILTER_USE_KEY));
+                if (empty($firenetVars)) {
+                    // No FIRENET vars found at all - log diagnostic info
+                    error_log("ENV DEBUG: Searching for $key but no FIRENET_ vars found in getenv() map. Keys in getenv(): " . count($allEnv) . " total");
+                }
+            }
         }
     }
 
